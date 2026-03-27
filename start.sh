@@ -20,10 +20,17 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# Index transcripts
-echo "Indexing transcripts..."
-python index_to_meili.py --fresh
-
-# Start the search app on the Cloud Run PORT
+# Start the search app FIRST so the health check passes
 echo "Starting search app on port ${PORT:-8080}..."
-exec python -u search_app.py
+python -u search_app.py &
+APP_PID=$!
+
+# Wait a moment for the app to bind the port
+sleep 2
+
+# Index transcripts in the background (app is already serving)
+echo "Indexing transcripts in background..."
+python index_to_meili.py --fresh &
+
+# Wait for the app process
+wait $APP_PID

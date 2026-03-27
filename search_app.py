@@ -14,6 +14,7 @@ from collections import Counter
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from urllib.request import Request, urlopen
 
 PORT = int(os.environ.get("PORT", 8080))
 TRANSCRIPTS_DIR = Path(__file__).parent / "transcripts"
@@ -274,8 +275,50 @@ class SearchHandler(SimpleHTTPRequestHandler):
         elif parsed.path == "/api/topics":
             self._serve_json(build_topics())
 
+        elif parsed.path.startswith("/meili/"):
+            self._proxy_meili("GET")
+
         else:
             self.send_error(404)
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/meili/"):
+            self._proxy_meili("POST")
+        else:
+            self.send_error(404)
+
+    def _proxy_meili(self, method):
+        meili_path = self.path[len("/meili"):]
+        meili_url = f"http://127.0.0.1:7700{meili_path}"
+
+        headers = {
+            "Authorization": "Bearer svetogled-search-key",
+            "Content-Type": "application/json",
+        }
+
+        body = None
+        if method == "POST":
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = self.rfile.read(content_length)
+
+        try:
+            req = Request(meili_url, data=body, headers=headers, method=method)
+            with urlopen(req, timeout=10) as resp:
+                result = resp.read()
+                self.send_response(resp.status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(result)))
+                self.end_headers()
+                self.wfile.write(result)
+        except Exception as e:
+            error = json.dumps({"error": str(e)}).encode("utf-8")
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(error)))
+            self.end_headers()
+            self.wfile.write(error)
 
     def _serve_json(self, data):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -291,7 +334,7 @@ class SearchHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("127.0.0.1", PORT), SearchHandler)
+    server = HTTPServer(("0.0.0.0", PORT), SearchHandler)
     print(f"Светоглед Search running at http://localhost:{PORT}")
     print("Press Ctrl+C to stop")
     try:

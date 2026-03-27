@@ -11,3 +11,8 @@ broken_timestamps.json
 transcripts_combined.json
 transcripts_full_text.txt
 .DS_Store
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+new_videos.json
+remaining_videos.json
