@@ -234,101 +234,6 @@ def build_topics():
     ]
 
 
-def build_graph():
-    """Build episode-centric graph: episodes as nodes, linked by shared distinctive topics."""
-    all_stop = STOP_WORDS | {w.lower() for w in STOP_NAMES} | STOP_CONCEPTS
-
-    # For each episode, extract its distinctive terms
-    episode_terms = {}  # vid -> set of terms
-    episode_titles = {}
-
-    for f in TRANSCRIPTS_DIR.glob("*.json"):
-        data = json.loads(f.read_text(encoding="utf-8"))
-        vid = data["video_id"]
-        title = data["title"]
-        text = data.get("full_text", "").lower()
-        episode_titles[vid] = title
-
-        # Extract capitalized names from original text
-        names = set(re.findall(r'[А-ЯA-Z][а-яa-z]{3,}', data.get("full_text", "")))
-        names = {n for n in names if n not in STOP_NAMES and n.lower() not in all_stop}
-
-        # Extract meaningful long words
-        words = set(re.findall(r'[а-я]{6,}', text))
-        words = {w for w in words if w not in all_stop}
-
-        episode_terms[vid] = names | words
-
-    # Count how many episodes each term appears in (for IDF-like weighting)
-    term_doc_freq = Counter()
-    for terms in episode_terms.values():
-        for t in terms:
-            term_doc_freq[t] += 1
-
-    total_eps = len(episode_terms)
-
-    # Only keep terms that appear in 2-40% of episodes (distinctive but not unique)
-    distinctive_terms = {t for t, c in term_doc_freq.items()
-                         if 2 <= c <= total_eps * 0.4}
-
-    # Filter episode terms to only distinctive ones
-    for vid in episode_terms:
-        episode_terms[vid] = episode_terms[vid] & distinctive_terms
-
-    # Build nodes (episodes)
-    nodes = []
-    for vid, title in episode_titles.items():
-        if len(episode_terms.get(vid, set())) > 0:
-            # Shorten title
-            short = title[:50] + "..." if len(title) > 50 else title
-            nodes.append({
-                "id": vid,
-                "label": short,
-                "count": len(episode_terms[vid]),
-                "group": 0
-            })
-
-    # Build links: episodes share distinctive terms
-    vids = list(episode_terms.keys())
-    links = []
-    for i in range(len(vids)):
-        for j in range(i + 1, len(vids)):
-            shared = episode_terms[vids[i]] & episode_terms[vids[j]]
-            # Weight by rarity: rare shared terms count more
-            if len(shared) >= 5:
-                weight = sum(1.0 / term_doc_freq[t] for t in shared)
-                if weight > 0.5:  # Threshold for meaningful connection
-                    # Get top shared terms for tooltip
-                    top_shared = sorted(shared, key=lambda t: term_doc_freq[t])[:5]
-                    links.append({
-                        "source": vids[i],
-                        "target": vids[j],
-                        "weight": round(weight, 2),
-                        "shared": list(top_shared)
-                    })
-
-    # Keep only top N links per node to avoid hairball
-    max_links_per_node = 5
-    node_link_count = Counter()
-    links.sort(key=lambda l: -l["weight"])
-    filtered_links = []
-    for link in links:
-        s, t = link["source"], link["target"]
-        if node_link_count[s] < max_links_per_node and node_link_count[t] < max_links_per_node:
-            filtered_links.append(link)
-            node_link_count[s] += 1
-            node_link_count[t] += 1
-
-    # Remove orphan nodes (no links)
-    linked_vids = set()
-    for l in filtered_links:
-        linked_vids.add(l["source"])
-        linked_vids.add(l["target"])
-    nodes = [n for n in nodes if n["id"] in linked_vids]
-
-    return {"nodes": nodes, "links": filtered_links}
-
-
 class SearchHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -368,9 +273,6 @@ class SearchHandler(SimpleHTTPRequestHandler):
 
         elif parsed.path == "/api/topics":
             self._serve_json(build_topics())
-
-        elif parsed.path == "/api/graph":
-            self._serve_json(build_graph())
 
         else:
             self.send_error(404)

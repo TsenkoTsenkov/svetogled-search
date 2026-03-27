@@ -630,72 +630,6 @@
             margin-top: 60px;
         }
 
-        /* ── Graph page ── */
-        .graph-container {
-            width: 100%;
-            height: calc(100vh - 120px);
-            position: relative;
-        }
-        .graph-container svg {
-            width: 100%;
-            height: 100%;
-        }
-        .graph-controls {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            z-index: 10;
-        }
-        .graph-ctrl-btn {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-dim);
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .graph-ctrl-btn:hover { border-color: var(--accent); color: #fff; }
-        .graph-ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .graph-legend {
-            position: absolute;
-            bottom: 12px;
-            left: 12px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-size: 12px;
-            z-index: 10;
-        }
-        .graph-legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 4px;
-        }
-        .graph-legend-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-        }
-        .graph-tooltip {
-            position: absolute;
-            background: var(--bg-card);
-            border: 1px solid var(--accent);
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 13px;
-            color: #fff;
-            pointer-events: none;
-            z-index: 20;
-            display: none;
-            max-width: 250px;
-        }
 
         @media (max-width: 600px) {
             .header { padding: 14px 12px 12px; }
@@ -743,7 +677,6 @@
             <button class="nav-btn active" data-page="search">Търсене</button>
             <button class="nav-btn" data-page="episodes">Епизоди</button>
             <button class="nav-btn" data-page="topics">Теми</button>
-            <button class="nav-btn" data-page="graph">Граф</button>
         </div>
     </div>
 
@@ -780,32 +713,12 @@
         <div class="episodes-container" id="episodes-list"></div>
     </div>
 
-    <!-- ═══ GRAPH PAGE ═══ -->
-    <div class="page" id="page-graph">
-        <div class="graph-container" id="graph-container">
-            <div class="graph-controls">
-                <span style="color:var(--text-dim);font-size:11px;">Плътност</span>
-                <input type="range" id="graph-density" min="1" max="10" value="5"
-                    style="width:100px;accent-color:var(--accent)"
-                    oninput="graphMaxLinks=parseInt(this.value);renderGraph()">
-            </div>
-            <div class="graph-legend">
-                <div class="graph-legend-item"><div class="graph-legend-dot" style="background:#e94560"></div> Епизод</div>
-                <div class="graph-legend-item" style="color:var(--text-dimmer);margin-top:4px">Линия = общи теми</div>
-                <div class="graph-legend-item" style="color:var(--text-dimmer)">Hover = виж общи теми</div>
-                <div class="graph-legend-item" style="color:var(--text-dimmer)">Click = търси в епизода</div>
-            </div>
-            <div class="graph-tooltip" id="graph-tooltip"></div>
-        </div>
-    </div>
-
     <div class="page" id="page-topics">
         <div class="topics-container" id="topics-content">
             <div class="spinner active" id="topics-spinner"></div>
         </div>
     </div>
 
-<script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
 const MEILI_URL = 'http://127.0.0.1:7700';
 const MEILI_KEY = 'svetogled-search-key';
@@ -865,7 +778,6 @@ document.querySelectorAll('.nav-btn').forEach(function(btn) {
 
         if (page === 'episodes' && episodesData) renderEpisodes();
         if (page === 'topics' && !topicsData) loadTopics();
-        if (page === 'graph') loadGraph();
     });
 });
 
@@ -1416,258 +1328,8 @@ function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ── Graph visualization ──
-var graphData = null;
-var graphSim = null;
-var graphMaxLinks = 5;
 
-function loadGraph() {
-    if (graphData) { renderGraph(); return; }
-    fetch('/api/graph')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            graphData = data;
-            renderGraph();
-        });
-}
 
-function renderGraph() {
-    if (!graphData) return;
-    var container = document.getElementById('graph-container');
-    var existing = container.querySelector('svg');
-    if (existing) existing.remove();
-
-    var width = container.clientWidth;
-    var height = container.clientHeight;
-
-    // Filter links by density — keep top N per node
-    var allLinks = graphData.links.map(function(l) {
-        return { source: l.source.id || l.source, target: l.target.id || l.target, weight: l.weight, shared: l.shared || [] };
-    });
-    allLinks.sort(function(a, b) { return b.weight - a.weight; });
-
-    var nodeLinkCount = {};
-    var links = [];
-    allLinks.forEach(function(l) {
-        var sc = nodeLinkCount[l.source] || 0;
-        var tc = nodeLinkCount[l.target] || 0;
-        if (sc < graphMaxLinks && tc < graphMaxLinks) {
-            links.push(l);
-            nodeLinkCount[l.source] = sc + 1;
-            nodeLinkCount[l.target] = tc + 1;
-        }
-    });
-
-    var linkedIds = new Set();
-    links.forEach(function(l) { linkedIds.add(l.source); linkedIds.add(l.target); });
-    var nodes = graphData.nodes.filter(function(n) { return linkedIds.has(n.id); });
-
-    var svg = d3.select('#graph-container').append('svg')
-        .attr('width', width)
-        .attr('height', height);
-
-    // Zoom
-    var g = svg.append('g');
-    svg.call(d3.zoom().scaleExtent([0.2, 5]).on('zoom', function(event) {
-        g.attr('transform', event.transform);
-    }));
-
-    var maxWeight = d3.max(links, function(l) { return l.weight; }) || 1;
-
-    var simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(function(d) { return d.id; }).distance(function(l) {
-            return 120 - (l.weight / maxWeight) * 60;
-        }))
-        .force('charge', d3.forceManyBody().strength(-200))
-        .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collision', d3.forceCollide().radius(function(d) { return Math.sqrt(d.count) * 4 + 20; }));
-
-    graphSim = simulation;
-
-    // Links
-    var link = g.append('g')
-        .selectAll('line')
-        .data(links)
-        .join('line')
-        .attr('stroke', '#444')
-        .attr('stroke-opacity', function(l) { return 0.15 + (l.weight / maxWeight) * 0.4; })
-        .attr('stroke-width', function(l) { return 0.5 + (l.weight / maxWeight) * 1.5; });
-
-    // Link labels (shared terms)
-    var linkLabel = g.append('g')
-        .selectAll('text')
-        .data(links)
-        .join('text')
-        .text(function(l) { return l.shared ? l.shared.slice(0, 2).join(', ') : ''; })
-        .attr('font-size', '7px')
-        .attr('fill', '#555')
-        .attr('text-anchor', 'middle')
-        .style('pointer-events', 'none');
-
-    // Nodes
-    var node = g.append('g')
-        .selectAll('g')
-        .data(nodes)
-        .join('g')
-        .call(d3.drag()
-            .on('start', function(event, d) {
-                if (!event.active) simulation.alphaTarget(0.3).restart();
-                d.fx = d.x; d.fy = d.y;
-            })
-            .on('drag', function(event, d) {
-                d.fx = event.x; d.fy = event.y;
-            })
-            .on('end', function(event, d) {
-                if (!event.active) simulation.alphaTarget(0);
-                d.fx = null; d.fy = null;
-            })
-        );
-
-    // Assign colors by simple community detection (connected component coloring)
-    var nodeColor = {};
-    var palette = ['#e94560','#4ecdc4','#f9a826','#a78bfa','#34d399','#f472b6','#60a5fa','#fb923c','#c084fc','#2dd4bf'];
-    var visited = new Set();
-    var colorIdx = 0;
-    function bfsColor(startId) {
-        var queue = [startId];
-        var color = palette[colorIdx % palette.length];
-        colorIdx++;
-        while (queue.length > 0) {
-            var id = queue.shift();
-            if (visited.has(id)) continue;
-            visited.add(id);
-            nodeColor[id] = color;
-            links.forEach(function(l) {
-                var src = l.source.id || l.source;
-                var tgt = l.target.id || l.target;
-                if (src === id && !visited.has(tgt)) queue.push(tgt);
-                if (tgt === id && !visited.has(src)) queue.push(src);
-            });
-        }
-    }
-    nodes.forEach(function(n) { if (!visited.has(n.id)) bfsColor(n.id); });
-
-    node.append('circle')
-        .attr('r', function(d) { return 5; })
-        .attr('fill', function(d) { return nodeColor[d.id] || '#e94560'; })
-        .attr('fill-opacity', 0.9)
-        .attr('stroke', function(d) { return nodeColor[d.id] || '#e94560'; })
-        .attr('stroke-width', 1.5);
-
-    node.append('text')
-        .text(function(d) { return d.label || d.id; })
-        .attr('font-size', '8px')
-        .attr('fill', '#aaa')
-        .attr('text-anchor', 'middle')
-        .attr('dy', 16)
-        .style('pointer-events', 'none');
-
-    // Tooltip on hover
-    var tooltip = document.getElementById('graph-tooltip');
-    node.on('mouseover', function(event, d) {
-        // Find connected episodes and shared terms
-        var connections = [];
-        links.forEach(function(l) {
-            var src = l.source.id || l.source;
-            var tgt = l.target.id || l.target;
-            var other = null;
-            if (src === d.id) other = tgt;
-            if (tgt === d.id) other = src;
-            if (other) {
-                var otherNode = nodes.find(function(n) { return n.id === other; });
-                var label = otherNode ? (otherNode.label || other) : other;
-                var shared = l.shared ? l.shared.join(', ') : '';
-                connections.push({ label: label, shared: shared });
-            }
-        });
-
-        var html = '<strong>' + escapeHtml(d.label || d.id) + '</strong><br>';
-        if (connections.length > 0) {
-            html += '<br>';
-            connections.slice(0, 5).forEach(function(c) {
-                html += '<span style="color:var(--accent)">&rarr;</span> ' + escapeHtml(c.label) + '<br>';
-                if (c.shared) html += '<span style="color:var(--text-dimmer);font-size:10px">&nbsp;&nbsp;общо: ' + c.shared + '</span><br>';
-            });
-        }
-        tooltip.innerHTML = html;
-        tooltip.style.display = 'block';
-        tooltip.style.left = event.pageX + 12 + 'px';
-        tooltip.style.top = event.pageY - 10 + 'px';
-
-        // Highlight connections
-        var connectedIds = new Set();
-        connectedIds.add(d.id);
-        link.attr('stroke', function(l) {
-            var src = l.source.id || l.source;
-            var tgt = l.target.id || l.target;
-            if (src === d.id) { connectedIds.add(tgt); return '#e94560'; }
-            if (tgt === d.id) { connectedIds.add(src); return '#e94560'; }
-            return '#222';
-        }).attr('stroke-opacity', function(l) {
-            var src = l.source.id || l.source;
-            var tgt = l.target.id || l.target;
-            return (src === d.id || tgt === d.id) ? 0.9 : 0.05;
-        });
-
-        linkLabel.attr('fill', function(l) {
-            var src = l.source.id || l.source;
-            var tgt = l.target.id || l.target;
-            return (src === d.id || tgt === d.id) ? '#e94560' : 'transparent';
-        }).attr('font-size', function(l) {
-            var src = l.source.id || l.source;
-            var tgt = l.target.id || l.target;
-            return (src === d.id || tgt === d.id) ? '9px' : '7px';
-        });
-
-        node.select('circle').attr('fill-opacity', function(n) {
-            return connectedIds.has(n.id) ? 0.9 : 0.1;
-        });
-        node.select('text').attr('fill-opacity', function(n) {
-            return connectedIds.has(n.id) ? 1 : 0.15;
-        });
-    })
-    .on('mouseout', function() {
-        tooltip.style.display = 'none';
-        link.attr('stroke', '#444').attr('stroke-opacity', function(l) {
-            return 0.15 + (l.weight / maxWeight) * 0.4;
-        });
-        linkLabel.attr('fill', '#555').attr('font-size', '7px');
-        node.select('circle').attr('fill-opacity', 0.9);
-        node.select('text').attr('fill-opacity', 1);
-    })
-    .on('click', function(event, d) {
-        // Collect all shared terms from this node's connections
-        var allShared = new Set();
-        links.forEach(function(l) {
-            var src = l.source.id || l.source;
-            var tgt = l.target.id || l.target;
-            if (src === d.id || tgt === d.id) {
-                (l.shared || []).forEach(function(t) { allShared.add(t); });
-            }
-        });
-        var terms = Array.from(allShared).slice(0, 4).join(' ');
-        if (terms) {
-            showPageDirect('search');
-            searchInput.value = terms;
-            filterSelect.value = '';
-            doSearch();
-        }
-    });
-
-    simulation.on('tick', function() {
-        link
-            .attr('x1', function(d) { return d.source.x; })
-            .attr('y1', function(d) { return d.source.y; })
-            .attr('x2', function(d) { return d.target.x; })
-            .attr('y2', function(d) { return d.target.y; });
-        linkLabel
-            .attr('x', function(d) { return (d.source.x + d.target.x) / 2; })
-            .attr('y', function(d) { return (d.source.y + d.target.y) / 2; });
-        node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
-    });
-}
 </script>
-</body>
-</html>
 </body>
 </html>
