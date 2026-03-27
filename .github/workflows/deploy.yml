@@ -1,5 +1,8 @@
 name: Deploy to EC2
 
+# Triggered when code or transcripts change on main.
+# SSHs into the EC2 instance and runs update.sh from the repo.
+
 on:
   push:
     branches: [main]
@@ -8,6 +11,7 @@ on:
       - 'search_app.py'
       - 'index.html'
       - 'index_to_meili.py'
+      - 'update.sh'
   workflow_dispatch:
 
 jobs:

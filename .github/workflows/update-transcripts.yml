@@ -1,10 +1,12 @@
-name: Update Transcripts
+name: Weekly Transcript Update
+
+# Checks for new Светоглед episodes, transcribes them,
+# commits to the repo, which triggers the deploy workflow.
 
 on:
   schedule:
-    # Every Sunday at 6:00 AM UTC
-    - cron: '0 6 * * 0'
-  workflow_dispatch: # Allow manual trigger
+    - cron: '0 6 * * 0'  # Every Sunday 6:00 AM UTC
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -32,24 +34,22 @@ jobs:
         id: check
         run: python scripts/check_new_episodes.py
 
-      - name: Fetch transcripts (YouTube API)
+      - name: Fetch transcripts via YouTube API
         if: steps.check.outputs.new_count > 0
         run: python scripts/fetch_new_transcripts.py
 
-      - name: Install Whisper for remaining
+      - name: Install Whisper for remaining videos
         if: steps.check.outputs.new_count > 0
         run: |
-          # Install whisper.cpp
-          curl -L https://github.com/ggerganov/whisper.cpp/releases/download/v1.8.4/whisper-cli-linux-x86_64.tar.gz | tar xz
-          chmod +x whisper-cli
-          # Download small model (fits in GitHub Actions memory)
-          curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" -o ggml-small.bin
+          curl -L https://github.com/ggerganov/whisper.cpp/releases/download/v1.8.4/whisper-cli-linux-x86_64.tar.gz | tar xz || true
+          chmod +x whisper-cli 2>/dev/null || true
+          curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" -o ggml-small.bin || true
 
       - name: Transcribe remaining with Whisper
         if: steps.check.outputs.new_count > 0
         run: python scripts/whisper_remaining.py
 
-      - name: Commit new transcripts
+      - name: Commit and push new transcripts
         if: steps.check.outputs.new_count > 0
         run: |
           git config user.name "github-actions[bot]"
@@ -62,14 +62,4 @@ jobs:
             git commit -m "Add ${COUNT} new transcript(s) from weekly update"
             git push
           fi
-
-      - name: Trigger Cloud Run redeploy
-        if: steps.check.outputs.new_count > 0
-        env:
-          GCP_PROJECT: svetogled-arhiv
-          GCP_REGION: europe-west1
-          GCP_SERVICE: svetogled-search
-        run: |
-          # Cloud Run will be redeployed on next push via a separate workflow
-          # or we can trigger it here if we set up GCP credentials
-          echo "New transcripts committed. Cloud Run will pick them up on next deploy."
+          # The push will trigger the deploy workflow automatically
