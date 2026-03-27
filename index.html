@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Светоглед — Търсене в транскрипции</title>
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --bg-card: #1a1a1a;
+            --bg-header: #1a1a2e;
+            --bg-expanded: #141414;
+            --accent: #e94560;
+            --accent-glow: rgba(233, 69, 96, 0.15);
+            --accent2: #4ecdc4;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --text-dimmer: #555;
+            --border: #2a2a2a;
+            --border-light: #333;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-header);
+            border-bottom: 2px solid var(--accent);
+            padding: 20px 20px 16px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 { font-size: 22px; color: #fff; margin-bottom: 4px; }
+        .header p { color: var(--text-dim); font-size: 13px; }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 12px;
+        }
+        .nav-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { border-color: var(--accent); color: #fff; }
+        .nav-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .search-container {
+            max-width: 860px;
+            margin: 24px auto 0;
+            padding: 0 20px;
+        }
+        .search-row {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+        }
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+        }
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: var(--text-dimmer);
+            pointer-events: none;
+            transition: color 0.3s;
+        }
+        #search-input:focus ~ .search-icon { color: var(--accent); }
+        #search-input {
+            width: 100%;
+            padding: 14px 18px 14px 44px;
+            font-size: 17px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-card);
+            color: #fff;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        #search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        #search-input::placeholder { color: var(--text-dimmer); }
+
+        .filter-select {
+            padding: 0 14px;
+            font-size: 13px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-card);
+            color: var(--text);
+            outline: none;
+            cursor: pointer;
+            min-width: 160px;
+            max-width: 250px;
+        }
+        .filter-select:focus { border-color: var(--accent); }
+
+        .export-btn {
+            padding: 0 14px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-card);
+            color: var(--text-dim);
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .export-btn:hover {
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        /* ── Hidden episodes bar ── */
+        .hidden-bar {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: none;
+        }
+        .hidden-bar.visible { display: block; }
+        .hidden-bar-inner {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 16px;
+            margin-bottom: 10px;
+        }
+        .hidden-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .hidden-bar-label {
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+        .hidden-bar-label strong {
+            color: var(--accent);
+        }
+        .hidden-bar-toggle {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .hidden-bar-toggle:hover { color: #fff; border-color: var(--text-dim); }
+        .hidden-chips {
+            display: none;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .hidden-chips.open { display: flex; }
+        .hidden-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .hidden-chip:hover {
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+        .hidden-chip .restore-icon {
+            font-size: 14px;
+        }
+        .restore-all-btn {
+            background: none;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .restore-all-btn:hover { background: var(--accent); color: #fff; }
+
+        .stats {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 13px;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        .spinner { display: none; text-align: center; margin: 30px 0; }
+        .spinner.active { display: block; }
+        .spinner::after {
+            content: '';
+            display: inline-block;
+            width: 24px; height: 24px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .results {
+            max-width: 860px;
+            margin: 14px auto 40px;
+            padding: 0 20px;
+        }
+
+        .video-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 14px;
+            opacity: 0;
+            transform: translateY(12px);
+            animation: fadeInUp 0.35s ease forwards;
+            overflow: hidden;
+        }
+        .video-group:hover { border-color: var(--border-light); }
+
+        .video-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px 8px;
+            gap: 12px;
+        }
+
+        .group-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 0 20px 10px;
+            flex-wrap: wrap;
+        }
+
+        .show-more-btn {
+            display: block;
+            width: calc(100% - 40px);
+            margin: 0 20px 8px;
+            padding: 6px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-dim);
+            font-size: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .show-more-btn:hover { border-color: var(--accent); color: #fff; }
+        .video-group-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: #fff;
+            flex: 1;
+        }
+        .video-group-badge {
+            background: var(--accent);
+            color: #fff;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .segment-list { border-top: 1px solid var(--border); }
+        .segment-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            transition: background 0.15s;
+        }
+        .segment-item:last-child { border-bottom: none; }
+        .segment-item:hover { background: rgba(255,255,255,0.02); }
+
+        .segment-ts {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .segment-ts a { color: inherit; text-decoration: none; }
+        .segment-ts a:hover { text-decoration: underline; }
+
+        .segment-text {
+            color: #bbb;
+            font-size: 14px;
+            line-height: 1.6;
+            flex: 1;
+        }
+        .segment-text em {
+            background: var(--accent-glow);
+            color: #fff;
+            font-style: normal;
+            padding: 1px 3px;
+            border-radius: 3px;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        /* ── Inline YouTube player ── */
+        .yt-player-wrapper {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease;
+            opacity: 0;
+            margin: 0;
+        }
+        .yt-player-wrapper.open {
+            max-height: 400px;
+            opacity: 1;
+            margin: 0 20px 10px;
+        }
+        .yt-player-wrapper iframe {
+            width: 100%;
+            aspect-ratio: 16/9;
+            border: none;
+            border-radius: 8px;
+        }
+
+        .play-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: rgba(233, 69, 96, 0.15);
+            color: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            flex-shrink: 0;
+            margin-top: 1px;
+            transition: all 0.2s;
+        }
+        .play-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            transform: scale(1.1);
+        }
+
+        .group-footer {
+            display: flex;
+            gap: 10px;
+            padding: 10px 20px 14px;
+            border-top: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .group-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: 1px solid var(--border);
+            background: none;
+        }
+        .group-btn-yt { color: var(--accent); border-color: var(--accent); }
+        .group-btn-yt:hover { background: var(--accent); color: #fff; }
+        .group-btn-expand { color: var(--text-dim); }
+        .group-btn-expand:hover { color: #fff; border-color: var(--text-dim); }
+        .group-btn-expand .arrow {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        .group-btn-expand.open .arrow { transform: rotate(180deg); }
+        .group-btn-dismiss { color: var(--text-dimmer); }
+        .group-btn-dismiss:hover { color: var(--accent); border-color: var(--accent); }
+
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+        .full-transcript {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease, opacity 0.3s ease;
+            opacity: 0;
+            background: var(--bg-expanded);
+        }
+        .full-transcript.open {
+            max-height: 80vh;
+            overflow-y: auto;
+            opacity: 1;
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+        }
+        .ft-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .ft-title { font-size: 15px; font-weight: 600; color: #fff; }
+        .ft-meta { color: var(--text-dimmer); font-size: 12px; }
+        .ft-body { color: #ccc; font-size: 14.5px; line-height: 1.9; }
+        .ft-body p { margin-bottom: 14px; text-indent: 1.5em; }
+        .ft-body p:first-child { text-indent: 0; }
+        .ft-body .ts-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        .ft-body .ts-link:hover { opacity: 1; text-decoration: underline; }
+        .ft-body .highlight-term {
+            background: rgba(78, 205, 196, 0.25);
+            color: #fff;
+            padding: 1px 3px;
+            border-radius: 3px;
+            border-bottom: 2px solid var(--accent2);
+        }
+        .ft-loading { text-align: center; color: var(--text-dimmer); padding: 20px; }
+
+        .full-transcript::-webkit-scrollbar { width: 6px; }
+        .full-transcript::-webkit-scrollbar-track { background: transparent; }
+        .full-transcript::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .episodes-container {
+            max-width: 860px;
+            margin: 24px auto;
+            padding: 0 20px;
+        }
+        .episodes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .episodes-header h2 { color: #fff; font-size: 18px; }
+        .episodes-count { color: var(--text-dim); font-size: 13px; }
+        .episode-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+        .episode-card:hover { border-color: var(--accent); }
+        .episode-title { font-size: 14px; color: #fff; flex: 1; }
+        .episode-meta { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+        .episode-segments { color: var(--text-dimmer); font-size: 12px; }
+        .episode-source {
+            color: var(--text-dimmer);
+            font-size: 11px;
+            background: var(--bg);
+            padding: 2px 8px;
+            border-radius: 8px;
+        }
+
+        .topics-container {
+            max-width: 860px;
+            margin: 24px auto;
+            padding: 0 20px;
+        }
+        .topics-header { margin-bottom: 16px; }
+        .topics-header h2 { color: #fff; font-size: 18px; margin-bottom: 4px; }
+        .topics-header p { color: var(--text-dim); font-size: 13px; }
+        .topic-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .topic-chip {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 13px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .topic-chip:hover { border-color: var(--accent); color: #fff; }
+        .topic-chip .count {
+            background: var(--border);
+            color: var(--text-dim);
+            padding: 1px 7px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+        .topic-section { margin-bottom: 28px; }
+        .topic-section h3 {
+            color: var(--text-dim);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            padding-left: 4px;
+        }
+
+        /* Custom topics */
+        .custom-topics-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+        }
+        .custom-topics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .custom-topics-header h3 {
+            color: #fff;
+            font-size: 14px;
+        }
+        .custom-topics-notice {
+            color: var(--text-dimmer);
+            font-size: 11px;
+        }
+        .add-topic-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .add-topic-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+        }
+        .add-topic-input:focus { border-color: var(--accent); }
+        .add-topic-input::placeholder { color: var(--text-dimmer); }
+        .add-topic-btn {
+            padding: 8px 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .add-topic-btn:hover { opacity: 0.85; }
+        .custom-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(233, 69, 96, 0.15);
+            border: 1px solid var(--accent);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 13px;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 0 6px 6px 0;
+        }
+        .custom-chip:hover { background: var(--accent); color: #fff; }
+        .custom-chip .remove-chip {
+            font-size: 14px;
+            opacity: 0.6;
+            cursor: pointer;
+        }
+        .custom-chip .remove-chip:hover { opacity: 1; }
+        .topic-chip .episode-count {
+            color: var(--text-dimmer);
+            font-size: 10px;
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--text-dimmer);
+            font-size: 16px;
+            margin-top: 60px;
+        }
+
+        /* ── Graph page ── */
+        .graph-container {
+            width: 100%;
+            height: calc(100vh - 120px);
+            position: relative;
+        }
+        .graph-container svg {
+            width: 100%;
+            height: 100%;
+        }
+        .graph-controls {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 10;
+        }
+        .graph-ctrl-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .graph-ctrl-btn:hover { border-color: var(--accent); color: #fff; }
+        .graph-ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .graph-legend {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            z-index: 10;
+        }
+        .graph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .graph-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .graph-tooltip {
+            position: absolute;
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #fff;
+            pointer-events: none;
+            z-index: 20;
+            display: none;
+            max-width: 250px;
+        }
+
+        @media (max-width: 600px) {
+            .header { padding: 14px 12px 12px; }
+            .header h1 { font-size: 18px; }
+            .header p { font-size: 12px; }
+            .nav { gap: 2px; }
+            .nav-btn { padding: 5px 10px; font-size: 12px; }
+
+            .search-container { padding: 0 12px; margin-top: 16px; }
+            .search-row { flex-direction: column; gap: 8px; }
+            #search-input { font-size: 16px; padding: 12px 14px 12px 40px; }
+            .search-icon { left: 12px; font-size: 16px; }
+            .filter-select { max-width: 100%; min-width: 0; padding: 10px 12px; }
+            .export-btn { padding: 10px 14px; text-align: center; }
+
+            .results { padding: 0 12px; }
+            .video-group-header { padding: 12px 14px; flex-direction: column; align-items: flex-start; gap: 6px; }
+            .segment-item { padding: 10px 14px; }
+            .segment-text { font-size: 13px; }
+            .group-footer { padding: 8px 14px 12px; gap: 8px; flex-wrap: wrap; }
+            .group-btn { font-size: 11px; }
+
+            .play-btn { width: 32px; height: 32px; font-size: 14px; }
+
+            .yt-player-wrapper.open { margin: 0 10px 8px; }
+
+            .full-transcript.open { padding: 14px 14px; }
+            .ft-body { font-size: 13.5px; line-height: 1.8; }
+            .ft-body p { margin-bottom: 12px; text-indent: 1em; }
+
+            .hidden-bar { padding: 0 12px; }
+
+            .episode-card { padding: 12px 14px; flex-direction: column; align-items: flex-start; gap: 6px; }
+            .episodes-container { padding: 0 12px; }
+            .topics-container { padding: 0 12px; }
+            .topic-chip { font-size: 12px; padding: 5px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Светоглед — Търсене в транскрипции</h1>
+        <p>Изследователски инструмент за предаването на Георги Тодоров</p>
+        <div class="nav">
+            <button class="nav-btn active" data-page="search">Търсене</button>
+            <button class="nav-btn" data-page="episodes">Епизоди</button>
+            <button class="nav-btn" data-page="topics">Теми</button>
+            <button class="nav-btn" data-page="graph">Граф</button>
+        </div>
+    </div>
+
+    <div class="page active" id="page-search">
+        <div class="search-container">
+            <div class="search-row">
+                <div class="search-wrapper">
+                    <input type="text" id="search-input"
+                           placeholder="Търсете тук... (напр. Кант, покръстване, иконоборство)"
+                           autofocus>
+                    <span class="search-icon">&#128269;</span>
+                </div>
+                <select class="filter-select" id="filter-video">
+                    <option value="">Всички епизоди</option>
+                </select>
+                <button class="export-btn" id="export-btn" title="Изтегли резултатите">&#8681; Експорт</button>
+            </div>
+            <div class="stats" id="stats"></div>
+        </div>
+        <div class="spinner" id="spinner"></div>
+        <div class="hidden-bar" id="hidden-bar">
+            <div class="hidden-bar-inner">
+                <div class="hidden-bar-header" onclick="toggleHiddenChips()">
+                    <span class="hidden-bar-label" id="hidden-label"><strong>0</strong> скрити епизода</span>
+                    <button class="hidden-bar-toggle" id="hidden-toggle">Покажи &#9660;</button>
+                </div>
+                <div class="hidden-chips" id="hidden-chips"></div>
+            </div>
+        </div>
+        <div class="results" id="results"></div>
+    </div>
+
+    <div class="page" id="page-episodes">
+        <div class="episodes-container" id="episodes-list"></div>
+    </div>
+
+    <!-- ═══ GRAPH PAGE ═══ -->
+    <div class="page" id="page-graph">
+        <div class="graph-container" id="graph-container">
+            <div class="graph-controls">
+                <span style="color:var(--text-dim);font-size:11px;">Плътност</span>
+                <input type="range" id="graph-density" min="1" max="10" value="5"
+                    style="width:100px;accent-color:var(--accent)"
+                    oninput="graphMaxLinks=parseInt(this.value);renderGraph()">
+            </div>
+            <div class="graph-legend">
+                <div class="graph-legend-item"><div class="graph-legend-dot" style="background:#e94560"></div> Епизод</div>
+                <div class="graph-legend-item" style="color:var(--text-dimmer);margin-top:4px">Линия = общи теми</div>
+                <div class="graph-legend-item" style="color:var(--text-dimmer)">Hover = виж общи теми</div>
+                <div class="graph-legend-item" style="color:var(--text-dimmer)">Click = търси в епизода</div>
+            </div>
+            <div class="graph-tooltip" id="graph-tooltip"></div>
+        </div>
+    </div>
+
+    <div class="page" id="page-topics">
+        <div class="topics-container" id="topics-content">
+            <div class="spinner active" id="topics-spinner"></div>
+        </div>
+    </div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const MEILI_URL = 'http://127.0.0.1:7700';
+const MEILI_KEY = 'svetogled-search-key';
+const INDEX = 'segments';
+
+const searchInput = document.getElementById('search-input');
+const resultsDiv = document.getElementById('results');
+const statsDiv = document.getElementById('stats');
+const spinner = document.getElementById('spinner');
+const filterSelect = document.getElementById('filter-video');
+const exportBtn = document.getElementById('export-btn');
+
+let debounceTimer;
+let currentQuery = '';
+let lastResults = [];
+const transcriptCache = {};
+let episodesData = null;
+let topicsData = null;
+
+// Hidden groups tracking
+var hiddenGroups = {}; // { videoId: title }
+
+// ── Init ──
+fetch(MEILI_URL + '/indexes/' + INDEX + '/stats', {
+    headers: { 'Authorization': 'Bearer ' + MEILI_KEY }
+})
+.then(function(r) { return r.json(); })
+.then(function(data) {
+    statsDiv.textContent = data.numberOfDocuments.toLocaleString() + ' сегмента индексирани';
+})
+.catch(function() {
+    statsDiv.textContent = 'Meilisearch не е достъпен';
+    statsDiv.style.color = '#e94560';
+});
+
+// Load episodes for filter
+fetch('/api/episodes')
+    .then(function(r) { return r.json(); })
+    .then(function(episodes) {
+        episodesData = episodes;
+        episodes.forEach(function(ep) {
+            var opt = document.createElement('option');
+            opt.value = ep.video_id;
+            opt.textContent = ep.title.length > 60 ? ep.title.substring(0, 57) + '...' : ep.title;
+            filterSelect.appendChild(opt);
+        });
+    });
+
+// ── Navigation ──
+document.querySelectorAll('.nav-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var page = btn.getAttribute('data-page');
+        document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+        document.querySelectorAll('.nav-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.getElementById('page-' + page).classList.add('active');
+        btn.classList.add('active');
+
+        if (page === 'episodes' && episodesData) renderEpisodes();
+        if (page === 'topics' && !topicsData) loadTopics();
+        if (page === 'graph') loadGraph();
+    });
+});
+
+// ── Search ──
+searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 250);
+});
+searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { clearTimeout(debounceTimer); doSearch(); }
+});
+filterSelect.addEventListener('change', function() {
+    if (searchInput.value.trim()) doSearch();
+});
+exportBtn.addEventListener('click', exportResults);
+
+function doSearch() {
+    var query = searchInput.value.trim();
+    if (!query) {
+        resultsDiv.innerHTML = '';
+        statsDiv.textContent = '';
+        spinner.classList.remove('active');
+        currentQuery = '';
+        lastResults = [];
+        return;
+    }
+
+    currentQuery = query;
+    spinner.classList.add('active');
+    hiddenGroups = {};
+    updateHiddenBar();
+
+    var videoFilter = filterSelect.value;
+    var searchBody = {
+        q: query,
+        limit: 100,
+        attributesToHighlight: ['text'],
+        highlightPreTag: '<em>',
+        highlightPostTag: '</em>',
+        attributesToCrop: ['text'],
+        cropLength: 80
+    };
+    if (videoFilter) {
+        searchBody.filter = 'video_id = "' + videoFilter + '"';
+    }
+
+    fetch(MEILI_URL + '/indexes/' + INDEX + '/search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + MEILI_KEY
+        },
+        body: JSON.stringify(searchBody)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (query !== currentQuery) return;
+        spinner.classList.remove('active');
+
+        var totalHits = data.estimatedTotalHits || data.hits.length;
+        statsDiv.textContent = totalHits + ' резултата за \u201E' + query + '\u201C (' + data.processingTimeMs + 'ms)';
+
+        lastResults = data.hits;
+
+        if (data.hits.length === 0) {
+            resultsDiv.innerHTML = '<div class="no-results">Няма намерени резултати</div>';
+            return;
+        }
+
+        // Group by video
+        var groups = new Map();
+        data.hits.forEach(function(hit) {
+            if (!groups.has(hit.video_id)) {
+                groups.set(hit.video_id, {
+                    video_id: hit.video_id,
+                    title: hit.title,
+                    source: hit.source,
+                    segments: []
+                });
+            }
+            if (hit.text && hit.text.length > 1500) return;
+            groups.get(hit.video_id).segments.push(hit);
+        });
+
+        var html = '';
+        var groupIdx = 0;
+        groups.forEach(function(group, videoId) {
+            if (group.segments.length === 0) return;
+            var delay = Math.min(groupIdx * 0.06, 0.6);
+            var tid = 'transcript-' + groupIdx;
+
+            var playerId = 'player-' + groupIdx;
+            var segListId = 'seglist-' + groupIdx;
+            var maxVisible = 3;
+            var hasMore = group.segments.length > maxVisible;
+
+            html += '<div class="video-group" style="animation-delay: ' + delay + 's">';
+            html += '<div class="video-group-header">';
+            html += '<span class="video-group-title">' + escapeHtml(group.title) + '</span>';
+            html += '<span class="video-group-badge">' + group.segments.length + ' съвпадения</span>';
+            html += '</div>';
+
+            // Toolbar at top
+            html += '<div class="group-toolbar">';
+            html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
+            html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
+            html += '<button class="group-btn group-btn-dismiss" onclick="hideGroup(\'' + videoId + '\', \'' + escapeAttr(group.title) + '\', this)">&#10005; Скрий</button>';
+            html += '</div>';
+
+            html += '<div class="segment-list" id="' + segListId + '">';
+
+            group.segments.forEach(function(seg, segIdx) {
+                var highlighted = seg._formatted ? seg._formatted.text : seg.text;
+                var hidden = (hasMore && segIdx >= maxVisible) ? ' style="display:none" data-extra="true"' : '';
+                html += '<div class="segment-item"' + hidden + '>';
+                html += '<button class="play-btn" onclick="playSegment(\'' + videoId + '\', ' + seg.start_seconds + ', \'' + playerId + '\')" title="Пусни от ' + seg.timestamp + '">&#9654;</button>';
+                html += '<span class="segment-ts"><a href="' + seg.youtube_url + '" target="_blank">' + seg.timestamp + '</a></span>';
+                html += '<span class="segment-text">' + highlighted + '</span>';
+                html += '</div>';
+            });
+
+            html += '</div>';
+
+            if (hasMore) {
+                html += '<button class="show-more-btn" onclick="showMoreSegments(\'' + segListId + '\', this)">Покажи всички ' + group.segments.length + ' съвпадения &#9660;</button>';
+            }
+
+            html += '<div class="yt-player-wrapper" id="' + playerId + '"></div>';
+            html += '<div class="full-transcript" id="' + tid + '"></div>';
+            html += '</div>';
+
+            groupIdx++;
+        });
+
+        resultsDiv.innerHTML = html;
+    })
+    .catch(function(err) {
+        spinner.classList.remove('active');
+        resultsDiv.innerHTML = '<div class="no-results">Грешка: ' + err.message + '</div>';
+    });
+}
+
+// ── Cross reference ──
+
+// ── Expand transcript ──
+function toggleTranscript(videoId, containerId, btn) {
+    var container = document.getElementById(containerId);
+    var isOpen = container.classList.contains('open');
+
+    if (isOpen) {
+        container.classList.remove('open');
+        btn.classList.remove('open');
+        return;
+    }
+
+    btn.classList.add('open');
+
+    if (!container.dataset.loaded) {
+        container.classList.add('open');
+        container.innerHTML = '<div class="ft-loading">Зареждане...</div>';
+
+        var promise;
+        if (transcriptCache[videoId]) {
+            promise = Promise.resolve(transcriptCache[videoId]);
+        } else {
+            promise = fetch('/api/transcript?id=' + videoId)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    transcriptCache[videoId] = data;
+                    return data;
+                });
+        }
+
+        promise.then(function(data) {
+            var formatted = formatTranscript(data, videoId);
+            container.innerHTML = '<div class="ft-header">' +
+                '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
+                '<span class="ft-meta">' + data.segment_count + ' сегмента</span>' +
+                '</div><div class="ft-body">' + formatted + '</div>';
+            container.dataset.loaded = 'true';
+        }).catch(function(err) {
+            container.innerHTML = '<div class="ft-loading">Грешка: ' + err.message + '</div>';
+        });
+    } else {
+        container.classList.add('open');
+    }
+}
+
+function formatTranscript(data, videoId) {
+    var snippets = data.snippets || [];
+    if (snippets.length === 0) return '<p>Няма текст</p>';
+
+    var query = currentQuery.toLowerCase();
+    var html = '';
+    var para = '';
+    var paraStart = snippets[0].start;
+
+    for (var i = 0; i < snippets.length; i++) {
+        var s = snippets[i];
+        if (s.start - paraStart > 30 && para) {
+            html += buildParagraph(para, paraStart, videoId, query);
+            para = '';
+            paraStart = s.start;
+        }
+        para += s.text + ' ';
+    }
+    if (para.trim()) {
+        html += buildParagraph(para, paraStart, videoId, query);
+    }
+    return html;
+}
+
+function buildParagraph(text, startSec, videoId, query) {
+    var sec = Math.floor(startSec);
+    var mm = String(Math.floor(sec / 60)).padStart(2, '0');
+    var ss = String(sec % 60).padStart(2, '0');
+    var url = 'https://www.youtube.com/watch?v=' + videoId + '&t=' + sec;
+
+    var escaped = escapeHtml(text.trim());
+
+    if (query) {
+        var terms = query.split(/\s+/).filter(function(t) { return t.length > 1; });
+        for (var i = 0; i < terms.length; i++) {
+            var regex = new RegExp('(' + escapeRegex(terms[i]) + ')', 'gi');
+            escaped = escaped.replace(regex, '<span class="highlight-term">$1</span>');
+        }
+    }
+
+    return '<p><a class="ts-link" href="' + url + '" target="_blank">[' + mm + ':' + ss + ']</a>' + escaped + '</p>';
+}
+
+// ── Episodes page ──
+function renderEpisodes() {
+    if (!episodesData) return;
+    var container = document.getElementById('episodes-list');
+    var html = '<div class="episodes-header">' +
+        '<h2>Всички епизоди</h2>' +
+        '<span class="episodes-count">' + episodesData.length + ' епизода</span></div>';
+
+    episodesData.forEach(function(ep) {
+        html += '<div class="episode-card" onclick="searchEpisode(\'' + ep.video_id + '\')">' +
+            '<span class="episode-title">' + escapeHtml(ep.title) + '</span>' +
+            '<div class="episode-meta">' +
+            '<span class="episode-segments">' + ep.segment_count + ' сегм.</span>' +
+            '<span class="episode-source">' + (ep.source || '') + '</span>' +
+            '</div></div>';
+    });
+    container.innerHTML = html;
+}
+
+function searchEpisode(videoId) {
+    showPageDirect('search');
+    filterSelect.value = videoId;
+    searchInput.value = '';
+    searchInput.focus();
+}
+
+function showPageDirect(page) {
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.nav-btn').forEach(function(b) {
+        b.classList.remove('active');
+        if (b.getAttribute('data-page') === page) b.classList.add('active');
+    });
+    document.getElementById('page-' + page).classList.add('active');
+}
+
+// ── Topics page ──
+function loadTopics() {
+    fetch('/api/topics')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            topicsData = data;
+            renderTopics();
+        })
+        .catch(function() {
+            document.getElementById('topics-content').innerHTML =
+                '<div class="no-results">Грешка при зареждане на темите</div>';
+        });
+}
+
+function renderTopics() {
+    if (!topicsData) return;
+    var container = document.getElementById('topics-content');
+    var customTopics = loadCustomTopics();
+
+    var html = '<div class="topics-header">' +
+        '<h2>Теми и имена</h2>' +
+        '<p>Кликнете върху тема за търсене. Броят показва в колко епизода се споменава.</p></div>';
+
+    // Custom topics section
+    html += '<div class="custom-topics-section">';
+    html += '<div class="custom-topics-header">';
+    html += '<h3>Мои теми</h3>';
+    html += '<span class="custom-topics-notice">Запазват се в браузъра</span>';
+    html += '</div>';
+    html += '<div class="add-topic-row">';
+    html += '<input type="text" class="add-topic-input" id="custom-topic-input" placeholder="Добави тема или име..." onkeydown="if(event.key===\'Enter\')addCustomTopic()">';
+    html += '<button class="add-topic-btn" onclick="addCustomTopic()">Добави</button>';
+    html += '</div>';
+    html += '<div id="custom-chips">';
+    customTopics.forEach(function(term) {
+        html += buildCustomChip(term);
+    });
+    if (customTopics.length === 0) {
+        html += '<span style="color:var(--text-dimmer);font-size:12px;">Все още нямате добавени теми</span>';
+    }
+    html += '</div></div>';
+
+    // Auto-detected topics
+    topicsData.forEach(function(section) {
+        html += '<div class="topic-section"><h3>' + escapeHtml(section.category) + '</h3><div class="topic-grid">';
+        section.items.forEach(function(item) {
+            html += '<div class="topic-chip" onclick="searchTopic(\'' + escapeAttr(item.term) + '\')">' +
+                escapeHtml(item.term) +
+                '<span class="count">' + item.count + ' еп.</span></div>';
+        });
+        html += '</div></div>';
+    });
+    container.innerHTML = html;
+}
+
+function buildCustomChip(term) {
+    return '<span class="custom-chip" onclick="searchTopic(\'' + escapeAttr(term) + '\')">' +
+        escapeHtml(term) +
+        '<span class="remove-chip" onclick="event.stopPropagation();removeCustomTopic(\'' + escapeAttr(term) + '\')">&times;</span>' +
+        '</span>';
+}
+
+function loadCustomTopics() {
+    try {
+        var stored = localStorage.getItem('svetogled_custom_topics');
+        return stored ? JSON.parse(stored) : [];
+    } catch(e) { return []; }
+}
+
+function saveCustomTopics(topics) {
+    try { localStorage.setItem('svetogled_custom_topics', JSON.stringify(topics)); }
+    catch(e) {}
+}
+
+function addCustomTopic() {
+    var input = document.getElementById('custom-topic-input');
+    var term = input.value.trim();
+    if (!term) return;
+
+    var topics = loadCustomTopics();
+    if (topics.indexOf(term) === -1) {
+        topics.push(term);
+        saveCustomTopics(topics);
+    }
+    input.value = '';
+    renderTopics();
+}
+
+function removeCustomTopic(term) {
+    var topics = loadCustomTopics().filter(function(t) { return t !== term; });
+    saveCustomTopics(topics);
+    renderTopics();
+}
+
+function searchTopic(term) {
+    showPageDirect('search');
+    searchInput.value = term;
+    filterSelect.value = '';
+    doSearch();
+}
+
+// ── Export ──
+function exportResults() {
+    if (lastResults.length === 0) {
+        alert('Няма резултати за експорт. Първо направете търсене.');
+        return;
+    }
+
+    var query = currentQuery;
+    var text = 'Търсене: "' + query + '"\nРезултати: ' + lastResults.length + '\n';
+    text += '============================================================\n\n';
+
+    var groups = new Map();
+    lastResults.forEach(function(hit) {
+        if (hit.text && hit.text.length > 1500) return;
+        if (!groups.has(hit.video_id)) {
+            groups.set(hit.video_id, { title: hit.title, segments: [] });
+        }
+        groups.get(hit.video_id).segments.push(hit);
+    });
+
+    groups.forEach(function(group, videoId) {
+        text += '\n' + '──────────────────────────────────────────────────\n';
+        text += group.title + '\n';
+        text += 'https://www.youtube.com/watch?v=' + videoId + '\n';
+        text += '──────────────────────────────────────────────────\n\n';
+
+        group.segments.forEach(function(seg) {
+            text += '[' + seg.timestamp + '] ' + seg.text + '\n';
+            text += '  ' + seg.youtube_url + '\n\n';
+        });
+    });
+
+    var blob = new Blob([text], { type: 'text/plain; charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'svetogled-search-' + query.replace(/\s+/g, '_') + '.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ── Hide / Restore groups ──
+function hideGroup(videoId, title, btn) {
+    var group = btn.closest('.video-group');
+    group.style.transition = 'opacity 0.3s, max-height 0.4s, margin 0.3s';
+    group.style.opacity = '0';
+    group.style.maxHeight = group.offsetHeight + 'px';
+    setTimeout(function() {
+        group.style.maxHeight = '0';
+        group.style.overflow = 'hidden';
+        group.style.marginBottom = '0';
+    }, 50);
+    setTimeout(function() {
+        group.style.display = 'none';
+    }, 400);
+
+    hiddenGroups[videoId] = title;
+    updateHiddenBar();
+}
+
+function restoreGroup(videoId) {
+    delete hiddenGroups[videoId];
+    updateHiddenBar();
+
+    // Find the group element and show it
+    var groups = document.querySelectorAll('.video-group');
+    groups.forEach(function(g) {
+        var dismissBtn = g.querySelector('.group-btn-dismiss');
+        if (dismissBtn && dismissBtn.getAttribute('onclick').indexOf(videoId) !== -1) {
+            g.style.display = '';
+            g.style.opacity = '0';
+            g.style.maxHeight = '';
+            g.style.overflow = '';
+            g.style.marginBottom = '';
+            setTimeout(function() { g.style.opacity = '1'; }, 10);
+        }
+    });
+}
+
+function restoreAll() {
+    Object.keys(hiddenGroups).forEach(function(vid) {
+        restoreGroup(vid);
+    });
+}
+
+function updateHiddenBar() {
+    var bar = document.getElementById('hidden-bar');
+    var label = document.getElementById('hidden-label');
+    var chipsDiv = document.getElementById('hidden-chips');
+    var count = Object.keys(hiddenGroups).length;
+
+    if (count === 0) {
+        bar.classList.remove('visible');
+        return;
+    }
+
+    bar.classList.add('visible');
+    label.innerHTML = '<strong>' + count + '</strong> скрит' + (count === 1 ? ' епизод' : 'и епизода');
+
+    var html = '';
+    for (var vid in hiddenGroups) {
+        var title = hiddenGroups[vid];
+        var shortTitle = title.length > 40 ? title.substring(0, 37) + '...' : title;
+        html += '<div class="hidden-chip" onclick="restoreGroup(\'' + vid + '\')">' +
+            '<span class="restore-icon">&#8634;</span>' + escapeHtml(shortTitle) + '</div>';
+    }
+    html += '<button class="restore-all-btn" onclick="restoreAll()">Покажи всички</button>';
+    chipsDiv.innerHTML = html;
+}
+
+function toggleHiddenChips() {
+    var chips = document.getElementById('hidden-chips');
+    var toggle = document.getElementById('hidden-toggle');
+    if (chips.classList.contains('open')) {
+        chips.classList.remove('open');
+        toggle.innerHTML = 'Покажи &#9660;';
+    } else {
+        chips.classList.add('open');
+        toggle.innerHTML = 'Скрий &#9650;';
+    }
+}
+
+// ── Show more segments ──
+function showMoreSegments(listId, btn) {
+    var list = document.getElementById(listId);
+    var extras = list.querySelectorAll('[data-extra]');
+    extras.forEach(function(el) {
+        el.style.display = '';
+    });
+    btn.style.display = 'none';
+}
+
+// ── YouTube player ──
+var activePlayerId = null;
+
+function playSegment(videoId, startSeconds, playerId) {
+    var wrapper = document.getElementById(playerId);
+
+    // If clicking same player that's open, close it
+    if (activePlayerId === playerId && wrapper.classList.contains('open')) {
+        wrapper.classList.remove('open');
+        setTimeout(function() { wrapper.innerHTML = ''; }, 400);
+        activePlayerId = null;
+        return;
+    }
+
+    // Close any other open player
+    if (activePlayerId && activePlayerId !== playerId) {
+        var prev = document.getElementById(activePlayerId);
+        if (prev) {
+            prev.classList.remove('open');
+            setTimeout(function() { prev.innerHTML = ''; }, 400);
+        }
+    }
+
+    // Embed YouTube iframe starting at the timestamp
+    wrapper.innerHTML = '<iframe src="https://www.youtube.com/embed/' + videoId +
+        '?start=' + startSeconds + '&autoplay=1" ' +
+        'allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    wrapper.classList.add('open');
+    activePlayerId = playerId;
+
+    // Scroll player into view
+    setTimeout(function() {
+        wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+}
+
+// ── Helpers ──
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function escapeAttr(text) {
+    return text.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ── Graph visualization ──
+var graphData = null;
+var graphSim = null;
+var graphMaxLinks = 5;
+
+function loadGraph() {
+    if (graphData) { renderGraph(); return; }
+    fetch('/api/graph')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            graphData = data;
+            renderGraph();
+        });
+}
+
+function renderGraph() {
+    if (!graphData) return;
+    var container = document.getElementById('graph-container');
+    var existing = container.querySelector('svg');
+    if (existing) existing.remove();
+
+    var width = container.clientWidth;
+    var height = container.clientHeight;
+
+    // Filter links by density — keep top N per node
+    var allLinks = graphData.links.map(function(l) {
+        return { source: l.source.id || l.source, target: l.target.id || l.target, weight: l.weight, shared: l.shared || [] };
+    });
+    allLinks.sort(function(a, b) { return b.weight - a.weight; });
+
+    var nodeLinkCount = {};
+    var links = [];
+    allLinks.forEach(function(l) {
+        var sc = nodeLinkCount[l.source] || 0;
+        var tc = nodeLinkCount[l.target] || 0;
+        if (sc < graphMaxLinks && tc < graphMaxLinks) {
+            links.push(l);
+            nodeLinkCount[l.source] = sc + 1;
+            nodeLinkCount[l.target] = tc + 1;
+        }
+    });
+
+    var linkedIds = new Set();
+    links.forEach(function(l) { linkedIds.add(l.source); linkedIds.add(l.target); });
+    var nodes = graphData.nodes.filter(function(n) { return linkedIds.has(n.id); });
+
+    var svg = d3.select('#graph-container').append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+    // Zoom
+    var g = svg.append('g');
+    svg.call(d3.zoom().scaleExtent([0.2, 5]).on('zoom', function(event) {
+        g.attr('transform', event.transform);
+    }));
+
+    var maxWeight = d3.max(links, function(l) { return l.weight; }) || 1;
+
+    var simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(function(d) { return d.id; }).distance(function(l) {
+            return 120 - (l.weight / maxWeight) * 60;
+        }))
+        .force('charge', d3.forceManyBody().strength(-200))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(function(d) { return Math.sqrt(d.count) * 4 + 20; }));
+
+    graphSim = simulation;
+
+    // Links
+    var link = g.append('g')
+        .selectAll('line')
+        .data(links)
+        .join('line')
+        .attr('stroke', '#444')
+        .attr('stroke-opacity', function(l) { return 0.15 + (l.weight / maxWeight) * 0.4; })
+        .attr('stroke-width', function(l) { return 0.5 + (l.weight / maxWeight) * 1.5; });
+
+    // Link labels (shared terms)
+    var linkLabel = g.append('g')
+        .selectAll('text')
+        .data(links)
+        .join('text')
+        .text(function(l) { return l.shared ? l.shared.slice(0, 2).join(', ') : ''; })
+        .attr('font-size', '7px')
+        .attr('fill', '#555')
+        .attr('text-anchor', 'middle')
+        .style('pointer-events', 'none');
+
+    // Nodes
+    var node = g.append('g')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .call(d3.drag()
+            .on('start', function(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x; d.fy = d.y;
+            })
+            .on('drag', function(event, d) {
+                d.fx = event.x; d.fy = event.y;
+            })
+            .on('end', function(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null; d.fy = null;
+            })
+        );
+
+    // Assign colors by simple community detection (connected component coloring)
+    var nodeColor = {};
+    var palette = ['#e94560','#4ecdc4','#f9a826','#a78bfa','#34d399','#f472b6','#60a5fa','#fb923c','#c084fc','#2dd4bf'];
+    var visited = new Set();
+    var colorIdx = 0;
+    function bfsColor(startId) {
+        var queue = [startId];
+        var color = palette[colorIdx % palette.length];
+        colorIdx++;
+        while (queue.length > 0) {
+            var id = queue.shift();
+            if (visited.has(id)) continue;
+            visited.add(id);
+            nodeColor[id] = color;
+            links.forEach(function(l) {
+                var src = l.source.id || l.source;
+                var tgt = l.target.id || l.target;
+                if (src === id && !visited.has(tgt)) queue.push(tgt);
+                if (tgt === id && !visited.has(src)) queue.push(src);
+            });
+        }
+    }
+    nodes.forEach(function(n) { if (!visited.has(n.id)) bfsColor(n.id); });
+
+    node.append('circle')
+        .attr('r', function(d) { return 5; })
+        .attr('fill', function(d) { return nodeColor[d.id] || '#e94560'; })
+        .attr('fill-opacity', 0.9)
+        .attr('stroke', function(d) { return nodeColor[d.id] || '#e94560'; })
+        .attr('stroke-width', 1.5);
+
+    node.append('text')
+        .text(function(d) { return d.label || d.id; })
+        .attr('font-size', '8px')
+        .attr('fill', '#aaa')
+        .attr('text-anchor', 'middle')
+        .attr('dy', 16)
+        .style('pointer-events', 'none');
+
+    // Tooltip on hover
+    var tooltip = document.getElementById('graph-tooltip');
+    node.on('mouseover', function(event, d) {
+        // Find connected episodes and shared terms
+        var connections = [];
+        links.forEach(function(l) {
+            var src = l.source.id || l.source;
+            var tgt = l.target.id || l.target;
+            var other = null;
+            if (src === d.id) other = tgt;
+            if (tgt === d.id) other = src;
+            if (other) {
+                var otherNode = nodes.find(function(n) { return n.id === other; });
+                var label = otherNode ? (otherNode.label || other) : other;
+                var shared = l.shared ? l.shared.join(', ') : '';
+                connections.push({ label: label, shared: shared });
+            }
+        });
+
+        var html = '<strong>' + escapeHtml(d.label || d.id) + '</strong><br>';
+        if (connections.length > 0) {
+            html += '<br>';
+            connections.slice(0, 5).forEach(function(c) {
+                html += '<span style="color:var(--accent)">&rarr;</span> ' + escapeHtml(c.label) + '<br>';
+                if (c.shared) html += '<span style="color:var(--text-dimmer);font-size:10px">&nbsp;&nbsp;общо: ' + c.shared + '</span><br>';
+            });
+        }
+        tooltip.innerHTML = html;
+        tooltip.style.display = 'block';
+        tooltip.style.left = event.pageX + 12 + 'px';
+        tooltip.style.top = event.pageY - 10 + 'px';
+
+        // Highlight connections
+        var connectedIds = new Set();
+        connectedIds.add(d.id);
+        link.attr('stroke', function(l) {
+            var src = l.source.id || l.source;
+            var tgt = l.target.id || l.target;
+            if (src === d.id) { connectedIds.add(tgt); return '#e94560'; }
+            if (tgt === d.id) { connectedIds.add(src); return '#e94560'; }
+            return '#222';
+        }).attr('stroke-opacity', function(l) {
+            var src = l.source.id || l.source;
+            var tgt = l.target.id || l.target;
+            return (src === d.id || tgt === d.id) ? 0.9 : 0.05;
+        });
+
+        linkLabel.attr('fill', function(l) {
+            var src = l.source.id || l.source;
+            var tgt = l.target.id || l.target;
+            return (src === d.id || tgt === d.id) ? '#e94560' : 'transparent';
+        }).attr('font-size', function(l) {
+            var src = l.source.id || l.source;
+            var tgt = l.target.id || l.target;
+            return (src === d.id || tgt === d.id) ? '9px' : '7px';
+        });
+
+        node.select('circle').attr('fill-opacity', function(n) {
+            return connectedIds.has(n.id) ? 0.9 : 0.1;
+        });
+        node.select('text').attr('fill-opacity', function(n) {
+            return connectedIds.has(n.id) ? 1 : 0.15;
+        });
+    })
+    .on('mouseout', function() {
+        tooltip.style.display = 'none';
+        link.attr('stroke', '#444').attr('stroke-opacity', function(l) {
+            return 0.15 + (l.weight / maxWeight) * 0.4;
+        });
+        linkLabel.attr('fill', '#555').attr('font-size', '7px');
+        node.select('circle').attr('fill-opacity', 0.9);
+        node.select('text').attr('fill-opacity', 1);
+    })
+    .on('click', function(event, d) {
+        // Collect all shared terms from this node's connections
+        var allShared = new Set();
+        links.forEach(function(l) {
+            var src = l.source.id || l.source;
+            var tgt = l.target.id || l.target;
+            if (src === d.id || tgt === d.id) {
+                (l.shared || []).forEach(function(t) { allShared.add(t); });
+            }
+        });
+        var terms = Array.from(allShared).slice(0, 4).join(' ');
+        if (terms) {
+            showPageDirect('search');
+            searchInput.value = terms;
+            filterSelect.value = '';
+            doSearch();
+        }
+    });
+
+    simulation.on('tick', function() {
+        link
+            .attr('x1', function(d) { return d.source.x; })
+            .attr('y1', function(d) { return d.source.y; })
+            .attr('x2', function(d) { return d.target.x; })
+            .attr('y2', function(d) { return d.target.y; });
+        linkLabel
+            .attr('x', function(d) { return (d.source.x + d.target.x) / 2; })
+            .attr('y', function(d) { return (d.source.y + d.target.y) / 2; });
+        node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+    });
+}
+</script>
+</body>
+</html>
+</body>
+</html>

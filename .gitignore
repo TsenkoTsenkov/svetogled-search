@@ -1,0 +1,13 @@
+audio_cache/
+models/
+meili_data/
+__pycache__/
+*.log
+*.wav
+*.pyc
+progress.json
+whisper_progress.json
+broken_timestamps.json
+transcripts_combined.json
+transcripts_full_text.txt
+.DS_Store
