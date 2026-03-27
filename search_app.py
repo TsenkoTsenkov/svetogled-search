@@ -116,6 +116,7 @@ STOP_NAMES = set("""
 Повече Отново Вътре Горе Долу
 Имаше Други Другия Другата Друго
 Зорана Радио
+Включително Новото Крайна Божието
 Стига Ясна Вижда Минава Погледнем
 Dima Torzok Субтитри
 Тука Поначало Фактически Вероятно Особено Изобщо
@@ -183,55 +184,114 @@ STOP_CONCEPTS = set("""
 """.split())
 
 
+def _is_likely_verb_or_filler(word):
+    """Heuristic: Bulgarian verbs and fillers end with specific suffixes."""
+    w = word.lower()
+    # Common verb endings
+    verb_suffixes = (
+        'ва', 'ват', 'вам', 'ваме', 'вате', 'ваш', 'вай',
+        'ше', 'ша', 'шем',
+        'ме', 'те', 'ли', 'ло', 'ла',
+        'ем', 'ете', 'ат', 'ят',
+        'им', 'ите',
+        'ах', 'яхме', 'яхте',
+        'ъл', 'ала', 'али', 'ало',
+        'де',  # създаде, направиде
+        'жа', 'жат',  # държа, държат
+    )
+    # Adjective/pronoun/adverb endings (generic filler words)
+    filler_suffixes = (
+        'ски', 'ска', 'ско',
+        'чки', 'чка', 'чко',
+        'чно', 'лно', 'тно',
+        'ово', 'ево',
+        'ия', 'ият',  # втория, старият
+        'ата', 'ото', 'ите',  # главата, другото, другите
+        'акво', 'якво',  # никакво, какво
+        'якъв', 'акъв',  # никакъв, всякакъв
+        'ови', 'ови',  # негови, духови
+        'виш', 'вим',  # правиш, правим
+        'дна', 'дно',  # гледна, гледно
+        'ани',          # свързани, написани
+        'ени',          # решени, получени
+        'бни',          # подобни
+        'жни',          # възможни
+    )
+
+    if w.endswith(verb_suffixes):
+        return True
+    if w.endswith(filler_suffixes) and len(w) < 12:
+        return True
+    return False
+
+
+def _is_proper_noun(word):
+    """Check if a word is likely a proper noun (person, place, concept name)."""
+    # Must start with uppercase
+    if not word[0].isupper():
+        return False
+    # Skip words that are common Bulgarian sentence starters
+    if word in STOP_NAMES:
+        return False
+    if word.lower() in STOP_WORDS:
+        return False
+    # Very short words are usually not names
+    if len(word) < 4:
+        return False
+    return True
+
+
 def build_topics():
-    """Analyze transcripts for meaningful names and concepts."""
-    # Track in how many episodes each term appears (not total count)
+    """Analyze transcripts for meaningful names and concepts using smarter filtering."""
+    import math
+
     name_episode_count = Counter()
     concept_episode_count = Counter()
+    total_episodes = max(1, sum(1 for _ in TRANSCRIPTS_DIR.glob("*.json")))
 
     for f in TRANSCRIPTS_DIR.glob("*.json"):
         data = json.loads(f.read_text(encoding="utf-8"))
         text = data.get("full_text", "")
 
-        # Names: capitalized multi-word patterns for better detection
-        # Single capitalized words that are real proper nouns
-        cap_words = set(re.findall(r'[А-ЯA-Z][а-яa-z]{2,}', text))
+        # Names: capitalized words, deduplicated per episode
+        cap_words = set(re.findall(r'[А-ЯA-Z][а-яa-z]{3,}', text))
         for w in cap_words:
-            if (w.lower() not in STOP_WORDS
-                    and w not in STOP_NAMES
-                    and len(w) > 3):  # Min 4 chars to skip "Ама", "Ето" etc
+            if _is_proper_noun(w):
                 name_episode_count[w] += 1
 
-        # Concepts: look for domain-specific words
-        words = set(re.findall(r'[а-я]{5,}', text.lower()))
+        # Concepts: only nouns (skip verbs, adjectives, adverbs via suffix heuristic)
+        words = set(re.findall(r'[а-я]{6,}', text.lower()))
         for w in words:
             if (w not in STOP_WORDS
                     and w not in STOP_CONCEPTS
-                    and len(w) > 5):  # Min 6 chars
+                    and not _is_likely_verb_or_filler(w)):
                 concept_episode_count[w] += 1
 
-    total_episodes = max(1, sum(1 for _ in TRANSCRIPTS_DIR.glob("*.json")))
-
-    # Names: must appear in 3-70% of episodes (too common = not a specific name)
-    names = [(w, c) for w, c in name_episode_count.most_common(300)
-             if 3 <= c <= total_episodes * 0.7
-             and w not in STOP_NAMES]
+    # Names: appear in 3+ episodes, not too common (>60% is generic like "Бог")
+    names = [(w, c) for w, c in name_episode_count.most_common(500)
+             if 3 <= c <= total_episodes * 0.6]
     names.sort(key=lambda x: -x[1])
 
-    # Concepts: appear in 3+ episodes but not in >50% (those are too generic)
+    # Concepts: use TF-IDF-like scoring — penalize terms that appear everywhere
     name_lower = {w.lower() for w, _ in names}
-    concepts = [(w, c) for w, c in concept_episode_count.most_common(500)
-                if 3 <= c <= total_episodes * 0.5
-                and w not in name_lower
-                and w not in STOP_WORDS
-                and w not in STOP_CONCEPTS]
-    concepts.sort(key=lambda x: -x[1])
+    scored_concepts = []
+    for w, doc_count in concept_episode_count.most_common(1000):
+        if (w in name_lower or w in STOP_WORDS or w in STOP_CONCEPTS
+                or _is_likely_verb_or_filler(w)):
+            continue
+        # IDF: rare terms score higher
+        idf = math.log(total_episodes / max(1, doc_count))
+        # Only keep terms that appear in 3+ but < 40% of episodes
+        if 3 <= doc_count <= total_episodes * 0.4:
+            scored_concepts.append((w, doc_count, doc_count * idf))
+
+    scored_concepts.sort(key=lambda x: -x[2])  # Sort by TF-IDF score
 
     return [
         {"category": "Имена и лица",
-         "items": [{"term": w, "count": c} for w, c in names[:60]]},
+         "items": [{"term": w, "count": c} for w, c in names[:50]]},
         {"category": "Понятия и теми",
-         "items": [{"term": w, "count": c} for w, c in concepts[:60]]},
+         "items": [{"term": w, "count": c} for w, c, _ in scored_concepts[:50]]},
     ]
 
 

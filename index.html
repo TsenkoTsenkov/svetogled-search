@@ -1017,18 +1017,71 @@ function renderEpisodes() {
         '<h2>Всички епизоди</h2>' +
         '<span class="episodes-count">' + episodesData.length + ' епизода</span></div>';
 
-    episodesData.forEach(function(ep) {
-        html += '<div class="episode-card" onclick="searchEpisode(\'' + ep.video_id + '\')">' +
+    episodesData.forEach(function(ep, idx) {
+        var epId = 'ep-detail-' + idx;
+        var playerId = 'ep-player-' + idx;
+        html += '<div class="episode-card" onclick="toggleEpisodeDetail(\'' + ep.video_id + '\', \'' + epId + '\', \'' + playerId + '\', this)">' +
             '<span class="episode-title">' + escapeHtml(ep.title) + '</span>' +
             '<div class="episode-meta">' +
             '<span class="episode-segments">' + ep.segment_count + ' сегм.</span>' +
             '<span class="episode-source">' + (ep.source || '') + '</span>' +
-            '</div></div>';
+            '</div></div>' +
+            '<div class="yt-player-wrapper" id="' + playerId + '"></div>' +
+            '<div class="full-transcript" id="' + epId + '"></div>';
     });
     container.innerHTML = html;
 }
 
-function searchEpisode(videoId) {
+function toggleEpisodeDetail(videoId, containerId, playerId, card) {
+    var container = document.getElementById(containerId);
+    var isOpen = container.classList.contains('open');
+
+    if (isOpen) {
+        container.classList.remove('open');
+        // Close player too
+        var player = document.getElementById(playerId);
+        if (player) { player.classList.remove('open'); player.innerHTML = ''; }
+        return;
+    }
+
+    if (!container.dataset.loaded) {
+        container.classList.add('open');
+        container.innerHTML = '<div class="ft-loading">Зареждане...</div>';
+
+        fetch('/api/transcript?id=' + videoId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                transcriptCache[videoId] = data;
+
+                var html = '<div class="ft-header">' +
+                    '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
+                    '<span class="ft-meta">' + data.segment_count + ' сегмента</span></div>';
+
+                // Action buttons
+                html += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">';
+                html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
+                html += '<button class="group-btn group-btn-expand" onclick="playSegment(\'' + videoId + '\', 0, \'' + playerId + '\')">&#9654; Пусни</button>';
+                html += '<button class="group-btn" style="color:var(--accent2);border-color:var(--accent2)" onclick="searchFromEpisode(\'' + videoId + '\')">&#128269; Търси в епизода</button>';
+                html += '</div>';
+
+                // Formatted transcript
+                html += '<div class="ft-body">' + formatTranscript(data, videoId) + '</div>';
+
+                container.innerHTML = html;
+                container.dataset.loaded = 'true';
+
+                // Scroll into view
+                container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            })
+            .catch(function(err) {
+                container.innerHTML = '<div class="ft-loading">Грешка: ' + err.message + '</div>';
+            });
+    } else {
+        container.classList.add('open');
+    }
+}
+
+function searchFromEpisode(videoId) {
     showPageDirect('search');
     filterSelect.value = videoId;
     searchInput.value = '';
@@ -1097,11 +1150,32 @@ function renderTopics() {
         html += '</div></div>';
     });
     container.innerHTML = html;
+
+    // Fetch episode counts for custom topics
+    customTopics.forEach(function(term) {
+        var chipId = 'custom-chip-' + term.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+        fetch(MEILI_URL + '/indexes/' + INDEX + '/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + MEILI_KEY },
+            body: JSON.stringify({ q: term, limit: 0 })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var countEl = document.getElementById('count-' + chipId);
+            if (countEl) {
+                var hits = data.estimatedTotalHits || 0;
+                countEl.textContent = hits + ' рез.';
+            }
+        })
+        .catch(function() {});
+    });
 }
 
 function buildCustomChip(term) {
-    return '<span class="custom-chip" onclick="searchTopic(\'' + escapeAttr(term) + '\')">' +
+    var chipId = 'custom-chip-' + term.replace(/[^a-zA-Zа-яА-Я0-9]/g, '_');
+    return '<span class="custom-chip" id="' + chipId + '" onclick="searchTopic(\'' + escapeAttr(term) + '\')">' +
         escapeHtml(term) +
+        '<span class="count" id="count-' + chipId + '">...</span>' +
         '<span class="remove-chip" onclick="event.stopPropagation();removeCustomTopic(\'' + escapeAttr(term) + '\')">&times;</span>' +
         '</span>';
 }
