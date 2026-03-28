@@ -49,6 +49,10 @@ jobs:
         if: steps.check.outputs.new_count > 0
         run: python scripts/whisper_remaining.py
 
+      - name: Fix common transcription errors
+        if: steps.check.outputs.new_count > 0
+        run: python fix_transcriptions.py --skip-combined
+
       - name: Commit and push new transcripts
         if: steps.check.outputs.new_count > 0
         run: |
