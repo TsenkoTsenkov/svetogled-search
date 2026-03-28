@@ -120,7 +120,7 @@ def main():
 
     # Wait for indexing to complete
     print("Waiting for indexing to complete...")
-    client.wait_for_task(task.task_uid, timeout_in_ms=120000)
+    client.wait_for_task(task.task_uid, timeout_in_ms=600000)
     print("Done!")
 
     stats = index.get_stats()
