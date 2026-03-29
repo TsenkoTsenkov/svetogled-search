@@ -934,6 +934,7 @@ function doSearch() {
             // Toolbar at top
             html += '<div class="group-toolbar">';
             html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
+            html += '<a class="group-btn" href="/episode/' + videoId + '" style="color:var(--text-dim);border-color:var(--text-dim)">Епизод &rarr;</a>';
             html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
             html += '<button class="group-btn group-btn-dismiss" onclick="hideGroup(\'' + videoId + '\', \'' + escapeAttr(group.title) + '\', this)">&#10005; Скрий</button>';
             html += '</div>';
@@ -1071,11 +1072,11 @@ function renderEpisodes() {
     episodesData.forEach(function(ep, idx) {
         var epId = 'ep-detail-' + idx;
         var playerId = 'ep-player-' + idx;
-        html += '<div class="episode-card" onclick="toggleEpisodeDetail(\'' + ep.video_id + '\', \'' + epId + '\', \'' + playerId + '\', this)">' +
-            '<span class="episode-title">' + escapeHtml(ep.title) + '</span>' +
+        html += '<div class="episode-card">' +
+            '<span class="episode-title" onclick="toggleEpisodeDetail(\'' + ep.video_id + '\', \'' + epId + '\', \'' + playerId + '\', this.parentElement)" style="cursor:pointer;flex:1">' + escapeHtml(ep.title) + '</span>' +
             '<div class="episode-meta">' +
             '<span class="episode-segments">' + ep.segment_count + ' сегм.</span>' +
-            '<span class="episode-source">' + (ep.source || '') + '</span>' +
+            '<a href="/episode/' + ep.video_id + '" class="group-btn" style="font-size:11px;padding:2px 8px;color:var(--accent);border-color:var(--accent)" onclick="event.stopPropagation()">Отвори</a>' +
             '</div></div>' +
             '<div class="yt-player-wrapper" id="' + playerId + '"></div>' +
             '<div class="full-transcript" id="' + epId + '"></div>';
@@ -1113,6 +1114,7 @@ function toggleEpisodeDetail(videoId, containerId, playerId, card) {
                 html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
                 html += '<button class="group-btn group-btn-expand" onclick="playSegment(\'' + videoId + '\', 0, \'' + playerId + '\')">&#9654; Пусни</button>';
                 html += '<button class="group-btn" style="color:var(--accent2);border-color:var(--accent2)" onclick="searchFromEpisode(\'' + videoId + '\')">&#128269; Търси в епизода</button>';
+                html += '<a class="group-btn" href="/episode/' + videoId + '" style="color:var(--text-dim);border-color:var(--text-dim)">Пълен епизод &rarr;</a>';
                 html += '</div>';
 
                 // Formatted transcript
