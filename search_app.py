@@ -335,6 +335,17 @@ class SearchHandler(SimpleHTTPRequestHandler):
         elif parsed.path == "/api/topics":
             self._serve_json(build_topics())
 
+        elif parsed.path == "/robots.txt":
+            content = b"User-agent: *\nAllow: /\nSitemap: https://svetogled-arhiv.com/sitemap.xml\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+
+        elif parsed.path == "/sitemap.xml":
+            self._serve_sitemap()
+
         elif parsed.path.startswith("/meili/"):
             self._proxy_meili("GET")
 
@@ -379,6 +390,18 @@ class SearchHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(error)))
             self.end_headers()
             self.wfile.write(error)
+
+    def _serve_sitemap(self):
+        xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+        xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        xml += '  <url><loc>https://svetogled-arhiv.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n'
+        xml += '</urlset>\n'
+        body = xml.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/xml; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _serve_json(self, data):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")

@@ -43,14 +43,49 @@ CADDY
 systemctl enable caddy
 systemctl start caddy || true
 
+# Install and configure CloudWatch Agent for memory metrics
+dnf install -y amazon-cloudwatch-agent
+
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWA'
+{
+  "metrics": {
+    "namespace": "Svetogled",
+    "metrics_collected": {
+      "mem": {
+        "measurement": ["mem_used_percent", "mem_available_percent"],
+        "metrics_collection_interval": 60
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "resources": ["/"],
+        "metrics_collection_interval": 60
+      }
+    },
+    "append_dimensions": {
+      "InstanceId": "$${aws:InstanceId}"
+    }
+  }
+}
+CWA
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+  -s
+
+systemctl enable amazon-cloudwatch-agent
+
 # Clone the repo
 cd /opt
 git clone https://github.com/TsenkoTsenkov/svetogled-search.git
 cd svetogled-search
 
-# Install Meilisearch
-curl -L https://install.meilisearch.com | sh
-mv ./meilisearch /usr/local/bin/
+# Install Meilisearch (pinned version — latest requires glibc 2.35, AL2023 has 2.34)
+MEILI_VERSION="v1.6.2"
+curl -L -o /usr/local/bin/meilisearch \
+  "https://github.com/meilisearch/meilisearch/releases/download/$${MEILI_VERSION}/meilisearch-linux-aarch64"
+chmod +x /usr/local/bin/meilisearch
 
 # Install Python dependencies
 pip3 install meilisearch

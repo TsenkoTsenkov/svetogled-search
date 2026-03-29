@@ -75,6 +75,42 @@ resource "aws_security_group" "svetogled" {
   }
 }
 
+# --- IAM Role for CloudWatch Agent ---
+
+resource "aws_iam_role" "svetogled" {
+  name = "svetogled-ec2-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = {
+    Name = "svetogled-ec2-role"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.svetogled.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_managed" {
+  role       = aws_iam_role.svetogled.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "svetogled" {
+  name = "svetogled-ec2-profile"
+  role = aws_iam_role.svetogled.name
+}
+
 # --- SSH Key ---
 
 resource "aws_key_pair" "svetogled" {
@@ -89,6 +125,7 @@ resource "aws_instance" "svetogled" {
   instance_type          = var.instance_type
   key_name               = aws_key_pair.svetogled.key_name
   vpc_security_group_ids = [aws_security_group.svetogled.id]
+  iam_instance_profile   = aws_iam_instance_profile.svetogled.name
 
   root_block_device {
     volume_size = 30
@@ -146,6 +183,24 @@ resource "aws_cloudwatch_metric_alarm" "instance_down" {
   statistic           = "Maximum"
   threshold           = 0
   alarm_description   = "Svetogled EC2 instance is down"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.svetogled.id
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "high_memory" {
+  alarm_name          = "svetogled-high-memory"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "mem_used_percent"
+  namespace           = "Svetogled"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "Memory utilization above 85% on svetogled instance"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   ok_actions          = [aws_sns_topic.alerts.arn]
 
