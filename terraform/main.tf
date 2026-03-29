@@ -133,7 +133,8 @@ resource "aws_instance" "svetogled" {
   }
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    domain = var.domain
+    domain            = var.domain
+    deploy_public_key = var.deploy_public_key
   })
 
   tags = {

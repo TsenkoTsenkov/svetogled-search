@@ -76,6 +76,11 @@ CWA
 
 systemctl enable amazon-cloudwatch-agent
 
+# Add deploy key for GitHub Actions CI/CD
+%{ if deploy_public_key != "" }
+echo '${deploy_public_key}' >> /home/ec2-user/.ssh/authorized_keys
+%{ endif }
+
 # Clone the repo
 cd /opt
 git clone https://github.com/TsenkoTsenkov/svetogled-search.git
