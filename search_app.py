@@ -315,20 +315,28 @@ def _render_episode_page(data):
     snippets = data.get("snippets", [])
     yt_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # Build transcript paragraphs grouped every 10 segments
-    paragraphs = []
+    # Build transcript segments with timestamp data
+    segments_data = []
+    for s in snippets:
+        segments_data.append({
+            "text": s["text"],
+            "start": int(s["start"]),
+            "ts": _format_timestamp(s["start"]),
+        })
+
+    segments_json = json.dumps(segments_data, ensure_ascii=False)
+
+    # Build static HTML paragraphs for SEO (no JS needed for crawlers)
+    seo_paragraphs = []
     chunk = []
     for i, s in enumerate(snippets):
-        ts = _format_timestamp(s["start"])
-        ts_url = f"{yt_url}&t={int(s['start'])}"
-        chunk.append(f'<a href="{ts_url}" class="ts">[{ts}]</a> {_html_escape(s["text"])}')
-        if (i + 1) % 10 == 0:
-            paragraphs.append("<p>" + " ".join(chunk) + "</p>")
+        chunk.append(_html_escape(s["text"]))
+        if (i + 1) % 15 == 0:
+            seo_paragraphs.append("<p>" + " ".join(chunk) + "</p>")
             chunk = []
     if chunk:
-        paragraphs.append("<p>" + " ".join(chunk) + "</p>")
-
-    transcript_html = "\n".join(paragraphs)
+        seo_paragraphs.append("<p>" + " ".join(chunk) + "</p>")
+    seo_html = "\n".join(seo_paragraphs)
 
     # First 300 chars of text for meta description
     full_text = data.get("full_text", "")
@@ -390,6 +398,7 @@ def _render_episode_page(data):
             --accent2: #4ecdc4;
             --text: #e0e0e0;
             --text-dim: #888;
+            --text-dimmer: #555;
             --border: #2a2a2a;
         }}
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -444,31 +453,72 @@ def _render_episode_page(data):
             padding: 24px;
             border: 1px solid var(--border);
         }}
-        .transcript h2 {{
-            font-size: 16px;
+        .transcript-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 16px;
-            color: #fff;
+            flex-wrap: wrap;
+            gap: 10px;
         }}
-        .transcript p {{
+        .transcript-header h2 {{
+            font-size: 16px;
+            color: #fff;
+            margin: 0;
+        }}
+        .controls {{
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }}
+        .ctrl-btn {{
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--text-dim);
+            transition: all 0.2s;
+        }}
+        .ctrl-btn:hover {{ color: #fff; border-color: var(--text-dim); }}
+        .ctrl-btn.active {{ color: #fff; border-color: var(--accent); background: rgba(233,69,96,0.15); }}
+        .ctrl-select {{
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-dim);
+            cursor: pointer;
+        }}
+        .transcript-body {{
+            color: #ccc;
             font-size: 14.5px;
             line-height: 1.9;
-            margin-bottom: 14px;
-            color: #ccc;
         }}
+        .transcript-body p {{
+            margin-bottom: 14px;
+        }}
+        .transcript-body p:first-child {{ text-indent: 0; }}
         .ts {{
             color: var(--accent2);
             text-decoration: none;
             font-size: 11px;
             font-weight: 600;
             opacity: 0.4;
+            margin-right: 3px;
             transition: opacity 0.2s;
         }}
         .ts:hover {{ opacity: 1; text-decoration: underline; }}
+        .seo-fallback {{ display: none; }}
         @media (max-width: 600px) {{
             .container {{ padding: 14px; }}
             h1 {{ font-size: 18px; }}
             .transcript {{ padding: 16px; }}
-            .transcript p {{ font-size: 13.5px; }}
+            .transcript-body {{ font-size: 13.5px; }}
+            .transcript-header {{ flex-direction: column; align-items: flex-start; }}
         }}
     </style>
 </head>
@@ -485,10 +535,118 @@ def _render_episode_page(data):
             <iframe src="https://www.youtube.com/embed/{video_id}" allowfullscreen loading="lazy"></iframe>
         </div>
         <div class="transcript">
-            <h2>Пълна транскрипция</h2>
-            {transcript_html}
+            <div class="transcript-header">
+                <h2>Пълна транскрипция</h2>
+                <div class="controls">
+                    <button class="ctrl-btn active" onclick="setMode('clean', this)" title="Само текст">Четене</button>
+                    <button class="ctrl-btn" onclick="setMode('timestamps', this)" title="С времена">С времена</button>
+                    <label style="color:var(--text-dim);font-size:12px;display:flex;align-items:center;gap:4px">
+                        Абзац:
+                        <select class="ctrl-select" id="chunk-size" onchange="renderTranscript()">
+                            <option value="5">5 сегм.</option>
+                            <option value="10">10 сегм.</option>
+                            <option value="15" selected>15 сегм.</option>
+                            <option value="30">30 сегм.</option>
+                            <option value="60">1 мин.</option>
+                        </select>
+                    </label>
+                    <button class="ctrl-btn" onclick="exportText()" title="Копирай текста">Копирай</button>
+                    <button class="ctrl-btn" onclick="downloadText()" title="Свали като файл">Свали .txt</button>
+                </div>
+            </div>
+            <div class="transcript-body" id="transcript-body"></div>
+            <noscript><div class="transcript-body">{seo_html}</div></noscript>
+            <div class="seo-fallback">{seo_html}</div>
         </div>
     </div>
+    <script>
+    var segments = {segments_json};
+    var videoId = '{video_id}';
+    var ytUrl = '{yt_url}';
+    var mode = 'clean';
+    var episodeTitle = '{title}';
+
+    function setMode(m, btn) {{
+        mode = m;
+        document.querySelectorAll('.ctrl-btn').forEach(function(b) {{ b.classList.remove('active'); }});
+        btn.classList.add('active');
+        renderTranscript();
+    }}
+
+    function renderTranscript() {{
+        var body = document.getElementById('transcript-body');
+        var chunkSize = parseInt(document.getElementById('chunk-size').value);
+        var html = '';
+        var chunk = [];
+        var chunkStart = 0;
+
+        for (var i = 0; i < segments.length; i++) {{
+            var s = segments[i];
+            if (chunk.length === 0) chunkStart = s.start;
+
+            if (mode === 'timestamps') {{
+                var tsUrl = ytUrl + '&t=' + s.start;
+                chunk.push('<a href="' + tsUrl + '" class="ts">[' + s.ts + ']</a>' + escapeHtml(s.text));
+            }} else {{
+                chunk.push(escapeHtml(s.text));
+            }}
+
+            if (chunk.length >= chunkSize) {{
+                html += '<p>' + chunk.join(' ') + '</p>';
+                chunk = [];
+            }}
+        }}
+        if (chunk.length > 0) {{
+            html += '<p>' + chunk.join(' ') + '</p>';
+        }}
+        body.innerHTML = html;
+    }}
+
+    function getPlainText() {{
+        var chunkSize = parseInt(document.getElementById('chunk-size').value);
+        var lines = [];
+        var chunk = [];
+        for (var i = 0; i < segments.length; i++) {{
+            chunk.push(segments[i].text);
+            if (chunk.length >= chunkSize) {{
+                lines.push(chunk.join(' '));
+                chunk = [];
+            }}
+        }}
+        if (chunk.length > 0) lines.push(chunk.join(' '));
+        return episodeTitle + '\\n\\n' + lines.join('\\n\\n');
+    }}
+
+    function exportText() {{
+        var text = getPlainText();
+        navigator.clipboard.writeText(text).then(function() {{
+            var btn = event.target;
+            var orig = btn.textContent;
+            btn.textContent = 'Копирано!';
+            btn.style.borderColor = 'var(--accent2)';
+            btn.style.color = 'var(--accent2)';
+            setTimeout(function() {{ btn.textContent = orig; btn.style.borderColor = ''; btn.style.color = ''; }}, 1500);
+        }});
+    }}
+
+    function downloadText() {{
+        var text = getPlainText();
+        var blob = new Blob([text], {{ type: 'text/plain;charset=utf-8' }});
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = episodeTitle.replace(/[^\\wа-яА-Я\\s-]/g, '').trim() + '.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }}
+
+    function escapeHtml(t) {{
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(t));
+        return d.innerHTML;
+    }}
+
+    renderTranscript();
+    </script>
 </body>
 </html>"""
 
