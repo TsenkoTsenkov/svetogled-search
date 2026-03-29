@@ -295,6 +295,204 @@ def build_topics():
     ]
 
 
+def _html_escape(text):
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def _format_timestamp(seconds):
+    h = int(seconds) // 3600
+    m = (int(seconds) % 3600) // 60
+    s = int(seconds) % 60
+    if h > 0:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
+def _render_episode_page(data):
+    video_id = data["video_id"]
+    title = _html_escape(data["title"])
+    segment_count = data.get("segment_count", 0)
+    snippets = data.get("snippets", [])
+    yt_url = f"https://www.youtube.com/watch?v={video_id}"
+
+    # Build transcript paragraphs grouped every 10 segments
+    paragraphs = []
+    chunk = []
+    for i, s in enumerate(snippets):
+        ts = _format_timestamp(s["start"])
+        ts_url = f"{yt_url}&t={int(s['start'])}"
+        chunk.append(f'<a href="{ts_url}" class="ts">[{ts}]</a> {_html_escape(s["text"])}')
+        if (i + 1) % 10 == 0:
+            paragraphs.append("<p>" + " ".join(chunk) + "</p>")
+            chunk = []
+    if chunk:
+        paragraphs.append("<p>" + " ".join(chunk) + "</p>")
+
+    transcript_html = "\n".join(paragraphs)
+
+    # First 300 chars of text for meta description
+    full_text = data.get("full_text", "")
+    desc_text = full_text[:300].replace('"', "'").replace("\n", " ").strip()
+    if len(full_text) > 300:
+        desc_text += "..."
+
+    return f"""<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} — Светоглед с Георги Тодоров</title>
+    <meta name="description" content="{_html_escape(desc_text)}">
+    <link rel="canonical" href="https://svetogled-arhiv.com/episode/{video_id}">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://svetogled-arhiv.com/episode/{video_id}">
+    <meta property="og:title" content="{title} — Светоглед">
+    <meta property="og:description" content="{_html_escape(desc_text)}">
+    <meta property="og:locale" content="bg_BG">
+    <meta property="og:site_name" content="Светоглед Архив">
+    <meta property="og:image" content="https://img.youtube.com/vi/{video_id}/hqdefault.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{title}">
+    <meta name="twitter:image" content="https://img.youtube.com/vi/{video_id}/hqdefault.jpg">
+    <script type="application/ld+json">
+    {{
+        "@context": "https://schema.org",
+        "@type": "PodcastEpisode",
+        "name": "{title}",
+        "url": "https://svetogled-arhiv.com/episode/{video_id}",
+        "description": "{_html_escape(desc_text)}",
+        "associatedMedia": {{
+            "@type": "VideoObject",
+            "name": "{title}",
+            "embedUrl": "https://www.youtube.com/embed/{video_id}",
+            "thumbnailUrl": "https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+        }},
+        "partOfSeries": {{
+            "@type": "PodcastSeries",
+            "name": "Светоглед",
+            "author": {{
+                "@type": "Person",
+                "name": "Георги Тодоров"
+            }},
+            "publisher": {{
+                "@type": "RadioStation",
+                "name": "Радио Зорана"
+            }}
+        }},
+        "inLanguage": "bg"
+    }}
+    </script>
+    <style>
+        :root {{
+            --bg: #0f0f0f;
+            --bg-card: #1a1a1a;
+            --accent: #e94560;
+            --accent2: #4ecdc4;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --border: #2a2a2a;
+        }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        .back {{
+            display: inline-block;
+            color: var(--accent);
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }}
+        .back:hover {{ text-decoration: underline; }}
+        h1 {{
+            font-size: 22px;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }}
+        .meta {{
+            color: var(--text-dim);
+            font-size: 13px;
+            margin-bottom: 20px;
+        }}
+        .meta a {{ color: var(--accent); text-decoration: none; }}
+        .meta a:hover {{ text-decoration: underline; }}
+        .video-embed {{
+            position: relative;
+            padding-bottom: 56.25%;
+            margin-bottom: 24px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }}
+        .video-embed iframe {{
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: none;
+        }}
+        .transcript {{
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 24px;
+            border: 1px solid var(--border);
+        }}
+        .transcript h2 {{
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: #fff;
+        }}
+        .transcript p {{
+            font-size: 14.5px;
+            line-height: 1.9;
+            margin-bottom: 14px;
+            color: #ccc;
+        }}
+        .ts {{
+            color: var(--accent2);
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+        }}
+        .ts:hover {{ opacity: 1; text-decoration: underline; }}
+        @media (max-width: 600px) {{
+            .container {{ padding: 14px; }}
+            h1 {{ font-size: 18px; }}
+            .transcript {{ padding: 16px; }}
+            .transcript p {{ font-size: 13.5px; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back">&larr; Към търсенето</a>
+        <h1>{title}</h1>
+        <div class="meta">
+            Светоглед с Георги Тодоров по Радио Зорана &middot;
+            {segment_count} сегмента &middot;
+            <a href="{yt_url}" target="_blank">Гледай в YouTube &rarr;</a>
+        </div>
+        <div class="video-embed">
+            <iframe src="https://www.youtube.com/embed/{video_id}" allowfullscreen loading="lazy"></iframe>
+        </div>
+        <div class="transcript">
+            <h2>Пълна транскрипция</h2>
+            {transcript_html}
+        </div>
+    </div>
+</body>
+</html>"""
+
+
 class SearchHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -334,6 +532,23 @@ class SearchHandler(SimpleHTTPRequestHandler):
 
         elif parsed.path == "/api/topics":
             self._serve_json(build_topics())
+
+        elif parsed.path.startswith("/episode/"):
+            video_id = parsed.path[len("/episode/"):].strip("/")
+            if not video_id or not re.match(r'^[\w-]+$', video_id):
+                self.send_error(404)
+                return
+            fpath = TRANSCRIPTS_DIR / f"{video_id}.json"
+            if not fpath.exists():
+                self.send_error(404, "Episode not found")
+                return
+            data = json.loads(fpath.read_text(encoding="utf-8"))
+            content = _render_episode_page(data).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
 
         elif parsed.path == "/robots.txt":
             content = b"User-agent: *\nAllow: /\nSitemap: https://svetogled-arhiv.com/sitemap.xml\n"
@@ -395,6 +610,9 @@ class SearchHandler(SimpleHTTPRequestHandler):
         xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
         xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         xml += '  <url><loc>https://svetogled-arhiv.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n'
+        for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
+            vid = f.stem
+            xml += f'  <url><loc>https://svetogled-arhiv.com/episode/{vid}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>\n'
         xml += '</urlset>\n'
         body = xml.encode("utf-8")
         self.send_response(200)

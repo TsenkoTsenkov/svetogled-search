@@ -241,6 +241,14 @@ resource "aws_cloudwatch_metric_alarm" "health_check" {
   }
 }
 
+resource "aws_route53_record" "google_verification" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = var.domain
+  type    = "TXT"
+  ttl     = 300
+  records = ["google-site-verification=KW5BnT-pkZz33EPM8Hz9oNZ7xhMcr2KcAYeAL3xofr0"]
+}
+
 resource "aws_route53_record" "www" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = "www.${var.domain}"
