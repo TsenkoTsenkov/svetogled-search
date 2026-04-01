@@ -5,7 +5,7 @@ name: Weekly Transcript Update
 
 on:
   schedule:
-    - cron: '0 6 * * 0'  # Every Sunday 6:00 AM UTC
+    - cron: '0 6 * * 3'  # Every Wednesday 6:00 AM UTC
   workflow_dispatch:
 
 permissions:
@@ -38,12 +38,18 @@ jobs:
         if: steps.check.outputs.new_count > 0
         run: python scripts/fetch_new_transcripts.py
 
-      - name: Install Whisper for remaining videos
+      - name: Build Whisper CLI for remaining videos
         if: steps.check.outputs.new_count > 0
         run: |
-          curl -L https://github.com/ggerganov/whisper.cpp/releases/download/v1.8.4/whisper-cli-linux-x86_64.tar.gz | tar xz || true
-          chmod +x whisper-cli 2>/dev/null || true
-          curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" -o ggml-small.bin || true
+          # Build whisper.cpp from source (no prebuilt Linux binaries available)
+          git clone --depth 1 --branch v1.8.4 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper-cpp
+          cd /tmp/whisper-cpp
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j$(nproc)
+          cp build/bin/whisper-cli $GITHUB_WORKSPACE/whisper-cli
+          cd $GITHUB_WORKSPACE
+          chmod +x whisper-cli
+          curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" -o ggml-small.bin
 
       - name: Transcribe remaining with Whisper
         if: steps.check.outputs.new_count > 0
@@ -52,6 +58,10 @@ jobs:
       - name: Fix common transcription errors
         if: steps.check.outputs.new_count > 0
         run: python fix_transcriptions.py --skip-combined
+
+      - name: Normalize titles and add playlist order
+        if: steps.check.outputs.new_count > 0
+        run: python scripts/normalize_titles.py
 
       - name: Commit and push new transcripts
         if: steps.check.outputs.new_count > 0

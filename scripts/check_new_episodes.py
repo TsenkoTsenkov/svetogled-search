@@ -34,7 +34,13 @@ def main():
     videos = get_playlist_videos()
     existing = get_existing_ids()
 
-    new_videos = [v for v in videos if v["id"] not in existing and v["id"]]
+    new_videos = [
+        v for v in videos
+        if v["id"] not in existing
+        and v["id"]
+        and v["title"] != "[Private video]"
+        and v["title"] != "[Deleted video]"
+    ]
     print(f"Playlist: {len(videos)} videos")
     print(f"Existing transcripts: {len(existing)}")
     print(f"New episodes: {len(new_videos)}")
