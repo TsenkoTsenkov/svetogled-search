@@ -1152,10 +1152,14 @@ function renderEpisodes(filter) {
     }
 
     // Sort
+    var getEpNum = function(ep) {
+        var m = ep.title.match(/\(Беседа\s+(\d+)\)/);
+        return m ? parseInt(m[1], 10) : 9999;
+    };
     filtered.sort(function(a, b) {
         var cmp;
         if (epSortField === 'number') {
-            cmp = (a.playlist_order || 0) - (b.playlist_order || 0);
+            cmp = getEpNum(a) - getEpNum(b);
         } else {
             cmp = a.title.localeCompare(b.title, 'bg');
         }
