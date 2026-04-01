@@ -132,8 +132,16 @@
 
         .search-container {
             max-width: 860px;
-            margin: 24px auto 0;
-            padding: 0 20px;
+            margin: 0 auto;
+            padding: 16px 20px 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg);
+            transition: box-shadow 0.2s;
+        }
+        .search-container.scrolled {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
         .search-row {
             display: flex;
@@ -534,14 +542,25 @@
 
         .episodes-container {
             max-width: 860px;
-            margin: 24px auto;
+            margin: 0 auto;
             padding: 0 20px;
+        }
+        .episodes-sticky {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg);
+            padding: 16px 0 12px;
+            transition: box-shadow 0.2s;
+        }
+        .episodes-sticky.scrolled {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
         .episodes-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         .episodes-header h2 { color: #fff; font-size: 18px; }
         .episodes-count { color: var(--text-dim); font-size: 13px; }
@@ -727,6 +746,8 @@
 
             .episode-card { padding: 12px 14px; flex-direction: column; align-items: flex-start; gap: 6px; }
             .episodes-container { padding: 0 12px; }
+            .search-container { padding: 12px 12px 10px; }
+            .episodes-sticky { padding: 12px 0 10px; }
             .topics-container { padding: 0 12px; }
             .topic-chip { font-size: 12px; padding: 5px 10px; }
         }
@@ -859,6 +880,15 @@ filterSelect.addEventListener('change', function() {
     if (searchInput.value.trim()) doSearch();
 });
 exportBtn.addEventListener('click', exportResults);
+
+// Sticky search bar shadow on scroll
+window.addEventListener('scroll', function() {
+    var searchBar = document.querySelector('.search-container');
+    var epSticky = document.querySelector('.episodes-sticky');
+    var scrolled = window.scrollY > 10;
+    if (searchBar) searchBar.classList.toggle('scrolled', scrolled);
+    if (epSticky) epSticky.classList.toggle('scrolled', scrolled);
+}, { passive: true });
 
 function doSearch() {
     var query = searchInput.value.trim();
@@ -1094,15 +1124,18 @@ function renderEpisodes(filter) {
             return false;
         });
     }
-    var html = '<div class="episodes-header">' +
+    var html = '<div class="episodes-sticky">' +
+        '<div class="episodes-header">' +
         '<h2>Всички епизоди</h2>' +
         '<span class="episodes-count">' + filtered.length + ' от ' + episodesData.length + ' епизода</span></div>' +
         '<input type="text" id="episodes-search" placeholder="Търси по заглавие или номер на беседа..." ' +
         'value="' + (filter || '') + '" ' +
-        'style="width:100%;padding:10px 14px;margin-bottom:16px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none" ' +
-        'oninput="renderEpisodes(this.value)">';
+        'style="width:100%;padding:10px 14px;background:var(--bg-card);border:2px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none;transition:border-color 0.3s" ' +
+        'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
+        'oninput="renderEpisodes(this.value)">' +
+        '</div>';
 
-    filtered.forEach(function(ep, idx) {
+    filtered.forEach(function(ep) {
         var epId = 'ep-detail-' + idx;
         var playerId = 'ep-player-' + idx;
         html += '<div class="episode-card">' +
@@ -1115,6 +1148,14 @@ function renderEpisodes(filter) {
             '<div class="full-transcript" id="' + epId + '"></div>';
     });
     container.innerHTML = html;
+    // Restore focus to search input after re-render
+    if (filter !== undefined) {
+        var searchEl = document.getElementById('episodes-search');
+        if (searchEl) {
+            searchEl.focus();
+            searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length);
+        }
+    }
 }
 
 function toggleEpisodeDetail(videoId, containerId, playerId, card) {
