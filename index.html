@@ -97,9 +97,6 @@
             border-bottom: 2px solid var(--accent);
             padding: 20px 20px 16px;
             text-align: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
         }
         .header h1 { font-size: 22px; color: #fff; margin-bottom: 4px; }
         .header p { color: var(--text-dim); font-size: 13px; }
@@ -1136,8 +1133,8 @@ function renderEpisodes(filter) {
         '</div>';
 
     filtered.forEach(function(ep) {
-        var epId = 'ep-detail-' + idx;
-        var playerId = 'ep-player-' + idx;
+        var epId = 'ep-detail-' + ep.video_id;
+        var playerId = 'ep-player-' + ep.video_id;
         html += '<div class="episode-card">' +
             '<span class="episode-title" onclick="toggleEpisodeDetail(\'' + ep.video_id + '\', \'' + epId + '\', \'' + playerId + '\', this.parentElement)" style="cursor:pointer;flex:1">' + escapeHtml(ep.title) + '</span>' +
             '<div class="episode-meta">' +
