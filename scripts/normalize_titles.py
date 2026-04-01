@@ -121,6 +121,10 @@ def clean_title(title):
     if cleaned and cleaned[0].islower():
         cleaned = cleaned[0].upper() + cleaned[1:]
 
+    # If cleaning left nothing, return None to signal manual fix needed
+    if not cleaned:
+        return None
+
     return cleaned
 
 
@@ -139,6 +143,11 @@ def main():
         old_title = data["title"]
         ep_num = extract_episode_number(old_title)
         new_title = clean_title(old_title)
+
+        # If cleaning left nothing, keep original title
+        if new_title is None:
+            print(f"  WARNING: empty title after cleaning, keeping original: {old_title}")
+            continue
 
         # Only re-add episode number if the original title had one
         if ep_num is not None and not re.search(r'\(Беседа\s+\d+\)', new_title):
