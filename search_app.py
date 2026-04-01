@@ -684,8 +684,9 @@ class SearchHandler(SimpleHTTPRequestHandler):
                     "title": data["title"],
                     "source": data.get("source", ""),
                     "segment_count": data.get("segment_count", 0),
+                    "playlist_order": data.get("playlist_order", 9999),
                 })
-            episodes.sort(key=lambda x: x["title"])
+            episodes.sort(key=lambda x: x["playlist_order"])
             self._serve_json(episodes)
 
         elif parsed.path == "/api/topics":
