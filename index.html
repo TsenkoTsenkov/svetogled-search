@@ -561,6 +561,24 @@
         }
         .episodes-header h2 { color: #fff; font-size: 18px; }
         .episodes-count { color: var(--text-dim); font-size: 13px; }
+        .sort-controls {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .sort-btn {
+            padding: 5px 12px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .sort-btn:hover { border-color: var(--text-dim); color: var(--text); }
+        .sort-btn.active { border-color: var(--accent); color: var(--accent); }
         .episode-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -1104,32 +1122,64 @@ function buildParagraph(text, startSec, videoId, query) {
 }
 
 // ── Episodes page ──
+var epSortField = 'number'; // 'number' or 'alpha'
+var epSortDir = 'desc';     // 'asc' or 'desc'
+
+function setEpSort(field) {
+    if (epSortField === field) {
+        epSortDir = epSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        epSortField = field;
+        epSortDir = field === 'number' ? 'desc' : 'asc';
+    }
+    var searchEl = document.getElementById('episodes-search');
+    renderEpisodes(searchEl ? searchEl.value : undefined);
+}
+
 function renderEpisodes(filter) {
     if (!episodesData) return;
     var container = document.getElementById('episodes-list');
-    var filtered = episodesData;
+    var filtered = episodesData.slice(); // copy for sorting
     if (filter && filter.trim()) {
         var q = filter.trim().toLowerCase();
-        filtered = episodesData.filter(function(ep) {
-            // Search by title text
+        filtered = filtered.filter(function(ep) {
             if (ep.title.toLowerCase().indexOf(q) !== -1) return true;
-            // Search by episode number (e.g. "25" matches "Беседа 25")
             var numMatch = ep.title.match(/\(Беседа\s+(\d+)\)/);
             if (numMatch && numMatch[1] === q) return true;
-            // Also match playlist order
             if (String(ep.playlist_order) === q) return true;
             return false;
         });
     }
+
+    // Sort
+    filtered.sort(function(a, b) {
+        var cmp;
+        if (epSortField === 'number') {
+            cmp = (a.playlist_order || 0) - (b.playlist_order || 0);
+        } else {
+            cmp = a.title.localeCompare(b.title, 'bg');
+        }
+        return epSortDir === 'desc' ? -cmp : cmp;
+    });
+
+    var arrow = function(field) {
+        if (epSortField !== field) return '';
+        return epSortDir === 'asc' ? ' \u25B2' : ' \u25BC';
+    };
+
     var html = '<div class="episodes-sticky">' +
         '<div class="episodes-header">' +
         '<h2>Всички епизоди</h2>' +
         '<span class="episodes-count">' + filtered.length + ' от ' + episodesData.length + ' епизода</span></div>' +
         '<input type="text" id="episodes-search" placeholder="Търси по заглавие или номер на беседа..." ' +
-        'value="' + (filter || '') + '" ' +
+        'value="' + escapeHtml(filter || '') + '" ' +
         'style="width:100%;padding:10px 14px;background:var(--bg-card);border:2px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none;transition:border-color 0.3s" ' +
         'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
         'oninput="renderEpisodes(this.value)">' +
+        '<div class="sort-controls">' +
+        '<button class="sort-btn' + (epSortField === 'number' ? ' active' : '') + '" onclick="setEpSort(\'number\')">По номер' + arrow('number') + '</button>' +
+        '<button class="sort-btn' + (epSortField === 'alpha' ? ' active' : '') + '" onclick="setEpSort(\'alpha\')">По азбучен ред' + arrow('alpha') + '</button>' +
+        '</div>' +
         '</div>';
 
     filtered.forEach(function(ep) {
