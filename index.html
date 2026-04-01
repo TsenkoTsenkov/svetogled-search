@@ -1122,16 +1122,15 @@ function buildParagraph(text, startSec, videoId, query) {
 }
 
 // ── Episodes page ──
-var epSortField = 'number'; // 'number' or 'alpha'
+var epSortField = 'chrono'; // 'chrono' or 'alpha'
 var epSortDir = 'desc';     // 'asc' or 'desc'
-var EP_NO_NUM = 99999;
 
 function setEpSort(field) {
     if (epSortField === field) {
         epSortDir = epSortDir === 'asc' ? 'desc' : 'asc';
     } else {
         epSortField = field;
-        epSortDir = field === 'number' ? 'desc' : 'asc';
+        epSortDir = field === 'chrono' ? 'desc' : 'asc';
     }
     var searchEl = document.getElementById('episodes-search');
     renderEpisodes(searchEl ? searchEl.value : undefined);
@@ -1153,22 +1152,14 @@ function renderEpisodes(filter) {
     }
 
     // Sort
-    var getEpNum = function(ep) {
-        var m = ep.title.match(/\(Беседа\s+(\d+)\)/);
-        return m ? parseInt(m[1], 10) : EP_NO_NUM;
-    };
     filtered.sort(function(a, b) {
-        if (epSortField === 'number') {
-            var na = getEpNum(a), nb = getEpNum(b);
-            // Unnumbered episodes always go to the end
-            if (na === EP_NO_NUM && nb === EP_NO_NUM) return a.title.localeCompare(b.title, 'bg');
-            if (na === EP_NO_NUM) return 1;
-            if (nb === EP_NO_NUM) return -1;
-            return epSortDir === 'desc' ? nb - na : na - nb;
+        var cmp;
+        if (epSortField === 'chrono') {
+            cmp = (a.playlist_order || 0) - (b.playlist_order || 0);
         } else {
-            var cmp = a.title.localeCompare(b.title, 'bg');
-            return epSortDir === 'desc' ? -cmp : cmp;
+            cmp = a.title.localeCompare(b.title, 'bg');
         }
+        return epSortDir === 'desc' ? -cmp : cmp;
     });
 
     var arrow = function(field) {
@@ -1186,7 +1177,7 @@ function renderEpisodes(filter) {
         'onfocus="this.style.borderColor=\'var(--accent)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
         'oninput="renderEpisodes(this.value)">' +
         '<div class="sort-controls">' +
-        '<button class="sort-btn' + (epSortField === 'number' ? ' active' : '') + '" onclick="setEpSort(\'number\')">По номер' + arrow('number') + '</button>' +
+        '<button class="sort-btn' + (epSortField === 'chrono' ? ' active' : '') + '" onclick="setEpSort(\'chrono\')">Хронологично' + arrow('chrono') + '</button>' +
         '<button class="sort-btn' + (epSortField === 'alpha' ? ' active' : '') + '" onclick="setEpSort(\'alpha\')">По азбучен ред' + arrow('alpha') + '</button>' +
         '</div>' +
         '</div>';
