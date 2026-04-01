@@ -392,14 +392,15 @@ def _render_episode_page(data):
     </script>
     <style>
         :root {{
-            --bg: #0f0f0f;
-            --bg-card: #1a1a1a;
-            --accent: #e94560;
-            --accent2: #4ecdc4;
-            --text: #e0e0e0;
-            --text-dim: #888;
-            --text-dimmer: #555;
-            --border: #2a2a2a;
+            --bg: #0d0d0d;
+            --bg-card: #181820;
+            --accent: #f05672;
+            --accent2: #56d4c8;
+            --text: #ececec;
+            --text-dim: #9090a0;
+            --text-dimmer: #6a6a7a;
+            --border: #2a2a36;
+            --radius: 12px;
         }}
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
@@ -513,6 +514,58 @@ def _render_episode_page(data):
         }}
         .ts:hover {{ opacity: 1; text-decoration: underline; }}
         .seo-fallback {{ display: none; }}
+        .reader-overlay {{
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 1000;
+            background: var(--bg);
+            overflow-y: auto;
+            padding: 0;
+        }}
+        .reader-overlay.active {{ display: block; }}
+        .reader-toolbar {{
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }}
+        .reader-toolbar .ctrl-btn {{ font-size: 12px; padding: 4px 12px; }}
+        .reader-content {{
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 32px 24px 80px;
+            line-height: 2;
+        }}
+        .reader-content p {{ margin-bottom: 18px; }}
+        .font-size-label {{
+            color: var(--text-dim);
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .font-btn {{
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }}
+        .font-btn:hover {{ color: #fff; border-color: var(--text-dim); }}
         @media (max-width: 600px) {{
             .container {{ padding: 14px; }}
             h1 {{ font-size: 18px; }}
@@ -552,12 +605,30 @@ def _render_episode_page(data):
                     </label>
                     <button class="ctrl-btn" onclick="exportText()" title="Копирай текста">Копирай</button>
                     <button class="ctrl-btn" onclick="downloadText()" title="Свали като файл">Свали .txt</button>
+                    <button class="ctrl-btn" onclick="openReader()" title="Четене на цял екран" style="margin-left:auto">&#9634; Цял екран</button>
                 </div>
             </div>
             <div class="transcript-body" id="transcript-body"></div>
             <noscript><div class="transcript-body">{seo_html}</div></noscript>
             <div class="seo-fallback">{seo_html}</div>
         </div>
+    </div>
+    <div class="reader-overlay" id="reader-overlay">
+        <div class="reader-toolbar">
+            <button class="ctrl-btn" onclick="closeReader()">&larr; Назад</button>
+            <span style="color:var(--text-dim);font-size:13px;flex:1;text-align:center">{title}</span>
+            <div class="font-size-label">
+                <button class="font-btn" onclick="changeFontSize(-1)" title="По-малък шрифт">A-</button>
+                <span id="font-size-display">16</span>px
+                <button class="font-btn" onclick="changeFontSize(1)" title="По-голям шрифт">A+</button>
+            </div>
+            <select class="ctrl-select" onchange="changeFontFamily(this.value)" style="margin-left:6px">
+                <option value="sans">Sans-serif</option>
+                <option value="serif">Serif</option>
+                <option value="mono">Monospace</option>
+            </select>
+        </div>
+        <div class="reader-content" id="reader-content"></div>
     </div>
     <script>
     var segments = {segments_json};
@@ -644,6 +715,63 @@ def _render_episode_page(data):
         d.appendChild(document.createTextNode(t));
         return d.innerHTML;
     }}
+
+    var readerFontSize = 16;
+    var readerFontFamily = 'sans';
+    var fontFamilies = {{
+        sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        serif: 'Georgia, "Times New Roman", serif',
+        mono: '"SF Mono", Menlo, Consolas, monospace'
+    }};
+
+    function openReader() {{
+        var overlay = document.getElementById('reader-overlay');
+        var content = document.getElementById('reader-content');
+        content.innerHTML = document.getElementById('transcript-body').innerHTML;
+        content.style.fontSize = readerFontSize + 'px';
+        content.style.fontFamily = fontFamilies[readerFontFamily];
+        overlay.classList.add('active');
+        overlay.scrollTop = 0;
+        document.body.style.overflow = 'hidden';
+        // Scroll to first highlighted term if any
+        setTimeout(function() {{
+            var firstHit = content.querySelector('.highlight-term, mark, em');
+            if (firstHit) {{
+                firstHit.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+            }}
+        }}, 50);
+    }}
+
+    function closeReader() {{
+        document.getElementById('reader-overlay').classList.remove('active');
+        document.body.style.overflow = '';
+    }}
+
+    function changeFontSize(delta) {{
+        readerFontSize = Math.max(12, Math.min(28, readerFontSize + delta));
+        document.getElementById('reader-content').style.fontSize = readerFontSize + 'px';
+        document.getElementById('font-size-display').textContent = readerFontSize;
+    }}
+
+    function changeFontFamily(val) {{
+        readerFontFamily = val;
+        document.getElementById('reader-content').style.fontFamily = fontFamilies[val];
+    }}
+
+    document.addEventListener('keydown', function(e) {{
+        var overlay = document.getElementById('reader-overlay');
+        if (!overlay.classList.contains('active')) return;
+        if (e.key === 'Escape') {{
+            e.preventDefault();
+            closeReader();
+        }}
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {{
+            e.preventDefault();
+            overlay.scrollBy({{ top: e.key === 'ArrowDown' ? 150 : -150, behavior: 'smooth' }});
+        }}
+        if (e.key === '+' || e.key === '=') {{ changeFontSize(1); }}
+        if (e.key === '-') {{ changeFontSize(-1); }}
+    }});
 
     renderTranscript();
     </script>
