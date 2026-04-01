@@ -140,11 +140,9 @@ def main():
         ep_num = extract_episode_number(old_title)
         new_title = clean_title(old_title)
 
-        # Add episode number in canonical format
-        # Use the original Беседа number if present, otherwise use playlist order
-        display_num = ep_num if ep_num is not None else playlist_order.get(vid)
-        if display_num is not None and not re.search(r'\(Беседа\s+\d+\)', new_title):
-            new_title = f"{new_title} (Беседа {display_num})"
+        # Only re-add episode number if the original title had one
+        if ep_num is not None and not re.search(r'\(Беседа\s+\d+\)', new_title):
+            new_title = f"{new_title} (Беседа {ep_num})"
 
         # Add playlist_order for chronological sorting
         needs_write = False
