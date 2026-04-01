@@ -2137,20 +2137,21 @@ document.addEventListener('keydown', function(e) {
         var item = items[navSelectedIdx];
         if (!item) return;
 
+        var savedIdx = navSelectedIdx;
+
         var activePage = document.querySelector('.page.active');
         if (activePage && activePage.id === 'page-search') {
-            // Click the dismiss button
+            keyboardTriggeredClick = true;
             var dismissBtn = item.querySelector('.group-btn-dismiss');
             if (dismissBtn) dismissBtn.click();
+            setTimeout(function() { keyboardTriggeredClick = false; }, 0);
         } else if (activePage && activePage.id === 'page-episodes') {
-            // Just hide the card visually
             item.style.display = 'none';
         }
 
         // Select next available item
         setTimeout(function() {
             var newItems = getNavigableItems();
-            // Filter visible items
             var visible = [];
             newItems.forEach(function(el, i) {
                 if (el.offsetParent !== null && el.style.display !== 'none') visible.push(i);
@@ -2159,11 +2160,11 @@ document.addEventListener('keydown', function(e) {
                 navSelectedIdx = -1;
                 clearNavSelection();
             } else {
-                var nextIdx = visible.find(function(i) { return i >= navSelectedIdx; });
+                var nextIdx = visible.find(function(i) { return i >= savedIdx; });
                 if (nextIdx === undefined) nextIdx = visible[visible.length - 1];
                 selectItem(nextIdx);
             }
-        }, 450); // wait for hide animation
+        }, 450);
         return;
     }
 });
