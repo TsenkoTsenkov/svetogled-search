@@ -20,25 +20,38 @@ PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLvX0cuPYCospMRKzBKtS5xYPF
 
 
 def get_playlist_order():
-    """Get playlist order. Playlist is reverse chronological (index 1 = newest)."""
+    """Get playlist order. Playlist is reverse chronological (index 1 = newest).
+
+    Deduplicates entries and skips private/deleted videos to get
+    accurate chronological positions.
+    """
     result = subprocess.run(
         [
             "yt-dlp", "--flat-playlist",
-            "--print", "%(playlist_index)s\t%(id)s",
+            "--print", "%(playlist_index)s\t%(id)s\t%(title)s",
             PLAYLIST_URL,
         ],
         capture_output=True, text=True, timeout=120,
     )
+    # Collect unique video IDs in playlist order (newest first)
+    seen = set()
+    ordered_vids = []
+    for line in result.stdout.strip().split("\n"):
+        parts = line.split("\t", 2)
+        if len(parts) >= 2:
+            vid = parts[1]
+            title = parts[2] if len(parts) == 3 else ""
+            # Skip private/deleted videos and duplicates
+            if vid in seen or title in ("[Private video]", "[Deleted video]"):
+                continue
+            seen.add(vid)
+            ordered_vids.append(vid)
+
+    # Reverse to get chronological order (oldest = 1)
+    ordered_vids.reverse()
     order = {}
-    lines = result.stdout.strip().split("\n")
-    max_idx = len(lines)
-    for line in lines:
-        parts = line.split("\t", 1)
-        if len(parts) == 2:
-            idx, vid = parts
-            if vid not in order:
-                # Convert to chronological: oldest = 1
-                order[vid] = max_idx - int(idx) + 1
+    for i, vid in enumerate(ordered_vids, 1):
+        order[vid] = i
     return order
 
 
