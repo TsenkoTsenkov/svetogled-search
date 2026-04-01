@@ -864,7 +864,11 @@ fetch('/api/episodes')
         episodes.forEach(function(ep) {
             var opt = document.createElement('option');
             opt.value = ep.video_id;
-            opt.textContent = ep.title.length > 60 ? ep.title.substring(0, 57) + '...' : ep.title;
+            var label = ep.title;
+            if (!/\(Беседа\s+\d+\)/.test(label) && ep.playlist_order) {
+                label += ' (Беседа ' + ep.playlist_order + ')';
+            }
+            opt.textContent = label.length > 60 ? label.substring(0, 57) + '...' : label;
             filterSelect.appendChild(opt);
         });
     });
@@ -1185,8 +1189,13 @@ function renderEpisodes(filter) {
     filtered.forEach(function(ep) {
         var epId = 'ep-detail-' + ep.video_id;
         var playerId = 'ep-player-' + ep.video_id;
+        var displayTitle = ep.title;
+        // If title doesn't already have a Беседа number, show playlist_order
+        if (!/\(Беседа\s+\d+\)/.test(displayTitle) && ep.playlist_order) {
+            displayTitle += ' (Беседа ' + ep.playlist_order + ')';
+        }
         html += '<div class="episode-card">' +
-            '<span class="episode-title" onclick="toggleEpisodeDetail(\'' + ep.video_id + '\', \'' + epId + '\', \'' + playerId + '\', this.parentElement)" style="cursor:pointer;flex:1">' + escapeHtml(ep.title) + '</span>' +
+            '<span class="episode-title" onclick="toggleEpisodeDetail(\'' + ep.video_id + '\', \'' + epId + '\', \'' + playerId + '\', this.parentElement)" style="cursor:pointer;flex:1">' + escapeHtml(displayTitle) + '</span>' +
             '<div class="episode-meta">' +
             '<span class="episode-segments">' + ep.segment_count + ' сегм.</span>' +
             '<a href="/episode/' + ep.video_id + '" class="group-btn" style="font-size:11px;padding:2px 8px;color:var(--accent);border-color:var(--accent)" onclick="event.stopPropagation()">Отвори</a>' +
