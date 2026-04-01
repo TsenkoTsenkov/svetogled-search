@@ -865,8 +865,8 @@ fetch('/api/episodes')
             var opt = document.createElement('option');
             opt.value = ep.video_id;
             var label = ep.title;
-            if (!/\(Беседа\s+\d+\)/.test(label) && ep.playlist_order) {
-                label += ' (Беседа ' + ep.playlist_order + ')';
+            if (!/\(Беседа\s+\d+\)/.test(label) && ep.episode_number) {
+                label += ' (Беседа ' + ep.episode_number + ')';
             }
             opt.textContent = label.length > 60 ? label.substring(0, 57) + '...' : label;
             filterSelect.appendChild(opt);
@@ -1150,7 +1150,7 @@ function renderEpisodes(filter) {
             if (ep.title.toLowerCase().indexOf(q) !== -1) return true;
             var numMatch = ep.title.match(/\(Беседа\s+(\d+)\)/);
             if (numMatch && numMatch[1] === q) return true;
-            if (String(ep.playlist_order) === q) return true;
+            if (ep.episode_number && String(ep.episode_number) === q) return true;
             return false;
         });
     }
@@ -1159,7 +1159,7 @@ function renderEpisodes(filter) {
     filtered.sort(function(a, b) {
         var cmp;
         if (epSortField === 'chrono') {
-            cmp = (a.playlist_order || 0) - (b.playlist_order || 0);
+            cmp = (a.episode_number || 0) - (b.episode_number || 0);
         } else {
             cmp = a.title.localeCompare(b.title, 'bg');
         }
@@ -1190,9 +1190,9 @@ function renderEpisodes(filter) {
         var epId = 'ep-detail-' + ep.video_id;
         var playerId = 'ep-player-' + ep.video_id;
         var displayTitle = ep.title;
-        // If title doesn't already have a Беседа number, show playlist_order
-        if (!/\(Беседа\s+\d+\)/.test(displayTitle) && ep.playlist_order) {
-            displayTitle += ' (Беседа ' + ep.playlist_order + ')';
+        // If title doesn't already have a Беседа number, show episode_number
+        if (!/\(Беседа\s+\d+\)/.test(displayTitle) && ep.episode_number) {
+            displayTitle += ' (Беседа ' + ep.episode_number + ')';
         }
         html += '<div class="episode-card">' +
             '<span class="episode-title" onclick="toggleEpisodeDetail(\'' + ep.video_id + '\', \'' + epId + '\', \'' + playerId + '\', this.parentElement)" style="cursor:pointer;flex:1">' + escapeHtml(displayTitle) + '</span>' +
