@@ -707,6 +707,8 @@
         .group-btn-expand.open .arrow { transform: rotate(180deg); }
         .group-btn-episode { color: var(--text-dim); }
         .group-btn-episode:hover { color: #fff; border-color: rgba(200, 153, 76, 0.25); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+        .group-btn-fullscreen { color: var(--gold); border-color: rgba(200, 153, 76, 0.2); }
+        .group-btn-fullscreen:hover { background: rgba(200, 153, 76, 0.1); color: var(--gold); border-color: rgba(200, 153, 76, 0.35); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .group-btn-dismiss { color: var(--text-dimmer); }
         .group-btn-dismiss:hover { color: var(--accent); border-color: rgba(200, 153, 76, 0.25); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
 
@@ -1167,7 +1169,11 @@
         .site-footer a:hover { color: var(--gold); }
 
 
+        .desktop-only { display: block; }
+        .mobile-only { display: none; }
         @media (max-width: 600px) {
+            .desktop-only { display: none !important; }
+            .mobile-only { display: block !important; }
             .header { padding: 14px 12px 12px; }
             .header h1 { font-size: 18px; }
             .header p { font-size: 12px; }
@@ -1302,6 +1308,7 @@ let episodesData = null;
 let topicsData = null;
 let exactMode = false;
 var scrollObserver = null;
+var searchGeneration = 0;
 
 function buildGroupHtml(group, videoId, groupIdx, delay) {
     var tid = 'transcript-' + groupIdx;
@@ -1311,7 +1318,7 @@ function buildGroupHtml(group, videoId, groupIdx, delay) {
     var hasMore = group.segments.length > maxVisible;
 
     var html = '<div class="video-group" data-video-id="' + videoId + '" data-transcript-id="' + tid + '" style="animation-delay: ' + delay + 's">';
-    html += '<div class="video-group-header">';
+    html += '<div class="video-group-header" style="cursor:pointer" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this.closest(\'.video-group\').querySelector(\'.group-btn-expand\'))">';
     html += '<span class="video-group-title">' + escapeHtml(group.title) + '</span>';
     html += '<span class="video-group-badge">' + group.segments.length + ' съвпадения</span>';
     html += '</div>';
@@ -1320,6 +1327,7 @@ function buildGroupHtml(group, videoId, groupIdx, delay) {
     html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
     html += '<a class="group-btn group-btn-episode" href="/episode/' + videoId + '">Епизод &rarr;</a>';
     html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
+    html += '<button class="group-btn group-btn-fullscreen" onclick="openGroupFullscreen(\'' + videoId + '\', \'' + tid + '\', this)" title="Цял екран">&#9634; Цял екран</button>';
     html += '<button class="group-btn group-btn-dismiss" onclick="hideGroup(\'' + videoId + '\', \'' + escapeAttr(group.title) + '\', this)">&#10005; Скрий</button>';
     html += '</div>';
 
@@ -1393,7 +1401,7 @@ function showEmptyState() {
     var maxEpNum = recent[0] ? (recent[0].episode_number || episodesData.length) : episodesData.length;
 
     var html = '<div class="empty-state">';
-    html += '<p class="empty-hint">Натиснете <kbd>/</kbd> за бърз достъп до търсенето &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd> за навигация между епизодите</p>';
+    html += '<p class="empty-hint desktop-only"><kbd>/</kbd> търсене &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd> навигация &middot; <kbd>Enter</kbd> пълен текст &middot; <kbd>Esc</kbd> затвори &middot; <kbd>Backspace</kbd> скрий &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> менюта</p>';
     html += '<h3>Последни епизоди от общо ' + maxEpNum + '</h3>';
     recent.forEach(function(ep, idx) {
         var displayTitle = ep.title;
@@ -1403,7 +1411,7 @@ function showEmptyState() {
         var delay = idx * 0.06;
         var tid = 'recent-transcript-' + idx;
         html += '<div class="video-group" data-video-id="' + ep.video_id + '" data-transcript-id="' + tid + '" style="animation-delay:' + delay + 's">';
-        html += '<div class="video-group-header">';
+        html += '<div class="video-group-header" style="cursor:pointer" onclick="toggleTranscript(\'' + ep.video_id + '\', \'' + tid + '\', this.closest(\'.video-group\').querySelector(\'.group-btn-expand\'))">';
         html += '<span class="video-group-title">' + escapeHtml(displayTitle) + '</span>';
         html += '<span class="episode-segments">' + ep.segment_count + ' сегм.</span>';
         html += '</div>';
@@ -1411,6 +1419,7 @@ function showEmptyState() {
         html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + ep.video_id + '" target="_blank">&#9654; YouTube</a>';
         html += '<a class="group-btn group-btn-episode" href="/episode/' + ep.video_id + '">Епизод &rarr;</a>';
         html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + ep.video_id + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
+        html += '<button class="group-btn group-btn-fullscreen" onclick="openGroupFullscreen(\'' + ep.video_id + '\', \'' + tid + '\', this)" title="Цял екран">&#9634; Цял екран</button>';
         html += '<button class="group-btn group-btn-dismiss" onclick="this.closest(\'.video-group\').style.display=\'none\'">&#10005; Скрий</button>';
         html += '</div>';
         html += '<div class="full-transcript" id="' + tid + '"></div>';
@@ -1481,6 +1490,7 @@ function doSearch() {
     }
 
     currentQuery = query;
+    var thisGeneration = ++searchGeneration;
     spinner.classList.add('active');
     hiddenGroups = {};
     updateHiddenBar();
@@ -1520,7 +1530,7 @@ function doSearch() {
 
     function fetchAllPages() {
         return fetchPage(0).then(function(data) {
-            if (query !== currentQuery) return;
+            if (thisGeneration !== searchGeneration) return;
 
             totalEstimate = data.estimatedTotalHits || data.hits.length;
             searchTime = data.processingTimeMs;
@@ -1529,9 +1539,9 @@ function doSearch() {
             // Sequentially fetch remaining pages
             function fetchNext(offset) {
                 if (offset >= totalEstimate || offset >= 10000) return Promise.resolve();
-                if (query !== currentQuery) return Promise.resolve();
+                if (thisGeneration !== searchGeneration) return Promise.resolve();
                 return fetchPage(offset).then(function(page) {
-                    if (query !== currentQuery) return;
+                    if (thisGeneration !== searchGeneration) return;
                     if (page.hits.length === 0) return;
                     allHits = allHits.concat(page.hits);
                     if (page.hits.length < PAGE_SIZE) return;
@@ -1547,7 +1557,7 @@ function doSearch() {
 
     fetchAllPages()
     .then(function() {
-        if (query !== currentQuery) return;
+        if (thisGeneration !== searchGeneration) return;
         spinner.classList.remove('active');
 
         statsDiv.textContent = totalEstimate + ' резултата за \u201E' + query + '\u201C (' + searchTime + 'ms)';
@@ -2309,6 +2319,44 @@ function goFullscreen(container) {
     var hint = document.getElementById('fullscreen-hint');
     hint.classList.add('visible');
     setTimeout(function() { hint.classList.remove('visible'); }, 3000);
+}
+
+function openGroupFullscreen(videoId, containerId, btn) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+
+    // Load transcript if not already loaded, then go fullscreen
+    if (container.dataset.loaded) {
+        container.style.display = 'block';
+        container.style.maxHeight = 'none';
+        container.style.opacity = '1';
+        goFullscreen(container);
+        container.style.display = '';
+        container.style.maxHeight = '';
+        container.style.opacity = '';
+    } else {
+        var promise;
+        if (transcriptCache[videoId]) {
+            promise = Promise.resolve(transcriptCache[videoId]);
+        } else {
+            promise = fetch('/api/transcript?id=' + videoId)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    transcriptCache[videoId] = data;
+                    return data;
+                });
+        }
+        promise.then(function(data) {
+            var formatted = formatTranscript(data, videoId);
+            var html = '<div class="ft-header">' +
+                '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
+                '<span class="ft-meta">' + (data.segment_count || '') + ' сегмента</span>' +
+                '</div><div class="ft-body">' + formatted + '</div>';
+            container.innerHTML = html;
+            container.dataset.loaded = 'true';
+            goFullscreen(container);
+        });
+    }
 }
 
 function exitFullscreen() {
