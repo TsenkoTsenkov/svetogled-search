@@ -1080,7 +1080,27 @@ class SearchHandler(SimpleHTTPRequestHandler):
         pass
 
 
+def _update_meili_pagination():
+    """Ensure Meilisearch allows enough results for full episode coverage."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "http://127.0.0.1:7700/indexes/segments/settings/pagination",
+            data=json.dumps({"maxTotalHits": 20000}).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer svetogled-search-key",
+            },
+            method="PATCH",
+        )
+        urllib.request.urlopen(req, timeout=5)
+        print("Meilisearch pagination maxTotalHits set to 20000")
+    except Exception as e:
+        print(f"Note: Could not update Meilisearch pagination: {e}")
+
+
 if __name__ == "__main__":
+    _update_meili_pagination()
     server = HTTPServer(("0.0.0.0", PORT), SearchHandler)
     print(f"Светоглед Search running at http://localhost:{PORT}")
     print("Press Ctrl+C to stop")

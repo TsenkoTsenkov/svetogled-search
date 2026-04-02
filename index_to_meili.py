@@ -105,6 +105,9 @@ def main():
             "video_id", "title", "text", "timestamp",
             "start_seconds", "youtube_url", "source"
         ],
+        "pagination": {
+            "maxTotalHits": 20000
+        },
     })
 
     print("Building documents from transcripts...")

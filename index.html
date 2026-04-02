@@ -1488,9 +1488,8 @@ function doSearch() {
 
     var videoFilter = filterSelect.value;
     var searchQuery = exactMode ? '"' + query + '"' : query;
-    var searchBody = {
+    var baseBody = {
         q: searchQuery,
-        limit: 1000,
         attributesToHighlight: ['text'],
         highlightPreTag: '<em>',
         highlightPostTag: '</em>',
@@ -1498,35 +1497,65 @@ function doSearch() {
         cropLength: 80
     };
     if (videoFilter) {
-        searchBody.filter = 'video_id = "' + videoFilter + '"';
+        baseBody.filter = 'video_id = "' + videoFilter + '"';
     }
 
-    fetch(MEILI_URL + '/indexes/' + INDEX + '/search', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + MEILI_KEY
-        },
-        body: JSON.stringify(searchBody)
-    })
-    .then(function(r) { return r.json(); })
+    // Fetch all results by paginating through offset/limit
+    var PAGE_SIZE = 1000;
+    var allHits = [];
+    var totalEstimate = 0;
+    var searchTime = 0;
+
+    function fetchPage(offset) {
+        var body = Object.assign({}, baseBody, { limit: PAGE_SIZE, offset: offset });
+        return fetch(MEILI_URL + '/indexes/' + INDEX + '/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + MEILI_KEY
+            },
+            body: JSON.stringify(body)
+        }).then(function(r) { return r.json(); });
+    }
+
+    fetchPage(0)
     .then(function(data) {
+        if (query !== currentQuery) return;
+
+        totalEstimate = data.estimatedTotalHits || data.hits.length;
+        searchTime = data.processingTimeMs;
+        allHits = data.hits;
+
+        // If there are more hits, fetch remaining pages in parallel
+        if (allHits.length < totalEstimate && allHits.length === PAGE_SIZE) {
+            var pages = [];
+            for (var off = PAGE_SIZE; off < Math.min(totalEstimate, 10000); off += PAGE_SIZE) {
+                pages.push(fetchPage(off));
+            }
+            return Promise.all(pages).then(function(results) {
+                results.forEach(function(page) {
+                    if (query !== currentQuery) return;
+                    allHits = allHits.concat(page.hits);
+                });
+            });
+        }
+    })
+    .then(function() {
         if (query !== currentQuery) return;
         spinner.classList.remove('active');
 
-        var totalHits = data.estimatedTotalHits || data.hits.length;
-        statsDiv.textContent = totalHits + ' резултата за \u201E' + query + '\u201C (' + data.processingTimeMs + 'ms)';
+        statsDiv.textContent = totalEstimate + ' резултата за \u201E' + query + '\u201C (' + searchTime + 'ms)';
 
-        lastResults = data.hits;
+        lastResults = allHits;
 
-        if (data.hits.length === 0) {
+        if (allHits.length === 0) {
             resultsDiv.innerHTML = '<div class="no-results">Няма намерени резултати</div>';
             return;
         }
 
         // Group by video
         var groups = new Map();
-        data.hits.forEach(function(hit) {
+        allHits.forEach(function(hit) {
             if (!groups.has(hit.video_id)) {
                 groups.set(hit.video_id, {
                     video_id: hit.video_id,
@@ -1545,6 +1574,9 @@ function doSearch() {
             if (group.segments.length === 0) return;
             allGroups.push({ videoId: videoId, group: group });
         });
+
+        // Update stats with episode count
+        statsDiv.textContent = totalEstimate + ' резултата в ' + allGroups.length + ' епизода за \u201E' + query + '\u201C (' + searchTime + 'ms)';
 
         // Render first batch immediately, rest on scroll
         var BATCH_SIZE = 20;
