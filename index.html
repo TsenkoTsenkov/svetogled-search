@@ -1500,16 +1500,6 @@ function doSearch() {
         baseBody.filter = 'video_id = "' + videoFilter + '"';
     }
 
-    // Ensure Meilisearch allows enough results (runs once)
-    if (!window._meiliPaginationSet) {
-        window._meiliPaginationSet = true;
-        fetch(MEILI_URL + '/indexes/' + INDEX + '/settings/pagination', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + MEILI_KEY },
-            body: JSON.stringify({ maxTotalHits: 20000 })
-        }).catch(function() {});
-    }
-
     // Fetch all results by paginating through offset/limit
     var PAGE_SIZE = 1000;
     var allHits = [];
@@ -1528,28 +1518,34 @@ function doSearch() {
         }).then(function(r) { return r.json(); });
     }
 
-    fetchPage(0)
-    .then(function(data) {
-        if (query !== currentQuery) return;
+    function fetchAllPages() {
+        return fetchPage(0).then(function(data) {
+            if (query !== currentQuery) return;
 
-        totalEstimate = data.estimatedTotalHits || data.hits.length;
-        searchTime = data.processingTimeMs;
-        allHits = data.hits;
+            totalEstimate = data.estimatedTotalHits || data.hits.length;
+            searchTime = data.processingTimeMs;
+            allHits = data.hits;
 
-        // If there are more hits, fetch remaining pages in parallel
-        if (allHits.length < totalEstimate && allHits.length === PAGE_SIZE) {
-            var pages = [];
-            for (var off = PAGE_SIZE; off < Math.min(totalEstimate, 10000); off += PAGE_SIZE) {
-                pages.push(fetchPage(off));
-            }
-            return Promise.all(pages).then(function(results) {
-                results.forEach(function(page) {
+            // Sequentially fetch remaining pages
+            function fetchNext(offset) {
+                if (offset >= totalEstimate || offset >= 10000) return Promise.resolve();
+                if (query !== currentQuery) return Promise.resolve();
+                return fetchPage(offset).then(function(page) {
                     if (query !== currentQuery) return;
+                    if (page.hits.length === 0) return;
                     allHits = allHits.concat(page.hits);
+                    if (page.hits.length < PAGE_SIZE) return;
+                    return fetchNext(offset + PAGE_SIZE);
                 });
-            });
-        }
-    })
+            }
+
+            if (allHits.length >= PAGE_SIZE) {
+                return fetchNext(PAGE_SIZE);
+            }
+        });
+    }
+
+    fetchAllPages()
     .then(function() {
         if (query !== currentQuery) return;
         spinner.classList.remove('active');
