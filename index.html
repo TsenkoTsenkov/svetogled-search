@@ -1500,6 +1500,16 @@ function doSearch() {
         baseBody.filter = 'video_id = "' + videoFilter + '"';
     }
 
+    // Ensure Meilisearch allows enough results (runs once)
+    if (!window._meiliPaginationSet) {
+        window._meiliPaginationSet = true;
+        fetch(MEILI_URL + '/indexes/' + INDEX + '/settings/pagination', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + MEILI_KEY },
+            body: JSON.stringify({ maxTotalHits: 20000 })
+        }).catch(function() {});
+    }
+
     // Fetch all results by paginating through offset/limit
     var PAGE_SIZE = 1000;
     var allHits = [];
