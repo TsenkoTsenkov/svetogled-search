@@ -413,6 +413,9 @@ def _render_episode_page(data):
             color: var(--text);
             min-height: 100vh;
         }}
+        @media (min-width: 1024px) {{
+            html {{ zoom: 1.3; }}
+        }}
         .sacred-bg {{
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;

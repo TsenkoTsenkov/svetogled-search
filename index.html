@@ -115,6 +115,9 @@
             color: var(--text);
             min-height: 100vh;
         }
+        @media (min-width: 1024px) {
+            html { zoom: 1.3; }
+        }
         /* Sacred background: Christ Pantocrator centered, St George on left */
         .sacred-bg {
             position: fixed;
@@ -1298,6 +1301,52 @@ const transcriptCache = {};
 let episodesData = null;
 let topicsData = null;
 let exactMode = false;
+var scrollObserver = null;
+
+function buildGroupHtml(group, videoId, groupIdx, delay) {
+    var tid = 'transcript-' + groupIdx;
+    var playerId = 'player-' + groupIdx;
+    var segListId = 'seglist-' + groupIdx;
+    var maxVisible = 3;
+    var hasMore = group.segments.length > maxVisible;
+
+    var html = '<div class="video-group" data-video-id="' + videoId + '" data-transcript-id="' + tid + '" style="animation-delay: ' + delay + 's">';
+    html += '<div class="video-group-header">';
+    html += '<span class="video-group-title">' + escapeHtml(group.title) + '</span>';
+    html += '<span class="video-group-badge">' + group.segments.length + ' съвпадения</span>';
+    html += '</div>';
+
+    html += '<div class="group-toolbar">';
+    html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
+    html += '<a class="group-btn group-btn-episode" href="/episode/' + videoId + '">Епизод &rarr;</a>';
+    html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
+    html += '<button class="group-btn group-btn-dismiss" onclick="hideGroup(\'' + videoId + '\', \'' + escapeAttr(group.title) + '\', this)">&#10005; Скрий</button>';
+    html += '</div>';
+
+    html += '<div class="segment-list" id="' + segListId + '">';
+
+    group.segments.forEach(function(seg, segIdx) {
+        var highlighted = seg._formatted ? seg._formatted.text : seg.text;
+        var hidden = (hasMore && segIdx >= maxVisible) ? ' style="display:none" data-extra="true"' : '';
+        html += '<div class="segment-item"' + hidden + '>';
+        html += '<button class="play-btn" onclick="playSegment(\'' + videoId + '\', ' + seg.start_seconds + ', \'' + playerId + '\')" title="Пусни от ' + seg.timestamp + '">&#9654;</button>';
+        html += '<span class="segment-ts"><a href="' + seg.youtube_url + '" target="_blank">' + seg.timestamp + '</a></span>';
+        html += '<span class="segment-text">' + highlighted + '</span>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+
+    if (hasMore) {
+        html += '<button class="show-more-btn" onclick="showMoreSegments(\'' + segListId + '\', this)">Покажи всички ' + group.segments.length + ' съвпадения &#9660;</button>';
+    }
+
+    html += '<div class="yt-player-wrapper" id="' + playerId + '"></div>';
+    html += '<div class="full-transcript" id="' + tid + '"></div>';
+    html += '</div>';
+
+    return html;
+}
 
 // Hidden groups tracking
 var hiddenGroups = {}; // { videoId: title }
@@ -1435,12 +1484,13 @@ function doSearch() {
     spinner.classList.add('active');
     hiddenGroups = {};
     updateHiddenBar();
+    if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
 
     var videoFilter = filterSelect.value;
     var searchQuery = exactMode ? '"' + query + '"' : query;
     var searchBody = {
         q: searchQuery,
-        limit: 100,
+        limit: 1000,
         attributesToHighlight: ['text'],
         highlightPreTag: '<em>',
         highlightPostTag: '</em>',
@@ -1489,58 +1539,58 @@ function doSearch() {
             groups.get(hit.video_id).segments.push(hit);
         });
 
-        var html = '';
-        var groupIdx = 0;
+        // Convert to array for progressive rendering
+        var allGroups = [];
         groups.forEach(function(group, videoId) {
             if (group.segments.length === 0) return;
-            var delay = Math.min(groupIdx * 0.06, 0.6);
-            var tid = 'transcript-' + groupIdx;
-
-            var playerId = 'player-' + groupIdx;
-            var segListId = 'seglist-' + groupIdx;
-            var maxVisible = 3;
-            var hasMore = group.segments.length > maxVisible;
-
-            html += '<div class="video-group" data-video-id="' + videoId + '" data-transcript-id="' + tid + '" style="animation-delay: ' + delay + 's">';
-            html += '<div class="video-group-header">';
-            html += '<span class="video-group-title">' + escapeHtml(group.title) + '</span>';
-            html += '<span class="video-group-badge">' + group.segments.length + ' съвпадения</span>';
-            html += '</div>';
-
-            // Toolbar at top
-            html += '<div class="group-toolbar">';
-            html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
-            html += '<a class="group-btn group-btn-episode" href="/episode/' + videoId + '">Епизод &rarr;</a>';
-            html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
-            html += '<button class="group-btn group-btn-dismiss" onclick="hideGroup(\'' + videoId + '\', \'' + escapeAttr(group.title) + '\', this)">&#10005; Скрий</button>';
-            html += '</div>';
-
-            html += '<div class="segment-list" id="' + segListId + '">';
-
-            group.segments.forEach(function(seg, segIdx) {
-                var highlighted = seg._formatted ? seg._formatted.text : seg.text;
-                var hidden = (hasMore && segIdx >= maxVisible) ? ' style="display:none" data-extra="true"' : '';
-                html += '<div class="segment-item"' + hidden + '>';
-                html += '<button class="play-btn" onclick="playSegment(\'' + videoId + '\', ' + seg.start_seconds + ', \'' + playerId + '\')" title="Пусни от ' + seg.timestamp + '">&#9654;</button>';
-                html += '<span class="segment-ts"><a href="' + seg.youtube_url + '" target="_blank">' + seg.timestamp + '</a></span>';
-                html += '<span class="segment-text">' + highlighted + '</span>';
-                html += '</div>';
-            });
-
-            html += '</div>';
-
-            if (hasMore) {
-                html += '<button class="show-more-btn" onclick="showMoreSegments(\'' + segListId + '\', this)">Покажи всички ' + group.segments.length + ' съвпадения &#9660;</button>';
-            }
-
-            html += '<div class="yt-player-wrapper" id="' + playerId + '"></div>';
-            html += '<div class="full-transcript" id="' + tid + '"></div>';
-            html += '</div>';
-
-            groupIdx++;
+            allGroups.push({ videoId: videoId, group: group });
         });
 
-        resultsDiv.innerHTML = html;
+        // Render first batch immediately, rest on scroll
+        var BATCH_SIZE = 20;
+        var renderedCount = 0;
+
+        function renderBatch() {
+            var end = Math.min(renderedCount + BATCH_SIZE, allGroups.length);
+            var html = '';
+            for (var i = renderedCount; i < end; i++) {
+                var videoId = allGroups[i].videoId;
+                var group = allGroups[i].group;
+                var delay = Math.min((i - renderedCount) * 0.04, 0.4);
+                html += buildGroupHtml(group, videoId, i, delay);
+            }
+            if (renderedCount === 0) {
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.insertAdjacentHTML('beforeend', html);
+            }
+            renderedCount = end;
+
+            // Remove sentinel if all loaded
+            if (renderedCount >= allGroups.length) {
+                var sentinel = document.getElementById('scroll-sentinel');
+                if (sentinel) sentinel.remove();
+                if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
+            }
+        }
+
+        renderBatch();
+
+        // Set up infinite scroll if there are more groups
+        if (renderedCount < allGroups.length) {
+            var sentinel = document.createElement('div');
+            sentinel.id = 'scroll-sentinel';
+            sentinel.style.height = '1px';
+            resultsDiv.appendChild(sentinel);
+
+            if (scrollObserver) scrollObserver.disconnect();
+            scrollObserver = new IntersectionObserver(function(entries) {
+                if (entries[0].isIntersecting && renderedCount < allGroups.length) {
+                    renderBatch();
+                }
+            }, { rootMargin: '400px' });
+            scrollObserver.observe(sentinel);
+        }
     })
     .catch(function(err) {
         spinner.classList.remove('active');
