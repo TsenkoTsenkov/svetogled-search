@@ -1610,14 +1610,20 @@ function doSearch() {
             if (renderedCount === 0) {
                 resultsDiv.innerHTML = html;
             } else {
-                resultsDiv.insertAdjacentHTML('beforeend', html);
+                // Insert before sentinel so it stays at the bottom
+                var sentinel = document.getElementById('scroll-sentinel');
+                if (sentinel) {
+                    sentinel.insertAdjacentHTML('beforebegin', html);
+                } else {
+                    resultsDiv.insertAdjacentHTML('beforeend', html);
+                }
             }
             renderedCount = end;
 
             // Remove sentinel if all loaded
             if (renderedCount >= allGroups.length) {
-                var sentinel = document.getElementById('scroll-sentinel');
-                if (sentinel) sentinel.remove();
+                var s = document.getElementById('scroll-sentinel');
+                if (s) s.remove();
                 if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
             }
         }
@@ -1635,6 +1641,17 @@ function doSearch() {
             scrollObserver = new IntersectionObserver(function(entries) {
                 if (entries[0].isIntersecting && renderedCount < allGroups.length) {
                     renderBatch();
+                    // Re-evaluate: if sentinel is still visible, keep rendering
+                    var s = document.getElementById('scroll-sentinel');
+                    if (s && renderedCount < allGroups.length) {
+                        requestAnimationFrame(function checkMore() {
+                            var rect = s.getBoundingClientRect();
+                            if (rect.top < window.innerHeight + 400 && renderedCount < allGroups.length) {
+                                renderBatch();
+                                requestAnimationFrame(checkMore);
+                            }
+                        });
+                    }
                 }
             }, { rootMargin: '400px' });
             scrollObserver.observe(sentinel);
