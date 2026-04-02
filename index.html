@@ -57,22 +57,45 @@
     </script>
     <style>
         :root {
-            --bg: #0d0d0d;
-            --bg-card: #181820;
-            --bg-header: #141428;
-            --bg-expanded: #121218;
-            --accent: #f05672;
-            --accent-glow: rgba(240, 86, 114, 0.18);
-            --accent2: #56d4c8;
-            --text: #ececec;
-            --text-dim: #b8b8c0;
-            --text-dimmer: #9090a0;
-            --border: #2a2a36;
-            --border-light: #383848;
-            --radius: 12px;
+            --bg: #0a0a0e;
+            --bg-card: rgba(22, 18, 24, 0.7);
+            --bg-card-solid: #161218;
+            --bg-header: #100c14;
+            --bg-expanded: #0e0a12;
+            --accent: #c8994c;
+            --accent-glow: rgba(200, 153, 76, 0.15);
+            --accent2: #d4a853;
+            --wine: #6b2038;
+            --wine-glow: rgba(107, 32, 56, 0.25);
+            --text: #e8e4e0;
+            --text-dim: #b8b0a8;
+            --text-dimmer: #8a8078;
+            --border: #2a2228;
+            --border-light: #3a3038;
+            --gold: #c8994c;
+            --gold-dim: rgba(200, 153, 76, 0.08);
+            --radius: 16px;
+            --glass-bg: rgba(18, 14, 22, 0.35);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-border-gold: rgba(200, 153, 76, 0.15);
+            --glass-highlight: rgba(255, 255, 255, 0.06);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+            --glass-shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 0 40px rgba(200, 153, 76, 0.06);
+            --glass-blur: blur(40px) saturate(1.6);
+            --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(0, 0, 0, 0.2);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* Text selection */
+        ::selection {
+            background: rgba(200, 153, 76, 0.35);
+            color: #fff;
+        }
+        ::-moz-selection {
+            background: rgba(200, 153, 76, 0.35);
+            color: #fff;
+        }
 
         .sr-only {
             position: absolute;
@@ -88,20 +111,143 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--bg);
+            background-color: var(--bg);
             color: var(--text);
             min-height: 100vh;
         }
+        /* Sacred background: Christ Pantocrator centered, St George on left */
+        .sacred-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .sacred-bg .icon-christ {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 520px;
+            height: auto;
+            opacity: 0.45;
+            filter: sepia(20%) brightness(1.25) saturate(0.6);
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0,0,0,0.95) 0%, transparent 70%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0,0,0,0.95) 0%, transparent 70%);
+        }
+        .sacred-bg .icon-topright-mirror {
+            position: absolute;
+            top: 0;
+            left: 2%;
+            width: 500px;
+            height: auto;
+            opacity: 0.30;
+            filter: sepia(20%) brightness(1.15) saturate(0.6);
+            transform: scaleX(-1);
+            mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+        }
+        .sacred-bg .icon-theotokos {
+            position: absolute;
+            top: 35%;
+            left: 3%;
+            width: 300px;
+            height: auto;
+            opacity: 0.38;
+            filter: sepia(20%) brightness(1.2) saturate(0.6);
+            mask-image: radial-gradient(ellipse 75% 70% at center, rgba(0,0,0,0.85) 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(ellipse 75% 70% at center, rgba(0,0,0,0.85) 0%, transparent 72%);
+        }
+        .sacred-bg .icon-topleft {
+            position: absolute;
+            top: 0;
+            right: 2%;
+            width: 500px;
+            height: auto;
+            opacity: 0.30;
+            filter: sepia(20%) brightness(1.15) saturate(0.6);
+            mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+        }
+        /* Rotating saints container — crossfade between icons */
+        .sacred-bg .saints-cycle {
+            position: absolute;
+            bottom: 5%;
+            right: 3%;
+            width: 280px;
+            height: 420px;
+        }
+        .sacred-bg .saints-cycle img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: auto;
+            filter: sepia(25%) brightness(1.15) saturate(0.5);
+            mask-image: radial-gradient(ellipse 80% 80% at center, rgba(0,0,0,0.85) 0%, transparent 75%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 80% at center, rgba(0,0,0,0.85) 0%, transparent 75%);
+        }
+        .sacred-bg .saints-cycle .saint-a {
+            opacity: 0.35;
+            animation: saintCrossfade 30s ease-in-out infinite;
+        }
+        .sacred-bg .saints-cycle .saint-b {
+            opacity: 0;
+            animation: saintCrossfade 30s ease-in-out infinite 15s;
+        }
+        @keyframes saintCrossfade {
+            0%, 40% { opacity: 0.35; }
+            50%, 90% { opacity: 0; }
+            100% { opacity: 0.35; }
+        }
+        .sacred-bg .glow {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 600px 700px at 50% 40%, rgba(200, 153, 76, 0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 500px at 5% 60%, rgba(107, 32, 56, 0.05) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 400px at 90% 80%, rgba(200, 153, 76, 0.03) 0%, transparent 60%);
+        }
+        body > *:not(.sacred-bg):not(.fullscreen-overlay):not(.fullscreen-close-btn):not(.fullscreen-hint) { position: relative; z-index: 1; }
+
+        @media (max-width: 900px) {
+            .sacred-bg .icon-christ { width: 350px; opacity: 0.35; }
+            .sacred-bg .icon-topright-mirror { width: 300px; opacity: 0.22; }
+            .sacred-bg .icon-theotokos { width: 200px; opacity: 0.28; }
+            .sacred-bg .saints-cycle { width: 180px; }
+        }
+        @media (max-width: 600px) {
+            .sacred-bg .icon-christ { width: 280px; opacity: 0.28; }
+            .sacred-bg .icon-topright-mirror { display: none; }
+            .sacred-bg .icon-theotokos { display: none; }
+            .sacred-bg .saints-cycle { display: none; }
+            .cross-divider { display: none; }
+        }
 
         .header {
-            background: var(--bg-header);
-            border-bottom: 1px solid var(--border-light);
-            padding: 22px 20px 16px;
+            border-bottom: 1px solid var(--glass-border-gold);
+            padding: 18px 20px 14px;
             text-align: center;
-            background-image: linear-gradient(180deg, rgba(240, 86, 114, 0.06) 0%, transparent 100%);
+            background: transparent;
         }
-        .header h1 { font-size: 22px; color: #fff; margin-bottom: 4px; letter-spacing: 0.3px; }
-        .header p { color: var(--text-dim); font-size: 13px; }
+        .header h1 {
+            font-size: 21px;
+            color: #fff;
+            margin-bottom: 3px;
+            letter-spacing: 0.3px;
+        }
+        .header h1 .gold {
+            color: var(--gold);
+            text-shadow: 0 0 30px rgba(218, 165, 32, 0.15), 0 0 60px rgba(218, 165, 32, 0.06);
+        }
+        .header p { color: var(--text-dim); font-size: 12px; }
+
+        .cross-divider {
+            text-align: center;
+            padding: 10px 0;
+            color: rgba(218, 165, 32, 0.5);
+            font-size: 32px;
+            user-select: none;
+            text-shadow: 0 0 20px rgba(218, 165, 32, 0.15);
+        }
 
         .nav {
             display: flex;
@@ -110,8 +256,9 @@
             margin-top: 12px;
         }
         .nav-btn {
-            background: transparent;
-            border: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid var(--glass-border);
+            border-top-color: rgba(255, 255, 255, 0.1);
             color: var(--text-dim);
             padding: 7px 18px;
             border-radius: 20px;
@@ -119,18 +266,22 @@
             cursor: pointer;
             transition: all 0.25s;
             font-weight: 500;
+            backdrop-filter: blur(16px) saturate(1.3);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
-        .nav-btn:hover { border-color: var(--accent); color: #fff; }
+        .nav-btn:hover { border-color: rgba(200, 153, 76, 0.25); color: #fff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .nav-btn.nav-focused {
-            outline: 2px solid var(--accent);
+            outline: 2px solid var(--gold);
             outline-offset: 2px;
             color: #fff;
         }
         .nav-btn.active {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #fff;
-            box-shadow: 0 2px 12px rgba(240, 86, 114, 0.3);
+            background: linear-gradient(135deg, rgba(107, 32, 56, 0.7), rgba(74, 21, 40, 0.5));
+            border-color: rgba(200, 153, 76, 0.3);
+            border-top-color: rgba(255, 255, 255, 0.12);
+            color: var(--gold);
+            box-shadow: 0 4px 20px var(--wine-glow), inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(0, 0, 0, 0.2);
         }
 
         .page { display: none; }
@@ -143,11 +294,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            background: var(--bg);
-            transition: box-shadow 0.2s;
-        }
-        .search-container.scrolled {
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            background: transparent;
         }
         .search-row {
             display: flex;
@@ -174,16 +321,21 @@
             width: 100%;
             padding: 14px 72px 14px 44px;
             font-size: 17px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top-color: rgba(255, 255, 255, 0.22);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.06);
             color: #fff;
             outline: none;
             transition: border-color 0.3s, box-shadow 0.3s;
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
         }
         #search-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 24px var(--accent-glow);
+            border-color: rgba(200, 153, 76, 0.35);
+            border-top-color: rgba(255, 255, 255, 0.28);
+            box-shadow: 0 0 30px rgba(200, 153, 76, 0.1), 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
         }
         #search-input::placeholder { color: var(--text-dimmer); }
 
@@ -196,49 +348,63 @@
             font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.5px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.08);
             color: var(--text-dimmer);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s;
             z-index: 1;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
-        .exact-toggle:hover { border-color: var(--text-dim); color: var(--text-dim); }
+        .exact-toggle:hover { border-color: rgba(200, 153, 76, 0.25); color: var(--text-dim); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .exact-toggle.active {
-            background: rgba(86, 212, 200, 0.15);
-            border-color: var(--accent2);
-            color: var(--accent2);
+            background: rgba(200, 153, 76, 0.12);
+            border-color: var(--gold);
+            color: var(--gold);
         }
 
         .filter-select {
-            padding: 0 14px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            padding: 0 32px 0 14px;
             font-size: 13px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top-color: rgba(255, 255, 255, 0.22);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,0.5)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
             color: var(--text);
             outline: none;
             cursor: pointer;
             min-width: 160px;
             max-width: 250px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            transition: all 0.2s;
         }
-        .filter-select:focus { border-color: var(--accent); }
+        .filter-select:focus { border-color: rgba(200, 153, 76, 0.3); box-shadow: var(--glass-shadow-hover); }
 
         .export-btn {
             padding: 0 14px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top-color: rgba(255, 255, 255, 0.22);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
             color: var(--text-dim);
             font-size: 13px;
             cursor: pointer;
             white-space: nowrap;
-            transition: all 0.2s;
+            transition: all 0.25s;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
         }
         .export-btn:hover {
-            border-color: var(--accent2);
+            border-color: rgba(200, 153, 76, 0.25);
             color: var(--accent2);
+            box-shadow: var(--glass-shadow-hover);
         }
 
         /* ── Hidden episodes bar ── */
@@ -250,11 +416,15 @@
         }
         .hidden-bar.visible { display: block; }
         .hidden-bar-inner {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, rgba(200, 153, 76, 0.02) 100%);
+            border: 1px solid var(--glass-border);
+            border-top-color: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
             padding: 10px 16px;
             margin-bottom: 10px;
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            box-shadow: var(--glass-shadow), var(--glass-inset);
         }
         .hidden-bar-header {
             display: flex;
@@ -270,16 +440,20 @@
             color: var(--accent);
         }
         .hidden-bar-toggle {
-            background: none;
-            border: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid var(--glass-border);
+            border-top-color: rgba(255, 255, 255, 0.1);
             color: var(--text-dim);
             font-size: 12px;
             padding: 2px 10px;
-            border-radius: 12px;
+            border-radius: 20px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s;
+            backdrop-filter: blur(16px) saturate(1.3);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
-        .hidden-bar-toggle:hover { color: #fff; border-color: var(--text-dim); }
+        .hidden-bar-toggle:hover { color: #fff; border-color: rgba(200, 153, 76, 0.25); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .hidden-chips {
             display: none;
             flex-wrap: wrap;
@@ -347,17 +521,21 @@
         }
 
         .video-group {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.14);
             border-radius: var(--radius);
             margin-bottom: 14px;
             opacity: 0;
             transform: translateY(12px);
             animation: fadeInUp 0.35s ease forwards;
             overflow: hidden;
-            transition: border-color 0.2s;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            backdrop-filter: blur(40px) saturate(1.6);
+            -webkit-backdrop-filter: blur(40px) saturate(1.6);
+            box-shadow: var(--glass-shadow), var(--glass-inset);
         }
-        .video-group:hover { border-color: var(--border-light); }
+        .video-group:hover { border-color: rgba(200, 153, 76, 0.25); border-top-color: rgba(255, 255, 255, 0.16); box-shadow: var(--glass-shadow-hover), var(--glass-inset); }
 
         .video-group-header {
             display: flex;
@@ -379,14 +557,17 @@
             width: calc(100% - 40px);
             margin: 0 20px 8px;
             padding: 6px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
             color: var(--text-dim);
             font-size: 12px;
             cursor: pointer;
             text-align: center;
             transition: all 0.2s;
+            backdrop-filter: blur(16px) saturate(1.3);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
         .show-more-btn:hover { border-color: var(--accent); color: #fff; }
         .video-group-title {
@@ -396,8 +577,8 @@
             flex: 1;
         }
         .video-group-badge {
-            background: var(--accent);
-            color: #fff;
+            background: var(--wine);
+            color: var(--gold);
             padding: 2px 10px;
             border-radius: 12px;
             font-size: 12px;
@@ -421,7 +602,7 @@
             background: rgba(233, 69, 96, 0.2);
             color: var(--accent);
             padding: 2px 8px;
-            border-radius: 6px;
+            border-radius: 12px;
             font-size: 12px;
             font-weight: 600;
             white-space: nowrap;
@@ -463,7 +644,7 @@
             width: 100%;
             aspect-ratio: 16/9;
             border: none;
-            border-radius: 8px;
+            border-radius: 14px;
         }
 
         .play-btn {
@@ -501,24 +682,30 @@
             gap: 5px;
             font-size: 12px;
             padding: 4px 12px;
-            border-radius: 6px;
+            border-radius: 20px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s;
             text-decoration: none;
-            border: 1px solid var(--border);
-            background: none;
+            border: 1px solid var(--glass-border);
+            border-top-color: rgba(255, 255, 255, 0.1);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(16px) saturate(1.3);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
-        .group-btn-yt { color: var(--accent); border-color: var(--accent); }
-        .group-btn-yt:hover { background: var(--accent); color: #fff; }
+        .group-btn-yt { color: var(--gold); border-color: rgba(200, 153, 76, 0.3); }
+        .group-btn-yt:hover { background: var(--accent); color: #fff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .group-btn-expand { color: var(--text-dim); }
-        .group-btn-expand:hover { color: #fff; border-color: var(--text-dim); }
+        .group-btn-expand:hover { color: #fff; border-color: rgba(200, 153, 76, 0.25); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .group-btn-expand .arrow {
             display: inline-block;
             transition: transform 0.3s ease;
         }
         .group-btn-expand.open .arrow { transform: rotate(180deg); }
+        .group-btn-episode { color: var(--text-dim); }
+        .group-btn-episode:hover { color: #fff; border-color: rgba(200, 153, 76, 0.25); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .group-btn-dismiss { color: var(--text-dimmer); }
-        .group-btn-dismiss:hover { color: var(--accent); border-color: var(--accent); }
+        .group-btn-dismiss:hover { color: var(--accent); border-color: rgba(200, 153, 76, 0.25); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
 
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
 
@@ -527,14 +714,17 @@
             overflow: hidden;
             transition: max-height 0.5s ease, opacity 0.3s ease;
             opacity: 0;
-            background: var(--bg-expanded);
+            will-change: max-height, opacity;
+            background: linear-gradient(180deg, rgba(12, 8, 16, 0.4) 0%, rgba(12, 8, 16, 0.25) 100%);
+            backdrop-filter: blur(40px) saturate(1.6);
+            -webkit-backdrop-filter: blur(40px) saturate(1.6);
         }
         .full-transcript.open {
             max-height: 80vh;
             overflow-y: auto;
             opacity: 1;
             padding: 20px 24px;
-            border-top: 1px solid var(--border);
+            border-top: 1px solid var(--glass-border-gold);
         }
         .fullscreen-overlay {
             display: none;
@@ -544,28 +734,83 @@
             right: 0;
             bottom: 0;
             z-index: 1000;
-            background: var(--bg);
-            padding: 32px 40px;
+            background: transparent;
+            padding: 0;
             overflow-y: auto;
             color: var(--text);
         }
         .fullscreen-overlay.active {
             display: block;
         }
+        body.fullscreen-active .header,
+        body.fullscreen-active .cross-divider,
+        body.fullscreen-active main,
+        body.fullscreen-active .site-footer {
+            visibility: hidden;
+        }
+        body.fullscreen-active .sacred-bg .icon-christ {
+            opacity: 0.18;
+            filter: sepia(20%) brightness(0.8) saturate(0.4);
+        }
+        .fullscreen-close-btn {
+            position: fixed;
+            top: 16px;
+            right: 24px;
+            z-index: 1002;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            border-top-color: rgba(255, 255, 255, 0.12);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            color: var(--text-dim);
+            font-size: 20px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .fullscreen-close-btn:hover {
+            color: #fff;
+            border-color: rgba(200, 153, 76, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 20px rgba(200, 153, 76, 0.1);
+        }
+        .fullscreen-overlay.active ~ .fullscreen-close-btn { display: flex; }
+        .fullscreen-inner {
+            max-width: 720px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 32px 32px 80px;
+            background: rgba(12, 10, 16, 0.55);
+            backdrop-filter: blur(80px) saturate(1.5);
+            -webkit-backdrop-filter: blur(80px) saturate(1.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            margin-top: 24px;
+            margin-bottom: 40px;
+        }
         .fullscreen-overlay .ft-header {
-            max-width: 800px;
-            margin: 0 auto 16px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--glass-border-gold);
         }
         .fullscreen-overlay .ft-body {
-            max-width: 800px;
-            margin: 0 auto;
+            line-height: 2;
+            font-size: 15px;
+            color: #ddd;
         }
         .fullscreen-overlay .highlight-term {
-            background: rgba(86, 212, 200, 0.3);
+            background: rgba(200, 153, 76, 0.25);
             color: #fff;
             padding: 2px 4px;
             border-radius: 3px;
-            border-bottom: 2px solid var(--accent2);
+            border-bottom: 2px solid var(--gold);
         }
         .fullscreen-hint {
             position: fixed;
@@ -573,12 +818,15 @@
             left: 50%;
             transform: translateX(-50%);
             z-index: 1001;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
             padding: 6px 16px;
             font-size: 12px;
             color: var(--text-dimmer);
+            box-shadow: var(--glass-shadow);
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s;
@@ -608,17 +856,39 @@
         }
         .ft-body .ts-link:hover { opacity: 1; text-decoration: underline; }
         .ft-body .highlight-term {
-            background: rgba(78, 205, 196, 0.25);
+            background: rgba(200, 153, 76, 0.2);
             color: #fff;
             padding: 1px 3px;
             border-radius: 3px;
-            border-bottom: 2px solid var(--accent2);
+            border-bottom: 2px solid var(--gold);
         }
         .ft-loading { text-align: center; color: var(--text-dimmer); padding: 20px; }
 
         .full-transcript::-webkit-scrollbar { width: 6px; }
         .full-transcript::-webkit-scrollbar-track { background: transparent; }
         .full-transcript::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .glass-search-input {
+            width: 100%;
+            padding: 12px 18px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top-color: rgba(255, 255, 255, 0.22);
+            border-radius: 24px;
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+        .glass-search-input:focus {
+            border-color: rgba(200, 153, 76, 0.35);
+            border-top-color: rgba(255, 255, 255, 0.28);
+            box-shadow: 0 0 30px rgba(200, 153, 76, 0.1), 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+        .glass-search-input::placeholder { color: var(--text-dimmer); }
 
         .episodes-container {
             max-width: 860px;
@@ -629,12 +899,9 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            background: var(--bg);
-            padding: 16px 0 12px;
-            transition: box-shadow 0.2s;
-        }
-        .episodes-sticky.scrolled {
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            background: transparent;
+            padding: 16px 0 16px;
+            margin-bottom: 12px;
         }
         .episodes-header {
             display: flex;
@@ -653,36 +920,44 @@
         .sort-btn {
             padding: 6px 14px;
             font-size: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: transparent;
+            border: 1px solid var(--glass-border);
+            border-top-color: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
             color: var(--text-dim);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s;
             white-space: nowrap;
             font-weight: 500;
+            backdrop-filter: blur(16px) saturate(1.3);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
-        .sort-btn:hover { border-color: var(--text-dim); color: var(--text); }
-        .sort-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(240, 86, 114, 0.08); }
+        .sort-btn:hover { border-color: rgba(200, 153, 76, 0.25); color: var(--text); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+        .sort-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(200, 153, 76, 0.08); }
         .episode-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.14);
+            border-radius: 16px;
             padding: 14px 18px;
             margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 12px;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.3s, box-shadow 0.3s;
             cursor: pointer;
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            box-shadow: var(--glass-shadow), var(--glass-inset);
         }
-        .episode-card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(240, 86, 114, 0.08); }
+        .episode-card:hover { border-color: rgba(200, 153, 76, 0.2); border-top-color: rgba(255, 255, 255, 0.14); box-shadow: var(--glass-shadow-hover), var(--glass-inset); }
         .episode-card.ep-selected,
         .video-group.ep-selected {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 1px var(--accent), 0 2px 16px rgba(240, 86, 114, 0.15);
-            background: rgba(240, 86, 114, 0.05);
+            border-color: var(--gold);
+            box-shadow: 0 0 0 1px var(--gold), 0 2px 16px rgba(200, 153, 76, 0.15);
+            background: rgba(200, 153, 76, 0.05);
         }
         .episode-title { font-size: 14px; color: #fff; flex: 1; }
         .episode-meta { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
@@ -690,9 +965,10 @@
         .episode-source {
             color: var(--text-dimmer);
             font-size: 11px;
-            background: var(--bg);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid var(--glass-border);
             padding: 2px 8px;
-            border-radius: 8px;
+            border-radius: 12px;
         }
 
         .topics-container {
@@ -705,8 +981,9 @@
         .topics-header p { color: var(--text-dim); font-size: 13px; }
         .topic-grid { display: flex; flex-wrap: wrap; gap: 8px; }
         .topic-chip {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.14);
             border-radius: 20px;
             padding: 6px 14px;
             font-size: 13px;
@@ -716,13 +993,16 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            backdrop-filter: blur(16px) saturate(1.3);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }
-        .topic-chip:hover { border-color: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(240, 86, 114, 0.1); }
+        .topic-chip:hover { border-color: var(--gold); color: #fff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
         .topic-chip .count {
-            background: var(--border);
+            background: rgba(255, 255, 255, 0.06);
             color: var(--text-dim);
             padding: 1px 7px;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 11px;
         }
         .topic-section { margin-bottom: 28px; }
@@ -737,11 +1017,24 @@
 
         /* Custom topics */
         .custom-topics-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
+            position: relative;
+            border: 1px solid rgba(200, 153, 76, 0.1);
+            border-radius: 16px;
             padding: 18px 20px;
             margin-bottom: 24px;
+            background: transparent;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+        .custom-topics-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            backdrop-filter: blur(28px) saturate(1.4);
+            -webkit-backdrop-filter: blur(28px) saturate(1.4);
+            background: rgba(16, 12, 20, 0.15);
+            border-radius: 16px;
         }
         .custom-topics-header {
             display: flex;
@@ -764,22 +1057,26 @@
         }
         .add-topic-input {
             flex: 1;
-            padding: 8px 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--bg);
+            padding: 8px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top-color: rgba(255, 255, 255, 0.22);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
             color: #fff;
             font-size: 13px;
             outline: none;
         }
-        .add-topic-input:focus { border-color: var(--accent); }
+        .add-topic-input:focus { border-color: rgba(200, 153, 76, 0.35); box-shadow: 0 0 30px rgba(200, 153, 76, 0.12), 0 8px 32px rgba(0, 0, 0, 0.4), var(--glass-inset); }
         .add-topic-input::placeholder { color: var(--text-dimmer); }
         .add-topic-btn {
             padding: 8px 16px;
-            background: var(--accent);
-            border: none;
-            border-radius: 8px;
-            color: #fff;
+            background: linear-gradient(135deg, var(--wine), #4a1528);
+            border: 1px solid rgba(200, 153, 76, 0.2);
+            border-radius: 20px;
+            color: var(--gold);
             font-size: 13px;
             cursor: pointer;
             transition: opacity 0.2s;
@@ -789,17 +1086,17 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(233, 69, 96, 0.15);
-            border: 1px solid var(--accent);
+            background: rgba(200, 153, 76, 0.12);
+            border: 1px solid var(--gold);
             border-radius: 20px;
             padding: 5px 12px;
             font-size: 13px;
-            color: var(--accent);
+            color: var(--gold);
             cursor: pointer;
             transition: all 0.2s;
             margin: 0 6px 6px 0;
         }
-        .custom-chip:hover { background: var(--accent); color: #fff; }
+        .custom-chip:hover { background: var(--wine); border-color: var(--wine); color: #fff; }
         .custom-chip .remove-chip {
             font-size: 14px;
             opacity: 0.6;
@@ -840,9 +1137,9 @@
             padding: 1px 6px;
             font-size: 12px;
             font-family: inherit;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 4px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
             color: var(--text-dim);
         }
 
@@ -850,17 +1147,21 @@
             text-align: center;
             padding: 32px 20px 24px;
             margin-top: 60px;
-            border-top: 1px solid var(--border);
+            border-top: 1px solid var(--glass-border);
+            border-top-color: rgba(255, 255, 255, 0.08);
             color: var(--text-dimmer);
             font-size: 12px;
             line-height: 1.8;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%);
+            backdrop-filter: blur(16px) saturate(1.3);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
         }
         .site-footer a {
             color: var(--text-dim);
             text-decoration: none;
             transition: color 0.2s;
         }
-        .site-footer a:hover { color: var(--accent); }
+        .site-footer a:hover { color: var(--gold); }
 
 
         @media (max-width: 600px) {
@@ -875,8 +1176,8 @@
             #search-input { font-size: 16px; padding: 12px 66px 12px 40px; }
             .search-icon { left: 12px; width: 16px; height: 16px; }
             .exact-toggle { font-size: 10px; padding: 3px 8px; right: 8px; }
-            .filter-select { max-width: 100%; min-width: 0; padding: 10px 12px; }
-            .export-btn { padding: 10px 14px; text-align: center; }
+            .filter-select { max-width: 100%; min-width: 0; padding: 10px 32px 10px 14px; }
+            .export-btn { padding: 10px 14px; text-align: center; border-radius: 24px; }
 
             .results { padding: 0 12px; }
             .video-group-header { padding: 12px 14px; flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -905,16 +1206,27 @@
     </style>
 </head>
 <body>
+    <div class="sacred-bg" aria-hidden="true">
+        <img class="icon-christ" src="/static/christ-pantocrator.jpg" alt="" loading="eager">
+        <img class="icon-topright-mirror" src="/static/last-judgment.jpg" alt="" loading="lazy">
+        <img class="icon-theotokos" src="/static/theotokos.jpg" alt="" loading="lazy">
+        <img class="icon-topleft" src="/static/last-judgment.jpg" alt="" loading="lazy">
+        <div class="saints-cycle">
+            <img class="saint-a" src="/static/saint-george.jpg" alt="">
+            <img class="saint-b" src="/static/john-baptist.jpg?v=3" alt="">
+        </div>
+        <div class="glow"></div>
+    </div>
     <header class="header">
-        <h1>Светоглед — Търсене в транскрипции</h1>
-        <p>Търсене на ключови думи от предаването Светоглед с Георги Тодоров</p>
+        <h1><span class="gold">Светоглед</span> — Търсене в транскрипции</h1>
+        <p>Православен поглед към историята и културата с Георги Тодоров по Радио Зорана</p>
         <nav class="nav">
             <button class="nav-btn active" data-page="search">Търсене</button>
             <button class="nav-btn" data-page="episodes">Епизоди</button>
             <button class="nav-btn" data-page="topics">Теми</button>
         </nav>
     </header>
-
+    <div class="cross-divider" aria-hidden="true">&#9766;</div>
     <main>
     <div class="page active" id="page-search">
         <div class="search-container">
@@ -930,7 +1242,7 @@
                 <select class="filter-select" id="filter-video">
                     <option value="">Всички епизоди</option>
                 </select>
-                <button class="export-btn" id="export-btn" title="Изтегли резултатите"><svg style="width:13px;height:13px;vertical-align:-1px;margin-right:3px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Експорт</button>
+                <button class="export-btn" id="export-btn" title="Изтегли резултатите"><svg style="width:13px;height:13px;vertical-align:-1px;margin-right:3px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Изтегли</button>
             </div>
             <div class="stats" id="stats"></div>
         </div>
@@ -959,11 +1271,12 @@
     </main>
 
     <div class="fullscreen-overlay" id="fullscreen-overlay"></div>
-    <div class="fullscreen-hint" id="fullscreen-hint"><kbd>&uarr;</kbd><kbd>&darr;</kbd> четене &middot; <kbd>Enter</kbd> / <kbd>Esc</kbd> затвори</div>
+    <button class="fullscreen-close-btn" id="fullscreen-close-btn" title="Затвори">&times;</button>
+    <div class="fullscreen-hint" id="fullscreen-hint"><kbd>&uarr;</kbd><kbd>&darr;</kbd> четене &middot; <kbd>Esc</kbd> затвори</div>
 
     <footer class="site-footer">
         <div>Архив на предаването <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener">Светоглед</a> с Георги Тодоров по Радио Зорана</div>
-        <div>Търсене в транскрипции на 284 епизода</div>
+        <div style="margin-top:6px;font-style:italic;color:var(--text-dimmer);font-size:11px">Слава Богу за всичко</div>
     </footer>
 
 <script>
@@ -1040,14 +1353,14 @@ function showEmptyState() {
         }
         var delay = idx * 0.06;
         var tid = 'recent-transcript-' + idx;
-        html += '<div class="video-group" style="animation-delay:' + delay + 's">';
+        html += '<div class="video-group" data-video-id="' + ep.video_id + '" data-transcript-id="' + tid + '" style="animation-delay:' + delay + 's">';
         html += '<div class="video-group-header">';
         html += '<span class="video-group-title">' + escapeHtml(displayTitle) + '</span>';
         html += '<span class="episode-segments">' + ep.segment_count + ' сегм.</span>';
         html += '</div>';
         html += '<div class="group-toolbar">';
         html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + ep.video_id + '" target="_blank">&#9654; YouTube</a>';
-        html += '<a class="group-btn" href="/episode/' + ep.video_id + '" style="color:var(--text-dim);border-color:var(--text-dim)">Епизод &rarr;</a>';
+        html += '<a class="group-btn group-btn-episode" href="/episode/' + ep.video_id + '">Епизод &rarr;</a>';
         html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + ep.video_id + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
         html += '<button class="group-btn group-btn-dismiss" onclick="this.closest(\'.video-group\').style.display=\'none\'">&#10005; Скрий</button>';
         html += '</div>';
@@ -1197,7 +1510,7 @@ function doSearch() {
             // Toolbar at top
             html += '<div class="group-toolbar">';
             html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
-            html += '<a class="group-btn" href="/episode/' + videoId + '" style="color:var(--text-dim);border-color:var(--text-dim)">Епизод &rarr;</a>';
+            html += '<a class="group-btn group-btn-episode" href="/episode/' + videoId + '">Епизод &rarr;</a>';
             html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
             html += '<button class="group-btn group-btn-dismiss" onclick="hideGroup(\'' + videoId + '\', \'' + escapeAttr(group.title) + '\', this)">&#10005; Скрий</button>';
             html += '</div>';
@@ -1374,10 +1687,8 @@ function renderEpisodes(filter) {
         '<div class="episodes-header">' +
         '<h2>Всички епизоди</h2>' +
         '<span class="episodes-count">' + filtered.length + ' от ' + episodesData.length + ' епизода</span></div>' +
-        '<input type="text" id="episodes-search" placeholder="Търси по заглавие или номер на беседа..." ' +
+        '<input type="text" class="glass-search-input" id="episodes-search" placeholder="Търси по заглавие или номер на беседа..." ' +
         'value="' + escapeHtml(filter || '') + '" ' +
-        'style="width:100%;padding:10px 14px;background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:14px;outline:none;transition:border-color 0.3s,box-shadow 0.3s" ' +
-        'onfocus="this.style.borderColor=\'var(--accent)\';this.style.boxShadow=\'0 0 20px var(--accent-glow)\'" onblur="this.style.borderColor=\'var(--border)\';this.style.boxShadow=\'none\'" ' +
         'oninput="renderEpisodes(this.value)">' +
         '<div class="sort-controls">' +
         '<button class="sort-btn' + (epSortField === 'chrono' ? ' active' : '') + '" onclick="setEpSort(\'chrono\')">Хронологично' + arrow('chrono') + '</button>' +
@@ -1443,7 +1754,7 @@ function toggleEpisodeDetail(videoId, containerId, playerId, card) {
                 html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
                 html += '<button class="group-btn group-btn-expand" onclick="playSegment(\'' + videoId + '\', 0, \'' + playerId + '\')">&#9654; Пусни</button>';
                 html += '<button class="group-btn" style="color:var(--accent2);border-color:var(--accent2)" onclick="searchFromEpisode(\'' + videoId + '\')"><svg style="width:12px;height:12px;vertical-align:-1px;margin-right:3px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Търси в епизода</button>';
-                html += '<a class="group-btn" href="/episode/' + videoId + '" style="color:var(--text-dim);border-color:var(--text-dim)">Пълен епизод &rarr;</a>';
+                html += '<a class="group-btn group-btn-episode" href="/episode/' + videoId + '">Пълен епизод &rarr;</a>';
                 html += '</div>';
 
                 // Formatted transcript
@@ -1882,39 +2193,75 @@ var activeFullscreenEl = null;
 function goFullscreen(container) {
     var overlay = document.getElementById('fullscreen-overlay');
     var html = container.innerHTML;
-    // Apply current search highlights to fullscreen text
-    if (currentQuery) {
+    // Apply current search highlights to fullscreen text (skip if already highlighted)
+    if (currentQuery && html.indexOf('highlight-term') === -1) {
         var terms = currentQuery.toLowerCase().split(/\s+/).filter(function(t) { return t.length > 1; });
         for (var i = 0; i < terms.length; i++) {
             var regex = new RegExp('(?![^<]*>)(' + escapeRegex(terms[i]) + ')', 'gi');
             html = html.replace(regex, '<span class="highlight-term">$1</span>');
         }
     }
-    overlay.innerHTML = html;
+    // Wrap content in a scrollable inner div
+    overlay.innerHTML = '<div class="fullscreen-inner" id="fullscreen-inner">' + html + '</div>';
     overlay.classList.add('active');
+    document.body.classList.add('fullscreen-active');
     overlay.scrollTop = 0;
     document.body.style.overflow = 'hidden';
     activeFullscreenEl = overlay;
+    // Focus the overlay so it receives scroll events
+    overlay.setAttribute('tabindex', '-1');
+    overlay.focus();
     // Scroll to first highlighted term
     setTimeout(function() {
         var firstHit = overlay.querySelector('.highlight-term');
         if (firstHit) {
             firstHit.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    }, 50);
+    }, 100);
     var hint = document.getElementById('fullscreen-hint');
     hint.classList.add('visible');
-    setTimeout(function() { hint.classList.remove('visible'); }, 2500);
+    setTimeout(function() { hint.classList.remove('visible'); }, 3000);
 }
 
 function exitFullscreen() {
     var overlay = document.getElementById('fullscreen-overlay');
     overlay.classList.remove('active');
+    document.body.classList.remove('fullscreen-active');
     overlay.innerHTML = '';
     activeFullscreenEl = null;
     document.body.style.overflow = '';
     document.getElementById('fullscreen-hint').classList.remove('visible');
+
+    // Close the inline transcript so the page doesn't stay scrolled to it
+    var items = getNavigableItems();
+    if (items[navSelectedIdx]) {
+        var ft = getOpenTranscript(items[navSelectedIdx]);
+        if (ft) {
+            ft.classList.remove('open');
+            // Also reset the expand button arrow
+            var expandBtn = items[navSelectedIdx].querySelector('.group-btn-expand');
+            if (expandBtn) expandBtn.classList.remove('open');
+        }
+    }
 }
+
+// Close fullscreen button
+document.getElementById('fullscreen-close-btn').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    exitFullscreen();
+    navMode = 'items';
+    if (navSelectedIdx >= 0) scrollToSelected();
+});
+
+// Also close fullscreen when clicking outside the inner content
+document.getElementById('fullscreen-overlay').addEventListener('click', function(e) {
+    if (e.target === this) {
+        exitFullscreen();
+        navMode = 'items';
+        if (navSelectedIdx >= 0) scrollToSelected();
+    }
+});
 
 // Clear keyboard selection on any mouse click on cards/groups
 // (but not clicks triggered programmatically by keyboard Enter)
@@ -1958,7 +2305,6 @@ document.addEventListener('keydown', function(e) {
         }
         if (navMode === 'transcript') {
             exitFullscreen();
-            keyboardToggleTranscript();
             navMode = 'items';
             scrollToSelected();
             return;
@@ -2035,8 +2381,10 @@ document.addEventListener('keydown', function(e) {
     if (navMode === 'transcript') {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
-            if (activeFullscreenEl) {
-                activeFullscreenEl.scrollBy({ top: e.key === 'ArrowDown' ? 150 : -150, behavior: 'smooth' });
+            var scrollEl = document.getElementById('fullscreen-overlay');
+            if (scrollEl && scrollEl.classList.contains('active')) {
+                var delta = e.key === 'ArrowDown' ? 150 : -150;
+                scrollEl.scrollTop += delta;
             }
             return;
         }
@@ -2049,7 +2397,14 @@ document.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             exitFullscreen();
-            keyboardToggleTranscript();
+            navMode = 'items';
+            scrollToSelected();
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            exitFullscreen();
             navMode = 'items';
             scrollToSelected();
             return;
@@ -2058,7 +2413,6 @@ document.addEventListener('keydown', function(e) {
         if (e.key === 'Backspace') {
             e.preventDefault();
             exitFullscreen();
-            keyboardToggleTranscript();
             navMode = 'items';
             // Fall through to backspace handler below
         } else {
@@ -2100,7 +2454,7 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
-    // Enter — open transcript fullscreen (keyboard-only easter egg)
+    // Enter — open transcript fullscreen
     if (e.key === 'Enter' && navSelectedIdx >= 0) {
         e.preventDefault();
         var wasOpen = isTranscriptOpen();
@@ -2111,21 +2465,76 @@ document.addEventListener('keydown', function(e) {
             var ft = getOpenTranscript(items[navSelectedIdx]);
             if (ft) goFullscreen(ft);
         } else {
-            // Open transcript, wait for content, then fullscreen
-            keyboardToggleTranscript();
+            // Load transcript silently (hidden) then go directly to fullscreen
             navMode = 'transcript';
             var savedIdx = navSelectedIdx;
-            var waitForContent = function(attempts) {
-                if (attempts <= 0 || navMode !== 'transcript') return;
-                var items = getNavigableItems();
-                var ft = getOpenTranscript(items[savedIdx]);
-                if (ft && ft.dataset.loaded) {
-                    goFullscreen(ft);
+            var items = getNavigableItems();
+            var item = items[savedIdx];
+            if (!item) return;
+
+            // Find the transcript container and video ID
+            var activePage = document.querySelector('.page.active');
+            var videoId, containerId, container;
+
+            if (activePage && activePage.id === 'page-episodes') {
+                containerId = item.getAttribute('data-detail-id');
+                videoId = item.getAttribute('data-video-id');
+                container = document.getElementById(containerId);
+            } else {
+                videoId = item.getAttribute('data-video-id');
+                containerId = item.getAttribute('data-transcript-id');
+                container = document.getElementById(containerId);
+            }
+
+            if (!container || !videoId) return;
+
+            // Load content into the container silently (don't open it visually)
+            if (container.dataset.loaded) {
+                // Already loaded, go straight to fullscreen
+                container.style.display = 'block';
+                container.style.maxHeight = 'none';
+                container.style.opacity = '1';
+                goFullscreen(container);
+                container.style.display = '';
+                container.style.maxHeight = '';
+                container.style.opacity = '';
+            } else {
+                // Fetch and load, then fullscreen
+                var promise;
+                if (transcriptCache[videoId]) {
+                    promise = Promise.resolve(transcriptCache[videoId]);
                 } else {
-                    setTimeout(function() { waitForContent(attempts - 1); }, 200);
+                    promise = fetch('/api/transcript?id=' + videoId)
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            transcriptCache[videoId] = data;
+                            return data;
+                        });
                 }
-            };
-            setTimeout(function() { waitForContent(25); }, 100);
+                promise.then(function(data) {
+                    if (navMode !== 'transcript') return;
+                    var formatted = formatTranscript(data, videoId);
+                    var html = '<div class="ft-header">' +
+                        '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
+                        '<span class="ft-meta">' + (data.segment_count || '') + ' сегмента</span>' +
+                        '</div><div class="ft-body">' + formatted + '</div>';
+                    container.innerHTML = html;
+                    container.dataset.loaded = 'true';
+                    // Temporarily make content accessible for goFullscreen to read
+                    container.style.display = 'block';
+                    container.style.maxHeight = 'none';
+                    container.style.opacity = '1';
+                    goFullscreen(container);
+                    // Reset back to collapsed
+                    container.style.display = '';
+                    container.style.maxHeight = '';
+                    container.style.opacity = '';
+                    container.classList.remove('open');
+                }).catch(function() {
+                    navMode = 'items';
+                    document.body.style.overflow = '';
+                });
+            }
         }
         return;
     }

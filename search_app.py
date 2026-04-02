@@ -392,22 +392,105 @@ def _render_episode_page(data):
     </script>
     <style>
         :root {{
-            --bg: #0d0d0d;
-            --bg-card: #181820;
-            --accent: #f05672;
-            --accent2: #56d4c8;
-            --text: #ececec;
-            --text-dim: #9090a0;
-            --text-dimmer: #6a6a7a;
-            --border: #2a2a36;
-            --radius: 12px;
+            --bg: #0a0a0e;
+            --bg-card: #161218;
+            --accent: #c8994c;
+            --accent2: #d4a853;
+            --wine: #6b2038;
+            --text: #e8e4e0;
+            --text-dim: #8a8078;
+            --text-dimmer: #6a6060;
+            --border: #2a2228;
+            --gold: #c8994c;
+            --radius: 16px;
         }}
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        ::selection {{ background: rgba(200, 153, 76, 0.35); color: #fff; }}
+        ::-moz-selection {{ background: rgba(200, 153, 76, 0.35); color: #fff; }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
+        }}
+        .sacred-bg {{
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+        }}
+        .sacred-bg img {{
+            position: absolute;
+            filter: sepia(20%) brightness(1.15) saturate(0.6);
+        }}
+        .sacred-bg .icon-christ {{
+            top: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 600px; height: auto;
+            opacity: 0.35;
+            filter: sepia(20%) brightness(1.1) saturate(0.5);
+            mask-image: radial-gradient(ellipse 85% 65% at 50% 35%, rgba(0,0,0,0.9) 0%, transparent 70%);
+            -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 35%, rgba(0,0,0,0.9) 0%, transparent 70%);
+        }}
+        .sacred-bg .icon-theotokos {{
+            top: 35%; left: 2%;
+            width: 300px; height: auto;
+            opacity: 0.38;
+            filter: sepia(20%) brightness(1.2) saturate(0.6);
+            mask-image: radial-gradient(ellipse 75% 70% at center, rgba(0,0,0,0.85) 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(ellipse 75% 70% at center, rgba(0,0,0,0.85) 0%, transparent 72%);
+        }}
+        .sacred-bg .icon-topright-mirror {{
+            top: 0; left: 2%;
+            width: 500px; height: auto;
+            opacity: 0.30;
+            filter: sepia(20%) brightness(1.15) saturate(0.6);
+            transform: scaleX(-1);
+            mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+        }}
+        .sacred-bg .icon-topleft {{
+            top: 0; right: 2%;
+            width: 500px; height: auto;
+            opacity: 0.30;
+            filter: sepia(20%) brightness(1.15) saturate(0.6);
+            mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 70% at center, rgba(0,0,0,0.8) 0%, transparent 72%);
+        }}
+        .sacred-bg .icon-george {{
+            bottom: 5%; right: 2%;
+            width: 260px; height: auto;
+            opacity: 0.35;
+            filter: sepia(25%) brightness(1.15) saturate(0.5);
+            mask-image: radial-gradient(ellipse 80% 80% at center, rgba(0,0,0,0.85) 0%, transparent 75%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 80% at center, rgba(0,0,0,0.85) 0%, transparent 75%);
+        }}
+        .sacred-bg .glow {{
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 600px 700px at 50% 30%, rgba(200, 153, 76, 0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 500px at 5% 50%, rgba(107, 32, 56, 0.05) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 400px at 95% 70%, rgba(200, 153, 76, 0.03) 0%, transparent 60%);
+        }}
+        body > *:not(.sacred-bg):not(.reader-overlay) {{ position: relative; z-index: 1; }}
+        .ep-header {{
+            border-bottom: 1px solid rgba(200, 153, 76, 0.15);
+            padding: 16px 20px 14px;
+            background: transparent;
+            text-align: center;
+        }}
+        .ep-header-title {{
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--gold);
+            text-shadow: 0 0 30px rgba(218, 165, 32, 0.2);
+            margin-bottom: 3px;
+            letter-spacing: 0.5px;
+        }}
+        .ep-header-sub {{
+            font-size: 11px;
+            color: var(--text-dim);
         }}
         .container {{
             max-width: 800px;
@@ -439,8 +522,10 @@ def _render_episode_page(data):
             padding-bottom: 56.25%;
             margin-bottom: 24px;
             background: #000;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
         }}
         .video-embed iframe {{
             position: absolute;
@@ -449,10 +534,14 @@ def _render_episode_page(data):
             border: none;
         }}
         .transcript {{
-            background: var(--bg-card);
-            border-radius: 8px;
-            padding: 24px;
-            border: 1px solid var(--border);
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, rgba(200, 153, 76, 0.02) 100%);
+            border-radius: 16px;
+            padding: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top-color: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(12px) saturate(1.4);
+            -webkit-backdrop-filter: blur(12px) saturate(1.4);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
         }}
         .transcript-header {{
             display: flex;
@@ -476,21 +565,25 @@ def _render_episode_page(data):
         .ctrl-btn {{
             font-size: 12px;
             padding: 4px 12px;
-            border-radius: 6px;
+            border-radius: 20px;
             cursor: pointer;
-            border: 1px solid var(--border);
-            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top-color: rgba(255, 255, 255, 0.12);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             color: var(--text-dim);
             transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
         }}
-        .ctrl-btn:hover {{ color: #fff; border-color: var(--text-dim); }}
-        .ctrl-btn.active {{ color: #fff; border-color: var(--accent); background: rgba(233,69,96,0.15); }}
+        .ctrl-btn:hover {{ color: #fff; border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08); }}
+        .ctrl-btn.active {{ color: var(--gold); border-color: rgba(200, 153, 76, 0.3); background: linear-gradient(135deg, rgba(200, 153, 76, 0.15) 0%, rgba(200, 153, 76, 0.05) 100%); }}
         .ctrl-select {{
             font-size: 12px;
             padding: 4px 8px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: var(--bg);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
             color: var(--text-dim);
             cursor: pointer;
         }}
@@ -516,32 +609,53 @@ def _render_episode_page(data):
         .seo-fallback {{ display: none; }}
         .reader-overlay {{
             display: none;
-            position: fixed;
+            position: fixed !important;
             top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 1000;
-            background: var(--bg);
+            z-index: 1000 !important;
+            background: linear-gradient(90deg,
+                rgba(10, 8, 14, 0.3) 0%,
+                rgba(10, 8, 14, 0.85) 20%,
+                rgba(10, 8, 14, 0.92) 50%,
+                rgba(10, 8, 14, 0.85) 80%,
+                rgba(10, 8, 14, 0.3) 100%);
             overflow-y: auto;
             padding: 0;
         }}
-        .reader-overlay.active {{ display: block; }}
+        .reader-overlay.active {{ display: block !important; }}
         .reader-toolbar {{
             position: sticky;
             top: 0;
             z-index: 1001;
-            background: var(--bg);
-            border-bottom: 1px solid var(--border);
+            max-width: 720px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid rgba(200, 153, 76, 0.12);
+            border-radius: 16px 16px 0 0;
             padding: 10px 24px;
             display: flex;
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
         }}
         .reader-toolbar .ctrl-btn {{ font-size: 12px; padding: 4px 12px; }}
         .reader-content {{
             max-width: 720px;
             margin: 0 auto;
-            padding: 32px 24px 80px;
+            padding: 32px 32px 80px;
             line-height: 2;
+            color: #ddd;
+            font-size: 16px;
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, rgba(200, 153, 76, 0.02) 100%);
+            backdrop-filter: blur(12px) saturate(1.4);
+            -webkit-backdrop-filter: blur(12px) saturate(1.4);
+            border-radius: 0 0 16px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: none;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
         }}
         .reader-content p {{ margin-bottom: 18px; }}
         .font-size-label {{
@@ -555,7 +669,7 @@ def _render_episode_page(data):
             width: 28px;
             height: 28px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 50%;
             background: none;
             color: var(--text-dim);
             cursor: pointer;
@@ -572,10 +686,27 @@ def _render_episode_page(data):
             .transcript {{ padding: 16px; }}
             .transcript-body {{ font-size: 13.5px; }}
             .transcript-header {{ flex-direction: column; align-items: flex-start; }}
+            .sacred-bg .icon-theotokos {{ display: none; }}
+            .sacred-bg .icon-george {{ display: none; }}
+            .sacred-bg .icon-topright-mirror {{ display: none; }}
+            .sacred-bg .icon-topleft {{ display: none; }}
+            .sacred-bg .icon-christ {{ width: 350px; opacity: 0.25; }}
         }}
     </style>
 </head>
 <body>
+    <div class="sacred-bg" aria-hidden="true">
+        <img class="icon-christ" src="/static/christ-pantocrator.jpg" alt="">
+        <img class="icon-topright-mirror" src="/static/last-judgment.jpg" alt="">
+        <img class="icon-theotokos" src="/static/theotokos.jpg" alt="">
+        <img class="icon-topleft" src="/static/last-judgment.jpg" alt="">
+        <img class="icon-george" src="/static/saint-george.jpg" alt="">
+        <div class="glow"></div>
+    </div>
+    <header class="ep-header">
+        <div class="ep-header-title">Светоглед</div>
+        <div class="ep-header-sub">Архив на предаването с Георги Тодоров по Радио Зорана</div>
+    </header>
     <div class="container">
         <a href="/" class="back">&larr; Към търсенето</a>
         <h1>{title}</h1>
@@ -605,7 +736,7 @@ def _render_episode_page(data):
                     </label>
                     <button class="ctrl-btn" onclick="exportText()" title="Копирай текста">Копирай</button>
                     <button class="ctrl-btn" onclick="downloadText()" title="Свали като файл">Свали .txt</button>
-                    <button class="ctrl-btn" onclick="openReader()" title="Четене на цял екран" style="margin-left:auto">&#9634; Цял екран</button>
+                    <button class="ctrl-btn fullscreen-btn" onclick="openReader()" title="Четене на цял екран" style="margin-left:auto;color:var(--gold);border-color:var(--gold)">&#9634; Цял екран</button>
                 </div>
             </div>
             <div class="transcript-body" id="transcript-body"></div>
@@ -615,7 +746,7 @@ def _render_episode_page(data):
     </div>
     <div class="reader-overlay" id="reader-overlay">
         <div class="reader-toolbar">
-            <button class="ctrl-btn" onclick="closeReader()">&larr; Назад</button>
+            <button class="ctrl-btn" onclick="closeReader()" style="color:var(--gold);border-color:var(--gold)">&larr; Затвори</button>
             <span style="color:var(--text-dim);font-size:13px;flex:1;text-align:center">{title}</span>
             <div class="font-size-label">
                 <button class="font-btn" onclick="changeFontSize(-1)" title="По-малък шрифт">A-</button>
@@ -639,7 +770,7 @@ def _render_episode_page(data):
 
     function setMode(m, btn) {{
         mode = m;
-        document.querySelectorAll('.ctrl-btn').forEach(function(b) {{ b.classList.remove('active'); }});
+        document.querySelectorAll('.ctrl-btn:not(.fullscreen-btn)').forEach(function(b) {{ b.classList.remove('active'); }});
         btn.classList.add('active');
         renderTranscript();
     }}
@@ -727,19 +858,27 @@ def _render_episode_page(data):
     function openReader() {{
         var overlay = document.getElementById('reader-overlay');
         var content = document.getElementById('reader-content');
-        content.innerHTML = document.getElementById('transcript-body').innerHTML;
+        var srcHtml = document.getElementById('transcript-body').innerHTML;
+        if (!srcHtml || srcHtml.trim().length === 0) {{
+            // Transcript not yet rendered, render first
+            renderTranscript();
+            srcHtml = document.getElementById('transcript-body').innerHTML;
+        }}
+        content.innerHTML = srcHtml;
         content.style.fontSize = readerFontSize + 'px';
         content.style.fontFamily = fontFamilies[readerFontFamily];
         overlay.classList.add('active');
         overlay.scrollTop = 0;
         document.body.style.overflow = 'hidden';
+        overlay.setAttribute('tabindex', '-1');
+        overlay.focus();
         // Scroll to first highlighted term if any
         setTimeout(function() {{
             var firstHit = content.querySelector('.highlight-term, mark, em');
             if (firstHit) {{
                 firstHit.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
             }}
-        }}, 50);
+        }}, 100);
     }}
 
     function closeReader() {{
@@ -851,6 +990,22 @@ class SearchHandler(SimpleHTTPRequestHandler):
 
         elif parsed.path.startswith("/meili/"):
             self._proxy_meili("GET")
+
+        elif parsed.path.startswith("/static/"):
+            safe_path = parsed.path.replace("..", "").lstrip("/")
+            fpath = Path(__file__).parent / safe_path
+            if fpath.exists() and fpath.is_file():
+                content = fpath.read_bytes()
+                ext = fpath.suffix.lower()
+                ctype = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp"}.get(ext, "application/octet-stream")
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                self.wfile.write(content)
+            else:
+                self.send_error(404)
 
         else:
             self.send_error(404)
