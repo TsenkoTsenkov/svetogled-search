@@ -954,10 +954,10 @@ _CUSTOM_404 = """<!DOCTYPE html>
          display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center;
          overflow:hidden; }
   .sacred-bg { position:fixed; top:0; left:0; right:0; bottom:0; z-index:0; pointer-events:none; }
-  .sacred-bg img { position:absolute; filter:sepia(0.4) brightness(0.7) saturate(0.6);
-                   opacity:0.3; object-fit:contain; }
+  .sacred-bg img { position:absolute; filter:sepia(0.2) brightness(1.1) saturate(0.7);
+                   opacity:0.45; object-fit:contain; }
   .icon-menas { left:3%; top:50%; transform:translateY(-50%); height:70vh; max-height:600px; }
-  .icon-phanourios { left:50%; top:50%; transform:translate(-50%,-50%); height:80vh; max-height:700px; opacity:0.18 !important; }
+  .icon-phanourios { left:50%; top:50%; transform:translate(-50%,-50%); height:80vh; max-height:700px; opacity:0.25 !important; }
   .icon-nicholas { right:3%; top:50%; transform:translateY(-50%); height:65vh; max-height:550px; }
   .sacred-bg .glow { position:absolute; top:0; left:0; right:0; bottom:0;
     background: radial-gradient(ellipse 600px 700px at 50% 40%, rgba(200,153,76,0.04) 0%, transparent 70%),
@@ -974,9 +974,9 @@ _CUSTOM_404 = """<!DOCTYPE html>
                border:1px solid rgba(200,153,76,0.3); border-radius:24px; font-size:14px; }
   .home-link:hover { background:rgba(200,153,76,0.1); }
   @media (max-width:900px) {
-    .icon-menas { left:-5%; height:50vh; opacity:0.2 !important; }
-    .icon-nicholas { right:-5%; height:45vh; opacity:0.2 !important; }
-    .icon-phanourios { opacity:0.12 !important; }
+    .icon-menas { left:-5%; height:50vh; opacity:0.3 !important; }
+    .icon-nicholas { right:-5%; height:45vh; opacity:0.3 !important; }
+    .icon-phanourios { opacity:0.18 !important; }
   }
   @media (max-width:600px) {
     .icon-menas, .icon-nicholas { display:none; }
