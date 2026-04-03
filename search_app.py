@@ -1084,26 +1084,11 @@ def _render_about_page():
        padding-bottom:8px; border-bottom:1px solid var(--glass-border); }}
   p {{ color:var(--text-dim); font-size:15px; margin-bottom:16px; }}
   .subtitle {{ color:var(--text-dimmer); font-size:14px; margin-bottom:32px; font-style:italic; }}
-  .disclaimer {{ background:rgba(200,153,76,0.06); border:1px solid rgba(200,153,76,0.15);
-                border-radius:12px; padding:20px 24px; margin:28px 0; }}
-  .disclaimer p {{ color:var(--text-dim); margin-bottom:8px; font-size:14px; }}
-  .disclaimer p:last-child {{ margin-bottom:0; }}
-  .disclaimer strong {{ color:var(--text); }}
-  .warning {{ background:rgba(107,32,56,0.12); border:1px solid rgba(107,32,56,0.25);
-             border-radius:12px; padding:20px 24px; margin:28px 0; }}
-  .warning p {{ color:var(--text-dim); margin-bottom:8px; font-size:14px; }}
-  .warning p:last-child {{ margin-bottom:0; }}
-  .warning strong {{ color:var(--accent); }}
   a {{ color:var(--gold); text-decoration:none; transition:color 0.2s; }}
   a:hover {{ color:#d4a853; }}
   .back-link {{ display:inline-block; margin-bottom:32px; padding:8px 20px;
                border:1px solid rgba(200,153,76,0.3); border-radius:20px; font-size:13px; }}
   .back-link:hover {{ background:rgba(200,153,76,0.1); }}
-  .step {{ display:flex; gap:12px; margin-bottom:14px; align-items:flex-start; }}
-  .step-num {{ background:rgba(200,153,76,0.15); color:var(--gold); min-width:28px; height:28px;
-              border-radius:50%; display:flex; align-items:center; justify-content:center;
-              font-size:13px; font-weight:600; flex-shrink:0; margin-top:2px; }}
-  .step p {{ margin-bottom:0; }}
   .saints-note {{ color:var(--text-dimmer); font-size:11px; text-align:center; margin-top:48px;
                  border-top:1px solid var(--glass-border); padding-top:16px; line-height:1.7; }}
   .saints-note strong {{ color:var(--text-dim); }}
@@ -1131,47 +1116,21 @@ def _render_about_page():
 <div class="content">
   <a class="back-link" href="/">&#8592; Към архива</a>
   <h1>За сайта</h1>
-  <p class="subtitle">Светоглед Архив — неофициален архив и търсачка в транскрипциите на предаването</p>
+  <p class="subtitle">Неофициален архив на предаването Светоглед по Радио Зорана</p>
 
-  <div class="disclaimer">
-    <p><strong>Този сайт не е официално свързан</strong> с Радио Зорана, Георги Тодоров или екипа на предаването Светоглед.</p>
-    <p>Създаден е от слушател с цел улесняване на достъпа до съдържанието на предаването за изследователски и образователни цели. Всички епизоди са публично достъпни в <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener noreferrer">YouTube канала на Радио Зорана</a>.</p>
-  </div>
+  <p>Този сайт не е свързан с Радио Зорана или екипа на предаването. Създаден е от слушател, който желае съдържанието да бъде по-лесно достъпно и търсимо. Всички епизоди са публично достъпни в <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener noreferrer">YouTube канала на Радио Зорана</a>.</p>
 
-  <h2>Как е създаден архивът?</h2>
+  <h2>Как работи</h2>
+  <p>Транскрипциите на {EPISODE_COUNT}-те епизода са генерирани автоматично от аудиото чрез AI модел за разпознаване на реч. Текстът е индексиран за мигновено търсене, а резултатите включват времеви маркери с директни връзки към YouTube.</p>
 
-  <div class="step">
-    <span class="step-num">1</span>
-    <p>Аудиото от всички {EPISODE_COUNT} публични епизода на Светоглед е извлечено от YouTube.</p>
-  </div>
-  <div class="step">
-    <span class="step-num">2</span>
-    <p>Всеки епизод е транскрибиран чрез <strong>Whisper</strong> — AI модел за разпознаване на реч, разработен от OpenAI.</p>
-  </div>
-  <div class="step">
-    <span class="step-num">3</span>
-    <p>Транскрипциите са индексирани с <strong>Meilisearch</strong> — търсачка с поддръжка на българска морфология, която позволява мигновено търсене в целия архив.</p>
-  </div>
-  <div class="step">
-    <span class="step-num">4</span>
-    <p>Резултатите са форматирани с времеви маркери, които препращат директно към съответния момент в YouTube видеото.</p>
-  </div>
+  <p>Поради автоматичния характер на транскрибирането, в текстовете се срещат граматически, лексикални и правописни грешки. Някои имена и термини може да са предадени неточно. Въпреки това качеството е достатъчно добро за търсене и ориентиране в съдържанието.</p>
 
-  <div class="warning">
-    <p><strong>Относно качеството на транскрипциите:</strong></p>
-    <p>Поради естеството на AI моделите и тяхната недетерминистичност, в транскрипциите все още се срещат <strong>граматически, лексикални и правописни грешки</strong>. Някои собствени имена, църковнославянски термини и специализирана богословска лексика може да са предадени неточно.</p>
-    <p>Въпреки това, общото качество на транскрипциите е на добро ниво за изследователски цели — търсенето работи надеждно и контекстът на цитатите е запазен.</p>
-  </div>
-
-  <h2>Цел на сайта</h2>
-  <p>Целта на този архив е да направи богатото съдържание на предаването Светоглед по-лесно достъпно и търсимо. Предаването разглежда теми от православното богословие, българската история, културата и съвременността, и заслужава по-широка аудитория и по-удобен достъп.</p>
-  <p>Сайтът е с нестопанска цел, не съдържа реклами и не генерира приходи.</p>
+  <p>Сайтът е с нестопанска цел и не съдържа реклами.</p>
 
   <h2>Контакт</h2>
-  <p>За въпроси, забележки или заявки за премахване на съдържание: <a href="mailto:tseni.tsenkov@gmail.com">tseni.tsenkov@gmail.com</a></p>
+  <p><a href="mailto:tseni.tsenkov@gmail.com">tseni.tsenkov@gmail.com</a></p>
 
   <div class="saints-note">
-    Покровители на славянската писменост:<br>
     <strong>Св. св. Кирил и Методий</strong> &middot;
     <strong>Св. Климент Охридски</strong> &middot;
     <strong>Св. Наум Охридски</strong>
