@@ -1072,7 +1072,8 @@ def _render_about_page():
   .sacred-bg {{ position:fixed; top:0; left:0; right:0; bottom:0; z-index:0; pointer-events:none; }}
   .sacred-bg img {{ position:absolute; filter:sepia(0.2) brightness(1.0) saturate(0.6);
                    opacity:0.25; object-fit:contain; }}
-  .icon-cyril {{ left:2%; top:50%; transform:translateY(-50%); height:70vh; max-height:650px; }}
+  .icon-cyril {{ left:2%; top:50%; transform:translateY(-50%); height:70vh; max-height:650px;
+                filter:sepia(0.15) brightness(1.3) saturate(0.7) !important; }}
   .icon-naum {{ left:50%; top:50%; transform:translate(-50%,-50%); height:75vh; max-height:700px; opacity:0.15 !important; }}
   .icon-clement {{ right:2%; top:50%; transform:translateY(-50%); height:65vh; max-height:600px; }}
   .sacred-bg .glow {{ position:absolute; top:0; left:0; right:0; bottom:0;

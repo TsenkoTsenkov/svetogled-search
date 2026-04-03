@@ -2458,14 +2458,13 @@
                         epSticky.classList.toggle("scrolled", scrolled);
                     backToTopBtn.classList.toggle(
                         "visible",
-                        window.scrollY > 400,
+                        window.scrollY > 200,
                     );
                     var footer = document.querySelector('.site-footer');
                     if (footer) {
-                        var footerTop = footer.getBoundingClientRect().top;
-                        var btnHeight = 44 + 24; // button height + original bottom offset
-                        if (footerTop < window.innerHeight) {
-                            backToTopBtn.style.bottom = (window.innerHeight - footerTop + 12) + 'px';
+                        var footerRect = footer.getBoundingClientRect();
+                        if (footerRect.top < window.innerHeight) {
+                            backToTopBtn.style.bottom = (window.innerHeight - footerRect.top + 12) + 'px';
                         } else {
                             backToTopBtn.style.bottom = '24px';
                         }
