@@ -2430,16 +2430,21 @@ function goFullscreen(container) {
     overlay.scrollTop = 0;
     document.body.style.overflow = 'hidden';
     activeFullscreenEl = overlay;
-    // Focus the overlay so it receives scroll events
+    // Focus the overlay so keyboard shortcuts work
     overlay.setAttribute('tabindex', '-1');
-    overlay.focus();
+    overlay.style.outline = 'none';
+    overlay.focus({ preventScroll: true });
+    // Re-focus after any async layout to ensure keyboard works via button click
+    requestAnimationFrame(function() { overlay.focus({ preventScroll: true }); });
     // Scroll to first highlighted term
     setTimeout(function() {
         var firstHit = overlay.querySelector('.highlight-term');
         if (firstHit) {
             firstHit.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    }, 100);
+        // Final focus ensure after scroll completes
+        overlay.focus({ preventScroll: true });
+    }, 150);
     var hint = document.getElementById('fullscreen-hint');
     hint.classList.add('visible');
     setTimeout(function() { hint.classList.remove('visible'); }, 3000);
@@ -2526,6 +2531,8 @@ document.getElementById('fullscreen-overlay').addEventListener('scroll', functio
 }, { passive: true });
 
 document.getElementById('fullscreen-overlay').addEventListener('click', function(e) {
+    // Re-focus overlay on any click so keyboard shortcuts keep working
+    this.focus({ preventScroll: true });
     if (e.target === this) {
         exitFullscreen();
         navMode = 'items';
