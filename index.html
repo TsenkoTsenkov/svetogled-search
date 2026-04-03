@@ -8,7 +8,7 @@
     <meta name="keywords" content="Светоглед, Георги Тодоров, Радио Зорана, православие, богословие, българска история, култура, транскрипции, архив">
     <meta name="author" content="Светоглед — Радио Зорана">
     <link rel="canonical" href="https://svetogled-arhiv.com">
-    <link rel="preload" as="image" type="image/webp" href="/static/last-judgment.webp">
+    <link rel="preload" as="image" type="image/webp" href="/static/christ-pantocrator.webp">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -348,7 +348,8 @@
             right: 10px;
             top: 50%;
             transform: translateY(-50%);
-            padding: 4px 10px;
+            padding: 6px 10px;
+            min-height: 28px;
             font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.5px;
@@ -520,6 +521,7 @@
             max-width: 860px;
             margin: 14px auto 40px;
             padding: 0 20px;
+            min-height: 60vh;
         }
 
         .video-group {
@@ -1180,7 +1182,7 @@
             .search-row { flex-direction: column; gap: 8px; }
             #search-input { font-size: 16px; padding: 12px 66px 12px 40px; }
             .search-icon { left: 12px; width: 16px; height: 16px; }
-            .exact-toggle { font-size: 10px; padding: 3px 8px; right: 8px; }
+            .exact-toggle { font-size: 10px; padding: 6px 8px; min-height: 28px; right: 8px; }
             .filter-select { max-width: 100%; min-width: 0; padding: 10px 32px 10px 14px; }
             .export-btn { padding: 10px 14px; text-align: center; border-radius: 24px; }
 
@@ -1212,8 +1214,8 @@
 </head>
 <body>
     <div class="sacred-bg" aria-hidden="true">
-        <img class="icon-christ" src="/static/christ-pantocrator.webp" alt="" loading="eager">
-        <img class="icon-topright-mirror" src="/static/last-judgment.webp" alt="" loading="eager" fetchpriority="high">
+        <img class="icon-christ" src="/static/christ-pantocrator.webp" alt="" loading="eager" fetchpriority="high">
+        <img class="icon-topright-mirror" src="/static/last-judgment.webp" alt="" loading="lazy">
         <img class="icon-theotokos" src="/static/theotokos.webp" alt="" loading="lazy">
         <img class="icon-topleft" src="/static/last-judgment.webp" alt="" loading="lazy">
         <div class="saints-cycle">
@@ -1281,7 +1283,7 @@
 
     <footer class="site-footer">
         <div>Архив на предаването <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener">Светоглед</a> с Георги Тодоров по Радио Зорана</div>
-        <div style="margin-top:6px;font-style:italic;color:var(--text-dimmer);font-size:11px">Слава Богу за всичко</div>
+        <div style="margin-top:6px;font-style:italic;color:var(--text-dimmer);font-size:11px" id="footer-subtitle">Слава Богу за всичко</div>
     </footer>
 
 <script>

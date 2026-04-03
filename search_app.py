@@ -21,6 +21,24 @@ PORT = int(os.environ.get("PORT", 8080))
 TRANSCRIPTS_DIR = Path(__file__).parent / "transcripts"
 HTML_FILE = Path(__file__).parent / "index.html"
 
+
+def _minify_html(html_bytes):
+    """Lightweight minification: collapse whitespace in CSS/JS, strip HTML comments."""
+    text = html_bytes.decode("utf-8")
+    # Remove HTML comments (but not conditional comments)
+    text = re.sub(r'<!--(?!\[).*?-->', '', text, flags=re.DOTALL)
+    # Collapse runs of whitespace (spaces/tabs) into single space, preserve newlines
+    text = re.sub(r'[ \t]+', ' ', text)
+    # Remove whitespace around newlines
+    text = re.sub(r' ?\n ?', '\n', text)
+    # Collapse multiple blank lines into one
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.encode("utf-8")
+
+
+# Pre-minify at startup for zero runtime cost
+_MINIFIED_HTML = _minify_html(HTML_FILE.read_bytes()) if HTML_FILE.exists() else b""
+
 STOP_WORDS = set("""
 и в на от за с по към до при без между със
 се е са бе да не ни че ще ли бъде бъдат била било били
@@ -952,7 +970,7 @@ class SearchHandler(SimpleHTTPRequestHandler):
         params = parse_qs(parsed.query)
 
         if parsed.path == "/" or parsed.path == "/index.html":
-            content = HTML_FILE.read_bytes()
+            content = _MINIFIED_HTML or HTML_FILE.read_bytes()
             self._send_body(content, "text/html; charset=utf-8", {
                 "Cache-Control": "no-cache, no-store, must-revalidate",
             })
