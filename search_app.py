@@ -37,16 +37,31 @@ def _minify_html(html_bytes):
 
 
 # Count episodes at startup (excluding duplicates by segment count)
+def _get_duration(data):
+    """Get episode duration in seconds from the last segment's start time."""
+    snippets = data.get("snippets") or data.get("segments", [])
+    if snippets:
+        return snippets[-1].get("start", 0)
+    return 0
+
+
+def _is_reupload(dur_a, dur_b):
+    """Two episodes with same number are re-uploads if durations are within 5%."""
+    if dur_a == 0 or dur_b == 0:
+        return False
+    return abs(dur_a - dur_b) / max(dur_a, dur_b) < 0.05
+
+
 def _count_episodes():
     seen = {}
     count = 0
     for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
         data = json.loads(f.read_text(encoding="utf-8"))
         n = data.get("episode_number", 0)
-        sc = data.get("segment_count", 0)
-        if n in seen and seen[n] == sc:
+        dur = _get_duration(data)
+        if n in seen and _is_reupload(seen[n], dur):
             continue  # skip re-upload
-        seen[n] = sc
+        seen[n] = dur
         count += 1
     return count
 
@@ -1096,17 +1111,17 @@ class SearchHandler(SimpleHTTPRequestHandler):
                     "segment_count": data.get("segment_count", 0),
                     "playlist_order": data.get("playlist_order", 9999),
                     "episode_number": data.get("episode_number", 0),
+                    "_duration": _get_duration(data),
                 })
-            # Deduplicate re-uploads: same episode_number + same segment_count
-            # Keep the version with "(Беседа N)" in title, or lower playlist_order
+            # Deduplicate re-uploads: same episode_number + similar duration
+            # Keep the version with "(Беседа N)" in title
             seen = {}  # episode_number -> best episode
             unique = []
             for ep in episodes:
                 n = ep["episode_number"]
                 if n in seen:
                     prev = seen[n]
-                    if prev["segment_count"] == ep["segment_count"]:
-                        # Same content (re-upload) — prefer canonical title
+                    if _is_reupload(prev["_duration"], ep["_duration"]):
                         has_label = f"(Беседа {n})" in ep["title"]
                         prev_has = f"(Беседа {n})" in prev["title"]
                         if has_label and not prev_has:
@@ -1116,6 +1131,8 @@ class SearchHandler(SimpleHTTPRequestHandler):
                     # Different content sharing same number — keep both
                 unique.append(ep)
                 seen[n] = ep
+            for ep in unique:
+                del ep["_duration"]
             unique.sort(key=lambda x: x.get("episode_number", 0))
             self._serve_json(unique)
 
