@@ -372,8 +372,11 @@ def _render_episode_page(data):
         "associatedMedia": {{
             "@type": "VideoObject",
             "name": "{title}",
+            "description": "{_html_escape(desc_text)}",
             "embedUrl": "https://www.youtube.com/embed/{video_id}",
-            "thumbnailUrl": "https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+            "thumbnailUrl": "https://img.youtube.com/vi/{video_id}/hqdefault.jpg",
+            "uploadDate": "{data.get('upload_date', '2024-01-01')}",
+            "contentUrl": "https://www.youtube.com/watch?v={video_id}"
         }},
         "partOfSeries": {{
             "@type": "PodcastSeries",
