@@ -2454,6 +2454,10 @@ function openGroupFullscreen(videoId, containerId, btn) {
     var container = document.getElementById(containerId);
     if (!container) return;
 
+    // Blur the button so the overlay can receive keyboard focus
+    if (btn) btn.blur();
+    if (document.activeElement) document.activeElement.blur();
+
     navMode = 'transcript';
 
     // Load transcript if not already loaded, then go fullscreen
