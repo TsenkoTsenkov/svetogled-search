@@ -2456,9 +2456,11 @@
                         searchBar.classList.toggle("scrolled", scrolled);
                     if (epSticky)
                         epSticky.classList.toggle("scrolled", scrolled);
+                    var footer = document.querySelector('.site-footer');
+                    var footerVisible = footer && (window.innerHeight + window.scrollY) >= footer.offsetTop;
                     backToTopBtn.classList.toggle(
                         "visible",
-                        window.scrollY > 400,
+                        window.scrollY > 400 && !footerVisible,
                     );
                 },
                 { passive: true },
