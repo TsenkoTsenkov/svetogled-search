@@ -1989,7 +1989,7 @@
                             <input
                                 type="text"
                                 id="search-input"
-                                placeholder="Търсете тук... (напр. Кант, покръстване, иконоборство)"
+                                placeholder="Търсете тук (напр.иконоборство, парекселанс)"
                                 aria-label="Търсене в транскрипции"
                                 autofocus
                             />
@@ -2116,8 +2116,20 @@
                 >
                 с Георги Тодоров по Радио Зорана
             </div>
-            <div style="margin-top:6px;font-style:italic;color:var(--text-dimmer);font-size:11px" id="footer-subtitle">Слава Богу за всичко</div>
-            <div style="margin-top:10px"><a href="/about" style="font-size:11px">За сайта</a></div>
+            <div
+                style="
+                    margin-top: 6px;
+                    font-style: italic;
+                    color: var(--text-dimmer);
+                    font-size: 11px;
+                "
+                id="footer-subtitle"
+            >
+                Слава Богу за всичко
+            </div>
+            <div style="margin-top: 10px">
+                <a href="/about" style="font-size: 11px">За сайта</a>
+            </div>
         </footer>
 
         <script>
@@ -2460,13 +2472,14 @@
                         "visible",
                         window.scrollY > 200,
                     );
-                    var footer = document.querySelector('.site-footer');
+                    var footer = document.querySelector(".site-footer");
                     if (footer) {
                         var footerRect = footer.getBoundingClientRect();
                         if (footerRect.top < window.innerHeight) {
-                            backToTopBtn.style.bottom = (window.innerHeight - footerRect.top + 12) + 'px';
+                            backToTopBtn.style.bottom =
+                                window.innerHeight - footerRect.top + 12 + "px";
                         } else {
-                            backToTopBtn.style.bottom = '24px';
+                            backToTopBtn.style.bottom = "24px";
                         }
                     }
                 },
