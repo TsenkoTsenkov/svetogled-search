@@ -31,11 +31,12 @@ dnf install -y caddy || {
 # Configure Caddy
 cat > /etc/caddy/Caddyfile << 'CADDY'
 ${domain} {
+    encode gzip zstd
     reverse_proxy localhost:8080
 }
 
 www.${domain} {
-    redir https://${domain}{uri}
+    redir https://${domain}{uri} permanent
 }
 CADDY
 
@@ -153,6 +154,20 @@ cd /opt/svetogled-search
 git pull
 pip3 install -q meilisearch
 python3 index_to_meili.py --fresh
+
+# Update Caddy config if needed
+cat > /etc/caddy/Caddyfile << 'CADDY'
+svetogled-arhiv.com {
+    encode gzip zstd
+    reverse_proxy localhost:8080
+}
+
+www.svetogled-arhiv.com {
+    redir https://svetogled-arhiv.com{uri} permanent
+}
+CADDY
+systemctl reload caddy
+
 systemctl restart svetogled
 UPDATE
 chmod +x /opt/svetogled-search/update.sh

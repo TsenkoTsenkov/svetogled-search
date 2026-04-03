@@ -14,6 +14,7 @@ COPY search_app.py .
 COPY index.html .
 COPY index_to_meili.py .
 COPY transcripts/ ./transcripts/
+COPY static/ ./static/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir meilisearch

@@ -7,6 +7,7 @@ Usage:
     Then open http://localhost:8080
 """
 
+import gzip
 import json
 import os
 import re
@@ -702,11 +703,11 @@ def _render_episode_page(data):
 </head>
 <body>
     <div class="sacred-bg" aria-hidden="true">
-        <img class="icon-christ" src="/static/christ-pantocrator.jpg" alt="">
-        <img class="icon-topright-mirror" src="/static/last-judgment.jpg" alt="">
-        <img class="icon-theotokos" src="/static/theotokos.jpg" alt="">
-        <img class="icon-topleft" src="/static/last-judgment.jpg" alt="">
-        <img class="icon-george" src="/static/saint-george.jpg" alt="">
+        <img class="icon-christ" src="/static/christ-pantocrator.webp" alt="">
+        <img class="icon-topright-mirror" src="/static/last-judgment.webp" alt="">
+        <img class="icon-theotokos" src="/static/theotokos.webp" alt="">
+        <img class="icon-topleft" src="/static/last-judgment.webp" alt="">
+        <img class="icon-george" src="/static/saint-george.webp" alt="">
         <div class="glow"></div>
     </div>
     <header class="ep-header">
@@ -925,18 +926,36 @@ def _render_episode_page(data):
 
 
 class SearchHandler(SimpleHTTPRequestHandler):
+    def _accepts_gzip(self):
+        return "gzip" in self.headers.get("Accept-Encoding", "")
+
+    def _send_body(self, body, content_type, extra_headers=None):
+        """Send response body, gzip-compressed if client supports it."""
+        headers = extra_headers or {}
+        if self._accepts_gzip() and len(body) > 256:
+            body = gzip.compress(body, compresslevel=6)
+            headers["Content-Encoding"] = "gzip"
+            headers["Vary"] = "Accept-Encoding"
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        for k, v in headers.items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_HEAD(self):
+        self.do_GET()
+
     def do_GET(self):
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
 
         if parsed.path == "/" or parsed.path == "/index.html":
             content = HTML_FILE.read_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(content)))
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-            self.end_headers()
-            self.wfile.write(content)
+            self._send_body(content, "text/html; charset=utf-8", {
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            })
 
         elif parsed.path == "/api/transcript":
             video_id = params.get("id", [None])[0]
@@ -978,19 +997,11 @@ class SearchHandler(SimpleHTTPRequestHandler):
                 return
             data = json.loads(fpath.read_text(encoding="utf-8"))
             content = _render_episode_page(data).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(content)))
-            self.end_headers()
-            self.wfile.write(content)
+            self._send_body(content, "text/html; charset=utf-8")
 
         elif parsed.path == "/robots.txt":
             content = b"User-agent: *\nAllow: /\nSitemap: https://svetogled-arhiv.com/sitemap.xml\n"
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Content-Length", str(len(content)))
-            self.end_headers()
-            self.wfile.write(content)
+            self._send_body(content, "text/plain; charset=utf-8")
 
         elif parsed.path == "/sitemap.xml":
             self._serve_sitemap()
@@ -1008,7 +1019,7 @@ class SearchHandler(SimpleHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", ctype)
                 self.send_header("Content-Length", str(len(content)))
-                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Cache-Control", "public, max-age=31536000, immutable")
                 self.end_headers()
                 self.wfile.write(content)
             else:
@@ -1062,23 +1073,21 @@ class SearchHandler(SimpleHTTPRequestHandler):
         xml += '  <url><loc>https://svetogled-arhiv.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n'
         for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
             vid = f.stem
-            xml += f'  <url><loc>https://svetogled-arhiv.com/episode/{vid}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>\n'
+            data = json.loads(f.read_text(encoding="utf-8"))
+            lastmod = data.get("upload_date", "")
+            xml += f'  <url><loc>https://svetogled-arhiv.com/episode/{vid}</loc>'
+            if lastmod:
+                xml += f'<lastmod>{lastmod}</lastmod>'
+            xml += '<changefreq>monthly</changefreq><priority>0.8</priority></url>\n'
         xml += '</urlset>\n'
         body = xml.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/xml; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._send_body(body, "application/xml; charset=utf-8")
 
     def _serve_json(self, data):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._send_body(body, "application/json; charset=utf-8", {
+            "Access-Control-Allow-Origin": "*",
+        })
 
     def log_message(self, format, *args):
         pass
