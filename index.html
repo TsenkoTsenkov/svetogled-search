@@ -2409,6 +2409,7 @@ function isTranscriptOpen() {
 }
 
 var activeFullscreenEl = null;
+var activeFullscreenVideoId = null;
 
 function goFullscreen(container) {
     var overlay = document.getElementById('fullscreen-overlay');
@@ -2452,6 +2453,7 @@ function enterFullscreenForEpisode(videoId, containerId) {
     var container = document.getElementById(containerId);
     if (!container || !videoId) return;
 
+    activeFullscreenVideoId = videoId;
     navMode = 'transcript';
 
     if (container.dataset.loaded) {
@@ -2527,13 +2529,26 @@ function exitFullscreen() {
     document.getElementById('fullscreen-hint').classList.remove('visible');
     document.getElementById('fullscreen-progress').style.height = '0%';
 
-    // Close the inline transcript so the page doesn't stay scrolled to it
+    // Select the episode we just exited from
     var items = getNavigableItems();
+    if (activeFullscreenVideoId) {
+        for (var i = 0; i < items.length; i++) {
+            var vid = items[i].getAttribute('data-video-id');
+            if (vid === activeFullscreenVideoId) {
+                navSelectedIdx = i;
+                clearNavSelection();
+                items[i].classList.add('ep-selected');
+                break;
+            }
+        }
+    }
+    activeFullscreenVideoId = null;
+
+    // Close the inline transcript so the page doesn't stay scrolled to it
     if (items[navSelectedIdx]) {
         var ft = getOpenTranscript(items[navSelectedIdx]);
         if (ft) {
             ft.classList.remove('open');
-            // Also reset the expand button arrow
             var expandBtn = items[navSelectedIdx].querySelector('.group-btn-expand');
             if (expandBtn) expandBtn.classList.remove('open');
         }
