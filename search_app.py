@@ -981,6 +981,137 @@ def _render_episode_page(data):
 </html>"""
 
 
+def _render_about_page():
+    return f"""<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>За сайта — Светоглед Архив</title>
+<meta name="description" content="Информация за архива на предаването Светоглед — как е създаден, какви технологии използва и какви са ограниченията на транскрипциите.">
+<link rel="canonical" href="https://svetogled-arhiv.com/about">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://svetogled-arhiv.com/about">
+<meta property="og:title" content="За сайта — Светоглед Архив">
+<meta property="og:image" content="https://svetogled-arhiv.com/static/og-image.jpg">
+<style>
+  :root {{
+    --bg: #0a0a0e; --accent: #c8994c; --text: #e8e4e0;
+    --text-dim: #b8b0a8; --text-dimmer: #8a8078; --gold: #c8994c;
+    --glass-border: rgba(255,255,255,0.08);
+  }}
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,sans-serif;
+         line-height:1.8; overflow-x:hidden; }}
+  .sacred-bg {{ position:fixed; top:0; left:0; right:0; bottom:0; z-index:0; pointer-events:none; }}
+  .sacred-bg img {{ position:absolute; filter:sepia(0.2) brightness(1.0) saturate(0.6);
+                   opacity:0.25; object-fit:contain; }}
+  .icon-cyril {{ left:2%; top:50%; transform:translateY(-50%); height:70vh; max-height:650px; }}
+  .icon-naum {{ left:50%; top:50%; transform:translate(-50%,-50%); height:75vh; max-height:700px; opacity:0.15 !important; }}
+  .icon-clement {{ right:2%; top:50%; transform:translateY(-50%); height:65vh; max-height:600px; }}
+  .sacred-bg .glow {{ position:absolute; top:0; left:0; right:0; bottom:0;
+    background: radial-gradient(ellipse 600px 700px at 50% 40%, rgba(200,153,76,0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 500px at 5% 60%, rgba(107,32,56,0.05) 0%, transparent 70%); }}
+  .content {{ position:relative; z-index:1; max-width:680px; margin:0 auto; padding:48px 24px 80px; }}
+  h1 {{ font-size:28px; color:var(--gold); font-weight:400; margin-bottom:8px; letter-spacing:0.5px; }}
+  h2 {{ font-size:18px; color:var(--text); font-weight:500; margin:36px 0 12px;
+       padding-bottom:8px; border-bottom:1px solid var(--glass-border); }}
+  p {{ color:var(--text-dim); font-size:15px; margin-bottom:16px; }}
+  .subtitle {{ color:var(--text-dimmer); font-size:14px; margin-bottom:32px; font-style:italic; }}
+  .disclaimer {{ background:rgba(200,153,76,0.06); border:1px solid rgba(200,153,76,0.15);
+                border-radius:12px; padding:20px 24px; margin:28px 0; }}
+  .disclaimer p {{ color:var(--text-dim); margin-bottom:8px; font-size:14px; }}
+  .disclaimer p:last-child {{ margin-bottom:0; }}
+  .disclaimer strong {{ color:var(--text); }}
+  .warning {{ background:rgba(107,32,56,0.12); border:1px solid rgba(107,32,56,0.25);
+             border-radius:12px; padding:20px 24px; margin:28px 0; }}
+  .warning p {{ color:var(--text-dim); margin-bottom:8px; font-size:14px; }}
+  .warning p:last-child {{ margin-bottom:0; }}
+  .warning strong {{ color:var(--accent); }}
+  a {{ color:var(--gold); text-decoration:none; transition:color 0.2s; }}
+  a:hover {{ color:#d4a853; }}
+  .back-link {{ display:inline-block; margin-bottom:32px; padding:8px 20px;
+               border:1px solid rgba(200,153,76,0.3); border-radius:20px; font-size:13px; }}
+  .back-link:hover {{ background:rgba(200,153,76,0.1); }}
+  .step {{ display:flex; gap:12px; margin-bottom:14px; align-items:flex-start; }}
+  .step-num {{ background:rgba(200,153,76,0.15); color:var(--gold); min-width:28px; height:28px;
+              border-radius:50%; display:flex; align-items:center; justify-content:center;
+              font-size:13px; font-weight:600; flex-shrink:0; margin-top:2px; }}
+  .step p {{ margin-bottom:0; }}
+  .saints-note {{ color:var(--text-dimmer); font-size:11px; text-align:center; margin-top:48px;
+                 border-top:1px solid var(--glass-border); padding-top:16px; line-height:1.7; }}
+  .saints-note strong {{ color:var(--text-dim); }}
+  @media (max-width:900px) {{
+    .icon-cyril {{ left:-5%; opacity:0.15 !important; }}
+    .icon-clement {{ right:-5%; opacity:0.15 !important; }}
+  }}
+  @media (max-width:600px) {{
+    .icon-cyril, .icon-clement {{ display:none; }}
+    .icon-naum {{ opacity:0.12 !important; }}
+    h1 {{ font-size:22px; }}
+  }}
+  @media (prefers-reduced-motion: reduce) {{
+    .sacred-bg img {{ transition:none; }}
+  }}
+</style>
+</head>
+<body>
+<div class="sacred-bg" aria-hidden="true">
+  <img class="icon-cyril" src="/static/cyril-methodius.webp" alt="Св. св. Кирил и Методий — икона">
+  <img class="icon-naum" src="/static/saint-naum.webp" alt="Свети Наум Охридски — икона">
+  <img class="icon-clement" src="/static/saint-clement.webp" alt="Свети Климент Охридски — икона">
+  <div class="glow"></div>
+</div>
+<div class="content">
+  <a class="back-link" href="/">&#8592; Към архива</a>
+  <h1>За сайта</h1>
+  <p class="subtitle">Светоглед Архив — неофициален архив и търсачка в транскрипциите на предаването</p>
+
+  <div class="disclaimer">
+    <p><strong>Този сайт не е официално свързан</strong> с Радио Зорана, Георги Тодоров или екипа на предаването Светоглед.</p>
+    <p>Създаден е от слушател с цел улесняване на достъпа до съдържанието на предаването за изследователски и образователни цели. Всички епизоди са публично достъпни в <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener noreferrer">YouTube канала на Радио Зорана</a>.</p>
+  </div>
+
+  <h2>Как е създаден архивът</h2>
+
+  <div class="step">
+    <span class="step-num">1</span>
+    <p>Аудиото от всички {EPISODE_COUNT} публични епизода на Светоглед е извлечено от YouTube.</p>
+  </div>
+  <div class="step">
+    <span class="step-num">2</span>
+    <p>Всеки епизод е транскрибиран чрез <strong>Whisper</strong> — AI модел за разпознаване на реч, разработен от OpenAI.</p>
+  </div>
+  <div class="step">
+    <span class="step-num">3</span>
+    <p>Транскрипциите са индексирани с <strong>Meilisearch</strong> — търсачка с поддръжка на българска морфология, която позволява мигновено търсене в целия архив.</p>
+  </div>
+  <div class="step">
+    <span class="step-num">4</span>
+    <p>Резултатите са форматирани с времеви маркери, които препращат директно към съответния момент в YouTube видеото.</p>
+  </div>
+
+  <div class="warning">
+    <p><strong>Относно качеството на транскрипциите:</strong></p>
+    <p>Поради естеството на AI моделите и тяхната недетерминистичност, в транскрипциите все още се срещат <strong>граматически, лексикални и правописни грешки</strong>. Някои собствени имена, църковнославянски термини и специализирана богословска лексика може да са предадени неточно.</p>
+    <p>Въпреки това, общото качество на транскрипциите е на добро ниво за изследователски цели — търсенето работи надеждно и контекстът на цитатите е запазен.</p>
+  </div>
+
+  <h2>Цел на сайта</h2>
+  <p>Целта на този архив е да направи богатото съдържание на предаването Светоглед по-лесно достъпно и търсимо. Предаването разглежда теми от православното богословие, българската история, културата и съвременността, и заслужава по-широка аудитория и по-удобен достъп.</p>
+  <p>Сайтът е с нестопанска цел, не съдържа реклами и не генерира приходи.</p>
+
+  <div class="saints-note">
+    Покровители на славянската писменост:<br>
+    <strong>Св. св. Кирил и Методий</strong> &middot;
+    <strong>Св. Климент Охридски</strong> &middot;
+    <strong>Св. Наум Охридски</strong>
+  </div>
+</div>
+</body>
+</html>"""
+
+
 _CUSTOM_404 = """<!DOCTYPE html>
 <html lang="bg">
 <head>
@@ -1150,6 +1281,10 @@ class SearchHandler(SimpleHTTPRequestHandler):
                 return
             data = json.loads(fpath.read_text(encoding="utf-8"))
             content = _render_episode_page(data).encode("utf-8")
+            self._send_body(content, "text/html; charset=utf-8")
+
+        elif parsed.path == "/about":
+            content = _render_about_page().encode("utf-8")
             self._send_body(content, "text/html; charset=utf-8")
 
         elif parsed.path == "/robots.txt":
