@@ -36,8 +36,31 @@ def _minify_html(html_bytes):
     return text.encode("utf-8")
 
 
-# Pre-minify at startup for zero runtime cost
-_MINIFIED_HTML = _minify_html(HTML_FILE.read_bytes()) if HTML_FILE.exists() else b""
+# Count episodes at startup (excluding duplicates by segment count)
+def _count_episodes():
+    seen = {}
+    count = 0
+    for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
+        data = json.loads(f.read_text(encoding="utf-8"))
+        n = data.get("episode_number", 0)
+        sc = data.get("segment_count", 0)
+        if n in seen and seen[n] == sc:
+            continue  # skip re-upload
+        seen[n] = sc
+        count += 1
+    return count
+
+EPISODE_COUNT = _count_episodes()
+
+# Pre-minify at startup, inject dynamic episode count
+def _prepare_html():
+    if not HTML_FILE.exists():
+        return b""
+    html = HTML_FILE.read_bytes()
+    html = html.replace(b"{{EPISODE_COUNT}}", str(EPISODE_COUNT).encode())
+    return _minify_html(html)
+
+_MINIFIED_HTML = _prepare_html()
 
 STOP_WORDS = set("""
 и в на от за с по към до при без между със
