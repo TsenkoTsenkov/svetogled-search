@@ -951,23 +951,60 @@ _CUSTOM_404 = """<!DOCTYPE html>
 <title>404 — Страницата не е намерена | Светоглед Архив</title>
 <style>
   body { margin:0; background:#0a0a0e; color:#e8e4e0; font-family:system-ui,-apple-system,sans-serif;
-         display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center; }
-  .wrap { max-width:480px; padding:40px 20px; }
+         display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center;
+         overflow:hidden; }
+  .sacred-bg { position:fixed; top:0; left:0; right:0; bottom:0; z-index:0; pointer-events:none; }
+  .sacred-bg img { position:absolute; filter:sepia(0.4) brightness(0.7) saturate(0.6);
+                   opacity:0.3; object-fit:contain; }
+  .icon-menas { left:3%; top:50%; transform:translateY(-50%); height:70vh; max-height:600px; }
+  .icon-phanourios { left:50%; top:50%; transform:translate(-50%,-50%); height:80vh; max-height:700px; opacity:0.18 !important; }
+  .icon-nicholas { right:3%; top:50%; transform:translateY(-50%); height:65vh; max-height:550px; }
+  .sacred-bg .glow { position:absolute; top:0; left:0; right:0; bottom:0;
+    background: radial-gradient(ellipse 600px 700px at 50% 40%, rgba(200,153,76,0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 500px at 5% 60%, rgba(107,32,56,0.05) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 400px at 90% 80%, rgba(200,153,76,0.03) 0%, transparent 60%); }
+  .wrap { position:relative; z-index:1; max-width:480px; padding:40px 20px; }
   h1 { font-size:72px; color:#c8994c; margin:0 0 8px; font-weight:300; }
   p { color:#b8b0a8; font-size:16px; line-height:1.6; margin:8px 0; }
+  .saints-note { color:#8a8078; font-size:12px; margin-top:32px; line-height:1.7; }
+  .saints-note strong { color:#b8b0a8; }
   a { color:#c8994c; text-decoration:none; transition:color 0.2s; }
   a:hover { color:#d4a853; }
   .home-link { display:inline-block; margin-top:24px; padding:10px 24px;
                border:1px solid rgba(200,153,76,0.3); border-radius:24px; font-size:14px; }
   .home-link:hover { background:rgba(200,153,76,0.1); }
+  @media (max-width:900px) {
+    .icon-menas { left:-5%; height:50vh; opacity:0.2 !important; }
+    .icon-nicholas { right:-5%; height:45vh; opacity:0.2 !important; }
+    .icon-phanourios { opacity:0.12 !important; }
+  }
+  @media (max-width:600px) {
+    .icon-menas, .icon-nicholas { display:none; }
+    .icon-phanourios { opacity:0.15 !important; height:70vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sacred-bg img { transition:none; }
+  }
 </style>
 </head>
 <body>
+<div class="sacred-bg" aria-hidden="true">
+  <img class="icon-menas" src="/static/saint-menas.webp" alt="Свети Мина — икона" loading="eager">
+  <img class="icon-phanourios" src="/static/saint-phanourios.webp" alt="Свети Фанурий — икона" loading="eager">
+  <img class="icon-nicholas" src="/static/saint-nicholas.webp" alt="Свети Николай Чудотворец — икона" loading="eager">
+  <div class="glow"></div>
+</div>
 <div class="wrap">
   <h1>404</h1>
   <p>Страницата не е намерена.</p>
   <p style="color:#8a8078;font-size:14px">Може би адресът е грешен или страницата е преместена.</p>
   <a class="home-link" href="/">&#8592; Към началото</a>
+  <div class="saints-note">
+    Покровители при изгубени неща:<br>
+    <strong>Св. Мина</strong> (11 ноември) &middot;
+    <strong>Св. Фанурий</strong> (27 август) &middot;
+    <strong>Св. Николай Чудотворец</strong> (6 декември)
+  </div>
 </div>
 </body>
 </html>"""
