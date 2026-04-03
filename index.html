@@ -2335,6 +2335,8 @@ function openGroupFullscreen(videoId, containerId, btn) {
     var container = document.getElementById(containerId);
     if (!container) return;
 
+    navMode = 'transcript';
+
     // Load transcript if not already loaded, then go fullscreen
     if (container.dataset.loaded) {
         container.style.display = 'block';
@@ -2357,6 +2359,7 @@ function openGroupFullscreen(videoId, containerId, btn) {
                 });
         }
         promise.then(function(data) {
+            if (navMode !== 'transcript') return;
             var formatted = formatTranscript(data, videoId);
             var html = '<div class="ft-header">' +
                 '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
