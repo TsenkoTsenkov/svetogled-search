@@ -2456,12 +2456,20 @@
                         searchBar.classList.toggle("scrolled", scrolled);
                     if (epSticky)
                         epSticky.classList.toggle("scrolled", scrolled);
-                    var footer = document.querySelector('.site-footer');
-                    var footerVisible = footer && (window.innerHeight + window.scrollY) >= footer.offsetTop;
                     backToTopBtn.classList.toggle(
                         "visible",
-                        window.scrollY > 400 && !footerVisible,
+                        window.scrollY > 400,
                     );
+                    var footer = document.querySelector('.site-footer');
+                    if (footer) {
+                        var footerTop = footer.getBoundingClientRect().top;
+                        var btnHeight = 44 + 24; // button height + original bottom offset
+                        if (footerTop < window.innerHeight) {
+                            backToTopBtn.style.bottom = (window.innerHeight - footerTop + 12) + 'px';
+                        } else {
+                            backToTopBtn.style.bottom = '24px';
+                        }
+                    }
                 },
                 { passive: true },
             );
