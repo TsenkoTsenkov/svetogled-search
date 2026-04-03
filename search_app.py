@@ -26,13 +26,13 @@ def _minify_html(html_bytes):
     """Lightweight minification: collapse whitespace in CSS/JS, strip HTML comments."""
     text = html_bytes.decode("utf-8")
     # Remove HTML comments (but not conditional comments)
-    text = re.sub(r'<!--(?!\[).*?-->', '', text, flags=re.DOTALL)
+    text = re.sub(r"<!--(?!\[).*?-->", "", text, flags=re.DOTALL)
     # Collapse runs of whitespace (spaces/tabs) into single space, preserve newlines
-    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r"[ \t]+", " ", text)
     # Remove whitespace around newlines
-    text = re.sub(r' ?\n ?', '\n', text)
+    text = re.sub(r" ?\n ?", "\n", text)
     # Collapse multiple blank lines into one
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
     return text.encode("utf-8")
 
 
@@ -65,7 +65,9 @@ def _count_episodes():
         count += 1
     return count
 
+
 EPISODE_COUNT = _count_episodes()
+
 
 # Pre-minify at startup, inject dynamic episode count
 def _prepare_html():
@@ -75,9 +77,11 @@ def _prepare_html():
     html = html.replace(b"{{EPISODE_COUNT}}", str(EPISODE_COUNT).encode())
     return _minify_html(html)
 
+
 _MINIFIED_HTML = _prepare_html()
 
-STOP_WORDS = set("""
+STOP_WORDS = set(
+    """
 и в на от за с по към до при без между със
 се е са бе да не ни че ще ли бъде бъдат била било били
 но как какво кой кога защо когато защото тоест обаче
@@ -126,10 +130,12 @@ STOP_WORDS = set("""
 такъв такава такива такова
 нещо неща нещата
 хора хората
-""".split())
+""".split()
+)
 
 # Words that look capitalized but are not real names
-STOP_NAMES = set("""
+STOP_NAMES = set(
+    """
 България Защото Тоест Дима Субтитри Torzok Същността
 Абонирайте Всички Ами След Първо Нека Обаче
 Почти Тогава Примерно Точно Както Дали Нещо
@@ -184,10 +190,12 @@ Dima Torzok Субтитри
 Решава Случило Смятат Остане Негово Казваше
 Действително Обикновено Историческо Създават
 Изключение Правиш
-""".split())
+""".split()
+)
 
 # Common Bulgarian verb forms and generic words to exclude from concepts
-STOP_CONCEPTS = set("""
+STOP_CONCEPTS = set(
+    """
 направи направиха направил направим направили
 същия същият същата същото същите
 почти просто наистина напълно донякъде
@@ -238,7 +246,8 @@ STOP_CONCEPTS = set("""
 говорим говорят говори
 минава погледнем напротив съжаление
 приема западна световна
-""".split())
+""".split()
+)
 
 
 def _is_likely_verb_or_filler(word):
@@ -246,33 +255,70 @@ def _is_likely_verb_or_filler(word):
     w = word.lower()
     # Common verb endings
     verb_suffixes = (
-        'ва', 'ват', 'вам', 'ваме', 'вате', 'ваш', 'вай',
-        'ше', 'ша', 'шем',
-        'ме', 'те', 'ли', 'ло', 'ла',
-        'ем', 'ете', 'ат', 'ят',
-        'им', 'ите',
-        'ах', 'яхме', 'яхте',
-        'ъл', 'ала', 'али', 'ало',
-        'де',  # създаде, направиде
-        'жа', 'жат',  # държа, държат
+        "ва",
+        "ват",
+        "вам",
+        "ваме",
+        "вате",
+        "ваш",
+        "вай",
+        "ше",
+        "ша",
+        "шем",
+        "ме",
+        "те",
+        "ли",
+        "ло",
+        "ла",
+        "ем",
+        "ете",
+        "ат",
+        "ят",
+        "им",
+        "ите",
+        "ах",
+        "яхме",
+        "яхте",
+        "ъл",
+        "ала",
+        "али",
+        "ало",
+        "де",  # създаде, направиде
+        "жа",
+        "жат",  # държа, държат
     )
     # Adjective/pronoun/adverb endings (generic filler words)
     filler_suffixes = (
-        'ски', 'ска', 'ско',
-        'чки', 'чка', 'чко',
-        'чно', 'лно', 'тно',
-        'ово', 'ево',
-        'ия', 'ият',  # втория, старият
-        'ата', 'ото', 'ите',  # главата, другото, другите
-        'акво', 'якво',  # никакво, какво
-        'якъв', 'акъв',  # никакъв, всякакъв
-        'ови', 'ови',  # негови, духови
-        'виш', 'вим',  # правиш, правим
-        'дна', 'дно',  # гледна, гледно
-        'ани',          # свързани, написани
-        'ени',          # решени, получени
-        'бни',          # подобни
-        'жни',          # възможни
+        "ски",
+        "ска",
+        "ско",
+        "чки",
+        "чка",
+        "чко",
+        "чно",
+        "лно",
+        "тно",
+        "ово",
+        "ево",
+        "ия",
+        "ият",  # втория, старият
+        "ата",
+        "ото",
+        "ите",  # главата, другото, другите
+        "акво",
+        "якво",  # никакво, какво
+        "якъв",
+        "акъв",  # никакъв, всякакъв
+        "ови",
+        "ови",  # негови, духови
+        "виш",
+        "вим",  # правиш, правим
+        "дна",
+        "дно",  # гледна, гледно
+        "ани",  # свързани, написани
+        "ени",  # решени, получени
+        "бни",  # подобни
+        "жни",  # възможни
     )
 
     if w.endswith(verb_suffixes):
@@ -311,30 +357,39 @@ def build_topics():
         text = data.get("full_text", "")
 
         # Names: capitalized words, deduplicated per episode
-        cap_words = set(re.findall(r'[А-ЯA-Z][а-яa-z]{3,}', text))
+        cap_words = set(re.findall(r"[А-ЯA-Z][а-яa-z]{3,}", text))
         for w in cap_words:
             if _is_proper_noun(w):
                 name_episode_count[w] += 1
 
         # Concepts: only nouns (skip verbs, adjectives, adverbs via suffix heuristic)
-        words = set(re.findall(r'[а-я]{6,}', text.lower()))
+        words = set(re.findall(r"[а-я]{6,}", text.lower()))
         for w in words:
-            if (w not in STOP_WORDS
-                    and w not in STOP_CONCEPTS
-                    and not _is_likely_verb_or_filler(w)):
+            if (
+                w not in STOP_WORDS
+                and w not in STOP_CONCEPTS
+                and not _is_likely_verb_or_filler(w)
+            ):
                 concept_episode_count[w] += 1
 
     # Names: appear in 3+ episodes, not too common (>60% is generic like "Бог")
-    names = [(w, c) for w, c in name_episode_count.most_common(500)
-             if 3 <= c <= total_episodes * 0.6]
+    names = [
+        (w, c)
+        for w, c in name_episode_count.most_common(500)
+        if 3 <= c <= total_episodes * 0.6
+    ]
     names.sort(key=lambda x: -x[1])
 
     # Concepts: use TF-IDF-like scoring — penalize terms that appear everywhere
     name_lower = {w.lower() for w, _ in names}
     scored_concepts = []
     for w, doc_count in concept_episode_count.most_common(1000):
-        if (w in name_lower or w in STOP_WORDS or w in STOP_CONCEPTS
-                or _is_likely_verb_or_filler(w)):
+        if (
+            w in name_lower
+            or w in STOP_WORDS
+            or w in STOP_CONCEPTS
+            or _is_likely_verb_or_filler(w)
+        ):
             continue
         # IDF: rare terms score higher
         idf = math.log(total_episodes / max(1, doc_count))
@@ -345,15 +400,24 @@ def build_topics():
     scored_concepts.sort(key=lambda x: -x[2])  # Sort by TF-IDF score
 
     return [
-        {"category": "Имена и лица",
-         "items": [{"term": w, "count": c} for w, c in names[:50]]},
-        {"category": "Понятия и теми",
-         "items": [{"term": w, "count": c} for w, c, _ in scored_concepts[:50]]},
+        {
+            "category": "Имена и лица",
+            "items": [{"term": w, "count": c} for w, c in names[:50]],
+        },
+        {
+            "category": "Понятия и теми",
+            "items": [{"term": w, "count": c} for w, c, _ in scored_concepts[:50]],
+        },
     ]
 
 
 def _html_escape(text):
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
 
 
 def _format_timestamp(seconds):
@@ -375,11 +439,13 @@ def _render_episode_page(data):
     # Build transcript segments with timestamp data
     segments_data = []
     for s in snippets:
-        segments_data.append({
-            "text": s["text"],
-            "start": int(s["start"]),
-            "ts": _format_timestamp(s["start"]),
-        })
+        segments_data.append(
+            {
+                "text": s["text"],
+                "start": int(s["start"]),
+                "ts": _format_timestamp(s["start"]),
+            }
+        )
 
     segments_json = json.dumps(segments_data, ensure_ascii=False)
 
@@ -432,7 +498,7 @@ def _render_episode_page(data):
             "description": "{_html_escape(desc_text)}",
             "embedUrl": "https://www.youtube.com/embed/{video_id}",
             "thumbnailUrl": "https://img.youtube.com/vi/{video_id}/hqdefault.jpg",
-            "uploadDate": "{data.get('upload_date', '2024-01-01')}",
+            "uploadDate": "{data.get("upload_date", "2024-01-01")}",
             "contentUrl": "https://www.youtube.com/watch?v={video_id}"
         }},
         "partOfSeries": {{
@@ -1072,7 +1138,7 @@ def _render_about_page():
     <p>Създаден е от слушател с цел улесняване на достъпа до съдържанието на предаването за изследователски и образователни цели. Всички епизоди са публично достъпни в <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener noreferrer">YouTube канала на Радио Зорана</a>.</p>
   </div>
 
-  <h2>Как е създаден архивът</h2>
+  <h2>Как е създаден архивът?</h2>
 
   <div class="step">
     <span class="step-num">1</span>
@@ -1219,9 +1285,13 @@ class SearchHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/" or parsed.path == "/index.html":
             content = _MINIFIED_HTML or HTML_FILE.read_bytes()
-            self._send_body(content, "text/html; charset=utf-8", {
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-            })
+            self._send_body(
+                content,
+                "text/html; charset=utf-8",
+                {
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                },
+            )
 
         elif parsed.path == "/api/transcript":
             video_id = params.get("id", [None])[0]
@@ -1238,15 +1308,17 @@ class SearchHandler(SimpleHTTPRequestHandler):
             episodes = []
             for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
                 data = json.loads(f.read_text(encoding="utf-8"))
-                episodes.append({
-                    "video_id": data["video_id"],
-                    "title": data["title"],
-                    "source": data.get("source", ""),
-                    "segment_count": data.get("segment_count", 0),
-                    "playlist_order": data.get("playlist_order", 9999),
-                    "episode_number": data.get("episode_number", 0),
-                    "_duration": _get_duration(data),
-                })
+                episodes.append(
+                    {
+                        "video_id": data["video_id"],
+                        "title": data["title"],
+                        "source": data.get("source", ""),
+                        "segment_count": data.get("segment_count", 0),
+                        "playlist_order": data.get("playlist_order", 9999),
+                        "episode_number": data.get("episode_number", 0),
+                        "_duration": _get_duration(data),
+                    }
+                )
             # Deduplicate re-uploads: same episode_number + similar duration
             # Keep the version with "(Беседа N)" in title
             seen = {}  # episode_number -> best episode
@@ -1274,8 +1346,8 @@ class SearchHandler(SimpleHTTPRequestHandler):
             self._serve_json(build_topics())
 
         elif parsed.path.startswith("/episode/"):
-            video_id = parsed.path[len("/episode/"):].strip("/")
-            if not video_id or not re.match(r'^[\w-]+$', video_id):
+            video_id = parsed.path[len("/episode/") :].strip("/")
+            if not video_id or not re.match(r"^[\w-]+$", video_id):
                 self._send_404()
                 return
             fpath = TRANSCRIPTS_DIR / f"{video_id}.json"
@@ -1306,7 +1378,13 @@ class SearchHandler(SimpleHTTPRequestHandler):
             if fpath.exists() and fpath.is_file():
                 content = fpath.read_bytes()
                 ext = fpath.suffix.lower()
-                ctype = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp"}.get(ext, "application/octet-stream")
+                ctype = {
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".png": "image/png",
+                    ".svg": "image/svg+xml",
+                    ".webp": "image/webp",
+                }.get(ext, "application/octet-stream")
                 self.send_response(200)
                 self.send_header("Content-Type", ctype)
                 self.send_header("Content-Length", str(len(content)))
@@ -1327,7 +1405,7 @@ class SearchHandler(SimpleHTTPRequestHandler):
             self.send_error(404)
 
     def _proxy_meili(self, method):
-        meili_path = self.path[len("/meili"):]
+        meili_path = self.path[len("/meili") :]
         meili_url = f"http://127.0.0.1:7700{meili_path}"
 
         headers = {
@@ -1361,24 +1439,28 @@ class SearchHandler(SimpleHTTPRequestHandler):
     def _serve_sitemap(self):
         xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
         xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        xml += '  <url><loc>https://svetogled-arhiv.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n'
+        xml += "  <url><loc>https://svetogled-arhiv.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n"
         for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
             vid = f.stem
             data = json.loads(f.read_text(encoding="utf-8"))
             lastmod = data.get("upload_date", "")
-            xml += f'  <url><loc>https://svetogled-arhiv.com/episode/{vid}</loc>'
+            xml += f"  <url><loc>https://svetogled-arhiv.com/episode/{vid}</loc>"
             if lastmod:
-                xml += f'<lastmod>{lastmod}</lastmod>'
-            xml += '<changefreq>monthly</changefreq><priority>0.8</priority></url>\n'
-        xml += '</urlset>\n'
+                xml += f"<lastmod>{lastmod}</lastmod>"
+            xml += "<changefreq>monthly</changefreq><priority>0.8</priority></url>\n"
+        xml += "</urlset>\n"
         body = xml.encode("utf-8")
         self._send_body(body, "application/xml; charset=utf-8")
 
     def _serve_json(self, data):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        self._send_body(body, "application/json; charset=utf-8", {
-            "Access-Control-Allow-Origin": "*",
-        })
+        self._send_body(
+            body,
+            "application/json; charset=utf-8",
+            {
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
 
     def log_message(self, format, *args):
         pass
@@ -1388,6 +1470,7 @@ def _update_meili_pagination():
     """Ensure Meilisearch allows enough results for full episode coverage."""
     try:
         import urllib.request
+
         req = urllib.request.Request(
             "http://127.0.0.1:7700/indexes/segments/settings/pagination",
             data=json.dumps({"maxTotalHits": 20000}).encode(),
