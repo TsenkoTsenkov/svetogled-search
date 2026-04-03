@@ -8,8 +8,6 @@
     <meta name="keywords" content="Светоглед, Георги Тодоров, Радио Зорана, православие, богословие, българска история, култура, транскрипции, архив">
     <meta name="author" content="Светоглед — Радио Зорана">
     <link rel="canonical" href="https://svetogled-arhiv.com">
-    <link rel="preload" as="image" type="image/webp" href="/static/christ-pantocrator.webp">
-    <link rel="preload" as="fetch" href="/api/episodes">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -2608,7 +2606,10 @@ document.addEventListener('keydown', function(e) {
             e.target.blur();
             return;
         }
-        if (navMode === 'transcript') {
+        // Check DOM state as well as navMode — button-triggered fullscreen
+        // may not have navMode set correctly
+        var _escOverlay = document.getElementById('fullscreen-overlay');
+        if (navMode === 'transcript' || (_escOverlay && _escOverlay.classList.contains('active'))) {
             exitFullscreen();
             navMode = 'items';
             scrollToSelected();
@@ -2683,7 +2684,10 @@ document.addEventListener('keydown', function(e) {
     }
 
     // ── Transcript reading mode (fullscreen overlay) ──
-    if (navMode === 'transcript') {
+    var _fsOverlay = document.getElementById('fullscreen-overlay');
+    var _fsActive = _fsOverlay && _fsOverlay.classList.contains('active');
+    if (_fsActive) navMode = 'transcript'; // sync navMode with DOM state
+    if (navMode === 'transcript' || _fsActive) {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
             var scrollEl = document.getElementById('fullscreen-overlay');
