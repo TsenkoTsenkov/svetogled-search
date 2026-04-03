@@ -2451,48 +2451,30 @@ function goFullscreen(container) {
 }
 
 function openGroupFullscreen(videoId, containerId, btn) {
-    var container = document.getElementById(containerId);
-    if (!container) return;
-
-    // Blur the button so the overlay can receive keyboard focus
+    // Simulate the keyboard Enter path which handles focus correctly
     if (btn) btn.blur();
     if (document.activeElement) document.activeElement.blur();
 
-    navMode = 'transcript';
-
-    // Load transcript if not already loaded, then go fullscreen
-    if (container.dataset.loaded) {
-        container.style.display = 'block';
-        container.style.maxHeight = 'none';
-        container.style.opacity = '1';
-        goFullscreen(container);
-        container.style.display = '';
-        container.style.maxHeight = '';
-        container.style.opacity = '';
-    } else {
-        var promise;
-        if (transcriptCache[videoId]) {
-            promise = Promise.resolve(transcriptCache[videoId]);
-        } else {
-            promise = fetch('/api/transcript?id=' + videoId)
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    transcriptCache[videoId] = data;
-                    return data;
-                });
+    // Find and select the parent video-group in the nav system
+    var group = btn ? btn.closest('.video-group') : document.querySelector('.video-group[data-video-id="' + videoId + '"]');
+    if (group) {
+        var items = getNavigableItems();
+        for (var i = 0; i < items.length; i++) {
+            if (items[i] === group) {
+                navSelectedIdx = i;
+                navMode = 'items';
+                clearNavSelection();
+                group.classList.add('ep-selected');
+                break;
+            }
         }
-        promise.then(function(data) {
-            if (navMode !== 'transcript') return;
-            var formatted = formatTranscript(data, videoId);
-            var html = '<div class="ft-header">' +
-                '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
-                '<span class="ft-meta">' + (data.segment_count || '') + ' сегмента</span>' +
-                '</div><div class="ft-body">' + formatted + '</div>';
-            container.innerHTML = html;
-            container.dataset.loaded = 'true';
-            goFullscreen(container);
-        });
     }
+
+    // Dispatch a synthetic Enter keydown — the existing keyboard handler
+    // does the fullscreen correctly with proper focus management
+    document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
+    }));
 }
 
 function exitFullscreen() {
