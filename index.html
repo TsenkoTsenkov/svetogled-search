@@ -9,7 +9,7 @@
     <meta name="author" content="Светоглед — Радио Зорана">
     <link rel="canonical" href="https://svetogled-arhiv.com">
     <link rel="preload" as="image" type="image/webp" href="/static/christ-pantocrator.webp">
-    <link rel="preload" as="fetch" href="/api/episodes" crossorigin>
+    <link rel="preload" as="fetch" href="/api/episodes">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -2450,19 +2450,65 @@ function goFullscreen(container) {
     setTimeout(function() { hint.classList.remove('visible'); }, 3000);
 }
 
+function enterFullscreenForEpisode(videoId, containerId) {
+    var container = document.getElementById(containerId);
+    if (!container || !videoId) return;
+
+    navMode = 'transcript';
+
+    if (container.dataset.loaded) {
+        container.style.display = 'block';
+        container.style.maxHeight = 'none';
+        container.style.opacity = '1';
+        goFullscreen(container);
+        container.style.display = '';
+        container.style.maxHeight = '';
+        container.style.opacity = '';
+    } else {
+        var promise;
+        if (transcriptCache[videoId]) {
+            promise = Promise.resolve(transcriptCache[videoId]);
+        } else {
+            promise = fetch('/api/transcript?id=' + videoId)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    transcriptCache[videoId] = data;
+                    return data;
+                });
+        }
+        promise.then(function(data) {
+            if (navMode !== 'transcript') return;
+            var formatted = formatTranscript(data, videoId);
+            var html = '<div class="ft-header">' +
+                '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
+                '<span class="ft-meta">' + (data.segment_count || '') + ' сегмента</span>' +
+                '</div><div class="ft-body">' + formatted + '</div>';
+            container.innerHTML = html;
+            container.dataset.loaded = 'true';
+            container.style.display = 'block';
+            container.style.maxHeight = 'none';
+            container.style.opacity = '1';
+            goFullscreen(container);
+            container.style.display = '';
+            container.style.maxHeight = '';
+            container.style.opacity = '';
+            container.classList.remove('open');
+        });
+    }
+}
+
 function openGroupFullscreen(videoId, containerId, btn) {
-    // Simulate the keyboard Enter path which handles focus correctly
+    // Blur everything so the overlay can take focus
     if (btn) btn.blur();
     if (document.activeElement) document.activeElement.blur();
 
-    // Find and select the parent video-group in the nav system
-    var group = btn ? btn.closest('.video-group') : document.querySelector('.video-group[data-video-id="' + videoId + '"]');
+    // Select this episode in the nav system so keyboard nav works after exit
+    var group = btn ? btn.closest('.video-group') : null;
     if (group) {
         var items = getNavigableItems();
         for (var i = 0; i < items.length; i++) {
             if (items[i] === group) {
                 navSelectedIdx = i;
-                navMode = 'items';
                 clearNavSelection();
                 group.classList.add('ep-selected');
                 break;
@@ -2470,11 +2516,7 @@ function openGroupFullscreen(videoId, containerId, btn) {
         }
     }
 
-    // Dispatch a synthetic Enter keydown — the existing keyboard handler
-    // does the fullscreen correctly with proper focus management
-    document.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
-    }));
+    enterFullscreenForEpisode(videoId, containerId);
 }
 
 function exitFullscreen() {
@@ -2729,75 +2771,21 @@ document.addEventListener('keydown', function(e) {
             if (ft) goFullscreen(ft);
         } else {
             // Load transcript silently (hidden) then go directly to fullscreen
-            navMode = 'transcript';
-            var savedIdx = navSelectedIdx;
             var items = getNavigableItems();
-            var item = items[savedIdx];
+            var item = items[navSelectedIdx];
             if (!item) return;
 
-            // Find the transcript container and video ID
             var activePage = document.querySelector('.page.active');
-            var videoId, containerId, container;
-
+            var videoId, containerId;
             if (activePage && activePage.id === 'page-episodes') {
                 containerId = item.getAttribute('data-detail-id');
                 videoId = item.getAttribute('data-video-id');
-                container = document.getElementById(containerId);
             } else {
                 videoId = item.getAttribute('data-video-id');
                 containerId = item.getAttribute('data-transcript-id');
-                container = document.getElementById(containerId);
             }
 
-            if (!container || !videoId) return;
-
-            // Load content into the container silently (don't open it visually)
-            if (container.dataset.loaded) {
-                // Already loaded, go straight to fullscreen
-                container.style.display = 'block';
-                container.style.maxHeight = 'none';
-                container.style.opacity = '1';
-                goFullscreen(container);
-                container.style.display = '';
-                container.style.maxHeight = '';
-                container.style.opacity = '';
-            } else {
-                // Fetch and load, then fullscreen
-                var promise;
-                if (transcriptCache[videoId]) {
-                    promise = Promise.resolve(transcriptCache[videoId]);
-                } else {
-                    promise = fetch('/api/transcript?id=' + videoId)
-                        .then(function(r) { return r.json(); })
-                        .then(function(data) {
-                            transcriptCache[videoId] = data;
-                            return data;
-                        });
-                }
-                promise.then(function(data) {
-                    if (navMode !== 'transcript') return;
-                    var formatted = formatTranscript(data, videoId);
-                    var html = '<div class="ft-header">' +
-                        '<span class="ft-title">' + escapeHtml(data.title) + '</span>' +
-                        '<span class="ft-meta">' + (data.segment_count || '') + ' сегмента</span>' +
-                        '</div><div class="ft-body">' + formatted + '</div>';
-                    container.innerHTML = html;
-                    container.dataset.loaded = 'true';
-                    // Temporarily make content accessible for goFullscreen to read
-                    container.style.display = 'block';
-                    container.style.maxHeight = 'none';
-                    container.style.opacity = '1';
-                    goFullscreen(container);
-                    // Reset back to collapsed
-                    container.style.display = '';
-                    container.style.maxHeight = '';
-                    container.style.opacity = '';
-                    container.classList.remove('open');
-                }).catch(function() {
-                    navMode = 'items';
-                    document.body.style.overflow = '';
-                });
-            }
+            enterFullscreenForEpisode(videoId, containerId);
         }
         return;
     }
