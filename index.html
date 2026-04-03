@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Светоглед — Архив на предаването с Георги Тодоров | Радио Зорана</title>
-    <meta name="description" content="Пълен архив и търсене в транскрипциите на предаването Светоглед с богослова Георги Тодоров по Радио Зорана. 284 епизода за православен поглед към историята, културата и съвременността.">
+    <meta name="description" content="Пълен архив и търсене в транскрипциите на предаването Светоглед с богослова Георги Тодоров по Радио Зорана. 279 епизода за православен поглед към историята, културата и съвременността.">
     <meta name="keywords" content="Светоглед, Георги Тодоров, Радио Зорана, православие, богословие, българска история, култура, транскрипции, архив">
     <meta name="author" content="Светоглед — Радио Зорана">
     <link rel="canonical" href="https://svetogled-arhiv.com">
@@ -15,7 +15,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://svetogled-arhiv.com">
     <meta property="og:title" content="Светоглед — Архив на предаването с Георги Тодоров">
-    <meta property="og:description" content="Пълен архив и търсене в 284 епизода на предаването Светоглед с богослова Георги Тодоров по Радио Зорана. Православен поглед към историята, културата и съвременността.">
+    <meta property="og:description" content="Пълен архив и търсене в 279 епизода на предаването Светоглед с богослова Георги Тодоров по Радио Зорана. Православен поглед към историята, културата и съвременността.">
     <meta property="og:locale" content="bg_BG">
     <meta property="og:site_name" content="Светоглед Архив">
     <meta property="og:image" content="https://svetogled-arhiv.com/static/og-image.jpg">
@@ -25,7 +25,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Светоглед — Архив на предаването с Георги Тодоров">
-    <meta name="twitter:description" content="Търсене в транскрипциите на 284 епизода на Светоглед по Радио Зорана.">
+    <meta name="twitter:description" content="Търсене в транскрипциите на 279 епизода на Светоглед по Радио Зорана.">
     <meta name="twitter:image" content="https://svetogled-arhiv.com/static/og-image.jpg">
 
     <!-- Structured Data -->
@@ -56,7 +56,7 @@
                 "@type": "RadioStation",
                 "name": "Радио Зорана"
             },
-            "numberOfEpisodes": 284,
+            "numberOfEpisodes": 279,
             "inLanguage": "bg"
         }
     }
@@ -305,6 +305,13 @@
             top: 0;
             z-index: 100;
             background: transparent;
+            transition: background 0.3s, backdrop-filter 0.3s;
+        }
+        .search-container.scrolled {
+            background: rgba(10, 10, 14, 0.92);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            border-bottom: 1px solid var(--glass-border);
         }
         .search-row {
             display: flex;
@@ -912,6 +919,13 @@
             background: transparent;
             padding: 16px 0 16px;
             margin-bottom: 12px;
+            transition: background 0.3s, backdrop-filter 0.3s;
+        }
+        .episodes-sticky.scrolled {
+            background: rgba(10, 10, 14, 0.92);
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            border-bottom: 1px solid var(--glass-border);
         }
         .episodes-header {
             display: flex;
@@ -1452,11 +1466,11 @@ function showEmptyState() {
         return (b.episode_number || 0) - (a.episode_number || 0);
     }).slice(0, 5);
 
-    var maxEpNum = recent[0] ? (recent[0].episode_number || episodesData.length) : episodesData.length;
+    var episodeCount = episodesData.length;
 
     var html = '<div class="empty-state">';
     html += '<p class="empty-hint desktop-only"><kbd>/</kbd> търсене &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd> навигация &middot; <kbd>Enter</kbd> пълен текст &middot; <kbd>Esc</kbd> затвори &middot; <kbd>Backspace</kbd> скрий &middot; <kbd>&larr;</kbd><kbd>&rarr;</kbd> менюта</p>';
-    html += '<h2>Последни епизоди от общо ' + maxEpNum + '</h2>';
+    html += '<h2>Последни епизоди от общо ' + episodeCount + '</h2>';
     recent.forEach(function(ep, idx) {
         var displayTitle = ep.title;
         if (!/\(Беседа\s+\d+\)/.test(displayTitle) && ep.episode_number > 0) {
@@ -1486,7 +1500,7 @@ function showEmptyState() {
     var footerDiv = document.querySelector('.site-footer');
     if (footerDiv) {
         var countDiv = footerDiv.querySelectorAll('div')[1];
-        if (countDiv) countDiv.textContent = 'Търсене в транскрипции на ' + maxEpNum + ' епизода';
+        if (countDiv) countDiv.textContent = 'Търсене в транскрипции на ' + episodeCount + ' епизода';
     }
 }
 

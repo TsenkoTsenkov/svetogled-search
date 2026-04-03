@@ -1074,8 +1074,27 @@ class SearchHandler(SimpleHTTPRequestHandler):
                     "playlist_order": data.get("playlist_order", 9999),
                     "episode_number": data.get("episode_number", 0),
                 })
-            episodes.sort(key=lambda x: x.get("episode_number", 0))
-            self._serve_json(episodes)
+            # Deduplicate re-uploads: same episode_number + same segment_count
+            # Keep the version with "(Беседа N)" in title, or lower playlist_order
+            seen = {}  # episode_number -> best episode
+            unique = []
+            for ep in episodes:
+                n = ep["episode_number"]
+                if n in seen:
+                    prev = seen[n]
+                    if prev["segment_count"] == ep["segment_count"]:
+                        # Same content (re-upload) — prefer canonical title
+                        has_label = f"(Беседа {n})" in ep["title"]
+                        prev_has = f"(Беседа {n})" in prev["title"]
+                        if has_label and not prev_has:
+                            unique[unique.index(prev)] = ep
+                            seen[n] = ep
+                        continue  # skip duplicate
+                    # Different content sharing same number — keep both
+                unique.append(ep)
+                seen[n] = ep
+            unique.sort(key=lambda x: x.get("episode_number", 0))
+            self._serve_json(unique)
 
         elif parsed.path == "/api/topics":
             self._serve_json(build_topics())
