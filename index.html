@@ -732,6 +732,30 @@
                 margin-top: 10px;
                 min-height: 20px;
             }
+            .search-help {
+                text-align: left;
+                color: var(--text-dim);
+                font-size: 13px;
+                line-height: 1.7;
+                margin-top: 12px;
+                padding: 14px 18px;
+                background: rgba(14, 12, 18, 0.7);
+                border: 1px solid var(--glass-border);
+                border-radius: 12px;
+            }
+            .search-help p { margin-bottom: 8px; }
+            .search-help p:last-child { margin-bottom: 0; }
+            .search-help strong { color: var(--text); }
+            .search-help em { color: var(--text-dimmer); font-style: italic; }
+            .help-toggle {
+                color: var(--text-dimmer);
+                font-size: 12px;
+                cursor: pointer;
+                margin-left: 8px;
+                text-decoration: none;
+                transition: color 0.2s;
+            }
+            .help-toggle:hover { color: var(--gold); }
 
             .spinner {
                 display: none;
@@ -2008,7 +2032,7 @@
                             <button
                                 class="exact-toggle"
                                 id="exact-toggle"
-                                title="Точно съвпадение — търси само точната фраза"
+                                title="Точно съвпадение — търси само точната фраза в дадения ред"
                             >
                                 Точно
                             </button>
@@ -2047,6 +2071,12 @@
                         </button>
                     </div>
                     <div class="stats" id="stats"></div>
+                    <a class="help-toggle" id="help-toggle" onclick="var h=document.getElementById('search-help');h.style.display=h.style.display==='none'?'block':'none';this.textContent=h.style.display==='none'?'Как да търсите?':'Скрий помощ'">Как да търсите?</a>
+                    <div class="search-help" id="search-help" style="display:none">
+                        <p><strong>Обикновено търсене</strong> — намира епизоди, съдържащи думите от заявката. Търсачката разпознава и сходни форми на думите (напр. <em>„герой"</em> ще намери и <em>„герои"</em>, <em>„героя"</em>), което помага при правописни разлики в транскрипциите.</p>
+                        <p><strong>Точно съвпадение</strong> <span style="color:var(--gold)">(бутон „Точно")</span> — търси точната фраза в дадения ред, без приближения. Подходящо за цитати, имена и специфични изрази, напр. <em>„Торинската плащеница"</em>, <em>„благодатен огън"</em>.</p>
+                        <p><strong>Филтър по епизод</strong> — ограничава търсенето до конкретен епизод от падащото меню.</p>
+                    </div>
                 </div>
                 <div class="spinner" id="spinner"></div>
                 <div class="hidden-bar" id="hidden-bar">
