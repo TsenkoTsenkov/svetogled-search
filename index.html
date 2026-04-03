@@ -759,6 +759,23 @@
         .fullscreen-overlay.active {
             display: block;
         }
+        .fullscreen-overlay::-webkit-scrollbar {
+            width: 6px;
+        }
+        .fullscreen-overlay::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .fullscreen-overlay::-webkit-scrollbar-thumb {
+            background: rgba(200, 153, 76, 0.35);
+            border-radius: 3px;
+        }
+        .fullscreen-overlay::-webkit-scrollbar-thumb:hover {
+            background: rgba(200, 153, 76, 0.5);
+        }
+        .fullscreen-overlay {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(200, 153, 76, 0.35) rgba(255, 255, 255, 0.05);
+        }
         body.fullscreen-active .header,
         body.fullscreen-active .cross-divider,
         body.fullscreen-active main,
@@ -768,6 +785,22 @@
         body.fullscreen-active .sacred-bg .icon-christ {
             opacity: 0.18;
             filter: sepia(20%) brightness(0.8) saturate(0.4);
+        }
+        .fullscreen-progress {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 0%;
+            z-index: 1003;
+            background: var(--gold);
+            opacity: 0;
+            transition: opacity 0.3s;
+            border-radius: 0 0 2px 2px;
+            pointer-events: none;
+        }
+        .fullscreen-overlay.active ~ .fullscreen-progress {
+            opacity: 0.6;
         }
         .fullscreen-close-btn {
             position: fixed;
@@ -1346,6 +1379,7 @@
     </main>
 
     <div class="fullscreen-overlay" id="fullscreen-overlay"></div>
+    <div class="fullscreen-progress" id="fullscreen-progress"></div>
     <button class="fullscreen-close-btn" id="fullscreen-close-btn" title="Затвори">&times;</button>
     <div class="fullscreen-hint" id="fullscreen-hint"><kbd>&uarr;</kbd><kbd>&darr;</kbd> четене &middot; <kbd>Esc</kbd> затвори</div>
 
@@ -2460,6 +2494,7 @@ function exitFullscreen() {
     activeFullscreenEl = null;
     document.body.style.overflow = '';
     document.getElementById('fullscreen-hint').classList.remove('visible');
+    document.getElementById('fullscreen-progress').style.height = '0%';
 
     // Close the inline transcript so the page doesn't stay scrolled to it
     var items = getNavigableItems();
@@ -2484,6 +2519,12 @@ document.getElementById('fullscreen-close-btn').addEventListener('click', functi
 });
 
 // Also close fullscreen when clicking outside the inner content
+document.getElementById('fullscreen-overlay').addEventListener('scroll', function() {
+    var el = this;
+    var progress = el.scrollTop / (el.scrollHeight - el.clientHeight) * 100;
+    document.getElementById('fullscreen-progress').style.height = Math.min(100, progress) + '%';
+}, { passive: true });
+
 document.getElementById('fullscreen-overlay').addEventListener('click', function(e) {
     if (e.target === this) {
         exitFullscreen();
