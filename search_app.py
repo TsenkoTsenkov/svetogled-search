@@ -1132,8 +1132,8 @@ def _render_about_page():
 
   <div class="saints-note">
     <strong>Св. св. Кирил и Методий</strong> &middot;
-    <strong>Св. Климент Охридски</strong> &middot;
-    <strong>Св. Наум Охридски</strong>
+    <strong>Св. Наум Охридски</strong> &middot;
+    <strong>Св. Климент Охридски</strong>
   </div>
 </div>
 </body>
