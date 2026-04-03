@@ -738,7 +738,7 @@ def _render_episode_page(data):
         <div class="meta">
             Светоглед с Георги Тодоров по Радио Зорана &middot;
             {segment_count} сегмента &middot;
-            <a href="{yt_url}" target="_blank">Гледай в YouTube &rarr;</a>
+            <a href="{yt_url}" target="_blank" rel="noopener noreferrer">Гледай в YouTube &rarr;</a>
         </div>
         <div class="video-embed">
             <iframe src="https://www.youtube.com/embed/{video_id}" allowfullscreen loading="lazy"></iframe>
@@ -943,9 +943,48 @@ def _render_episode_page(data):
 </html>"""
 
 
+_CUSTOM_404 = """<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 — Страницата не е намерена | Светоглед Архив</title>
+<style>
+  body { margin:0; background:#0a0a0e; color:#e8e4e0; font-family:system-ui,-apple-system,sans-serif;
+         display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center; }
+  .wrap { max-width:480px; padding:40px 20px; }
+  h1 { font-size:72px; color:#c8994c; margin:0 0 8px; font-weight:300; }
+  p { color:#b8b0a8; font-size:16px; line-height:1.6; margin:8px 0; }
+  a { color:#c8994c; text-decoration:none; transition:color 0.2s; }
+  a:hover { color:#d4a853; }
+  .home-link { display:inline-block; margin-top:24px; padding:10px 24px;
+               border:1px solid rgba(200,153,76,0.3); border-radius:24px; font-size:14px; }
+  .home-link:hover { background:rgba(200,153,76,0.1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>404</h1>
+  <p>Страницата не е намерена.</p>
+  <p style="color:#8a8078;font-size:14px">Може би адресът е грешен или страницата е преместена.</p>
+  <a class="home-link" href="/">&#8592; Към началото</a>
+</div>
+</body>
+</html>"""
+
+
 class SearchHandler(SimpleHTTPRequestHandler):
     def _accepts_gzip(self):
         return "gzip" in self.headers.get("Accept-Encoding", "")
+
+    def _send_404(self):
+        """Send custom styled 404 page."""
+        body = _CUSTOM_404.encode("utf-8")
+        self.send_response(404)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _send_body(self, body, content_type, extra_headers=None):
         """Send response body, gzip-compressed if client supports it."""
@@ -1007,11 +1046,11 @@ class SearchHandler(SimpleHTTPRequestHandler):
         elif parsed.path.startswith("/episode/"):
             video_id = parsed.path[len("/episode/"):].strip("/")
             if not video_id or not re.match(r'^[\w-]+$', video_id):
-                self.send_error(404)
+                self._send_404()
                 return
             fpath = TRANSCRIPTS_DIR / f"{video_id}.json"
             if not fpath.exists():
-                self.send_error(404, "Episode not found")
+                self._send_404()
                 return
             data = json.loads(fpath.read_text(encoding="utf-8"))
             content = _render_episode_page(data).encode("utf-8")
@@ -1041,10 +1080,10 @@ class SearchHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(content)
             else:
-                self.send_error(404)
+                self._send_404()
 
         else:
-            self.send_error(404)
+            self._send_404()
 
     def do_POST(self):
         parsed = urlparse(self.path)

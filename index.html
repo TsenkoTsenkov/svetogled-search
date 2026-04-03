@@ -18,11 +18,15 @@
     <meta property="og:description" content="Пълен архив и търсене в 284 епизода на предаването Светоглед с богослова Георги Тодоров по Радио Зорана. Православен поглед към историята, културата и съвременността.">
     <meta property="og:locale" content="bg_BG">
     <meta property="og:site_name" content="Светоглед Архив">
+    <meta property="og:image" content="https://svetogled-arhiv.com/static/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Светоглед — Архив на предаването с Георги Тодоров">
     <meta name="twitter:description" content="Търсене в транскрипциите на 284 епизода на Светоглед по Радио Зорана.">
+    <meta name="twitter:image" content="https://svetogled-arhiv.com/static/og-image.jpg">
 
     <!-- Structured Data -->
     <script type="application/ld+json">
@@ -1192,7 +1196,9 @@
             .segment-item { padding: 10px 14px; }
             .segment-text { font-size: 13px; }
             .group-footer { padding: 8px 14px 12px; gap: 8px; flex-wrap: wrap; }
-            .group-btn { font-size: 11px; }
+            .group-btn { font-size: 11px; padding: 8px 14px; min-height: 44px; }
+            .nav-btn { padding: 10px 16px; min-height: 44px; }
+            .segment-ts { padding: 6px 10px; min-height: 32px; display: inline-flex; align-items: center; }
 
             .play-btn { width: 32px; height: 32px; font-size: 14px; }
 
@@ -1211,17 +1217,54 @@
             .topics-container { padding: 0 12px; }
             .topic-chip { font-size: 12px; padding: 5px 10px; }
         }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 100;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid rgba(200, 153, 76, 0.3);
+            background: rgba(14, 12, 18, 0.9);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            color: var(--gold);
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, background 0.2s;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+        .back-to-top.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .back-to-top:hover {
+            background: rgba(200, 153, 76, 0.15);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .sacred-bg .saints-cycle .saint-a,
+            .sacred-bg .saints-cycle .saint-b { animation: none; }
+            .spinner::after { animation: none; }
+            .video-group { animation: none; opacity: 1; transform: none; }
+            .full-transcript { transition: none; }
+            .group-btn-expand .arrow { transition: none; }
+        }
     </style>
 </head>
 <body>
     <div class="sacred-bg" aria-hidden="true">
-        <img class="icon-christ" src="/static/christ-pantocrator.webp" alt="" loading="eager" fetchpriority="high">
-        <img class="icon-topright-mirror" src="/static/last-judgment.webp" alt="" loading="lazy">
-        <img class="icon-theotokos" src="/static/theotokos.webp" alt="" loading="lazy">
-        <img class="icon-topleft" src="/static/last-judgment.webp" alt="" loading="lazy">
+        <img class="icon-christ" src="/static/christ-pantocrator.webp" alt="Христос Вседържител — икона" loading="eager" fetchpriority="high">
+        <img class="icon-topright-mirror" src="/static/last-judgment.webp" alt="Страшният съд — икона" loading="lazy">
+        <img class="icon-theotokos" src="/static/theotokos.webp" alt="Пресвета Богородица — икона" loading="lazy">
+        <img class="icon-topleft" src="/static/last-judgment.webp" alt="Страшният съд — икона" loading="lazy">
         <div class="saints-cycle">
-            <img class="saint-a" src="/static/saint-george.webp" alt="">
-            <img class="saint-b" src="/static/john-baptist.webp" alt="">
+            <img class="saint-a" src="/static/saint-george.webp" alt="Свети Георги Победоносец — икона">
+            <img class="saint-b" src="/static/john-baptist.webp" alt="Свети Йоан Кръстител — икона">
         </div>
         <div class="glow"></div>
     </div>
@@ -1234,6 +1277,13 @@
             <button class="nav-btn" data-page="topics">Теми</button>
         </nav>
     </header>
+    <noscript>
+        <div style="background:#161218;color:#e8e4e0;text-align:center;padding:60px 20px;font-family:system-ui,sans-serif">
+            <h2 style="color:#c8994c;margin-bottom:16px">Светоглед — Архив</h2>
+            <p>Този сайт изисква JavaScript за търсенето в транскрипциите.</p>
+            <p style="margin-top:8px;color:#8a8078">Моля, активирайте JavaScript във вашия браузър, за да използвате архива.</p>
+        </div>
+    </noscript>
     <div class="cross-divider" aria-hidden="true">&#9766;</div>
     <main>
     <div class="page active" id="page-search">
@@ -1242,6 +1292,7 @@
                 <div class="search-wrapper">
                     <input type="text" id="search-input"
                            placeholder="Търсете тук... (напр. Кант, покръстване, иконоборство)"
+                           aria-label="Търсене в транскрипции"
                            autofocus>
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <button class="exact-toggle" id="exact-toggle" title="Точно съвпадение — търси само точната фраза">Точно</button>
@@ -1282,8 +1333,10 @@
     <button class="fullscreen-close-btn" id="fullscreen-close-btn" title="Затвори">&times;</button>
     <div class="fullscreen-hint" id="fullscreen-hint"><kbd>&uarr;</kbd><kbd>&darr;</kbd> четене &middot; <kbd>Esc</kbd> затвори</div>
 
+    <button class="back-to-top" id="back-to-top" title="Към началото" aria-label="Към началото">&#8679;</button>
+
     <footer class="site-footer">
-        <div>Архив на предаването <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener">Светоглед</a> с Георги Тодоров по Радио Зорана</div>
+        <div>Архив на предаването <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener noreferrer">Светоглед</a> с Георги Тодоров по Радио Зорана</div>
         <div style="margin-top:6px;font-style:italic;color:var(--text-dimmer);font-size:11px" id="footer-subtitle">Слава Богу за всичко</div>
     </footer>
 
@@ -1323,7 +1376,7 @@ function buildGroupHtml(group, videoId, groupIdx, delay) {
     html += '</div>';
 
     html += '<div class="group-toolbar">';
-    html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
+    html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank" rel="noopener noreferrer">&#9654; YouTube</a>';
     html += '<a class="group-btn group-btn-episode" href="/episode/' + videoId + '">Епизод &rarr;</a>';
     html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + videoId + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
     html += '<button class="group-btn group-btn-fullscreen" onclick="openGroupFullscreen(\'' + videoId + '\', \'' + tid + '\', this)" title="Цял екран">&#9634; Цял екран</button>';
@@ -1337,7 +1390,7 @@ function buildGroupHtml(group, videoId, groupIdx, delay) {
         var hidden = (hasMore && segIdx >= maxVisible) ? ' style="display:none" data-extra="true"' : '';
         html += '<div class="segment-item"' + hidden + '>';
         html += '<button class="play-btn" onclick="playSegment(\'' + videoId + '\', ' + seg.start_seconds + ', \'' + playerId + '\')" title="Пусни от ' + seg.timestamp + '">&#9654;</button>';
-        html += '<span class="segment-ts"><a href="' + seg.youtube_url + '" target="_blank">' + seg.timestamp + '</a></span>';
+        html += '<span class="segment-ts"><a href="' + seg.youtube_url + '" target="_blank" rel="noopener noreferrer">' + seg.timestamp + '</a></span>';
         html += '<span class="segment-text">' + highlighted + '</span>';
         html += '</div>';
     });
@@ -1415,7 +1468,7 @@ function showEmptyState() {
         html += '<span class="episode-segments">' + ep.segment_count + ' сегм.</span>';
         html += '</div>';
         html += '<div class="group-toolbar">';
-        html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + ep.video_id + '" target="_blank">&#9654; YouTube</a>';
+        html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + ep.video_id + '" target="_blank" rel="noopener noreferrer">&#9654; YouTube</a>';
         html += '<a class="group-btn group-btn-episode" href="/episode/' + ep.video_id + '">Епизод &rarr;</a>';
         html += '<button class="group-btn group-btn-expand" onclick="toggleTranscript(\'' + ep.video_id + '\', \'' + tid + '\', this)"><span class="arrow">&#9660;</span> Пълен текст</button>';
         html += '<button class="group-btn group-btn-fullscreen" onclick="openGroupFullscreen(\'' + ep.video_id + '\', \'' + tid + '\', this)" title="Цял екран">&#9634; Цял екран</button>';
@@ -1469,12 +1522,17 @@ document.getElementById('exact-toggle').addEventListener('click', function() {
 });
 
 // Sticky search bar shadow on scroll
+var backToTopBtn = document.getElementById('back-to-top');
+backToTopBtn.addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 window.addEventListener('scroll', function() {
     var searchBar = document.querySelector('.search-container');
     var epSticky = document.querySelector('.episodes-sticky');
     var scrolled = window.scrollY > 10;
     if (searchBar) searchBar.classList.toggle('scrolled', scrolled);
     if (epSticky) epSticky.classList.toggle('scrolled', scrolled);
+    backToTopBtn.classList.toggle('visible', window.scrollY > 400);
 }, { passive: true });
 
 function doSearch() {
@@ -1748,7 +1806,7 @@ function buildParagraph(text, startSec, videoId, query) {
         }
     }
 
-    return '<p><a class="ts-link" href="' + url + '" target="_blank">[' + mm + ':' + ss + ']</a>' + escaped + '</p>';
+    return '<p><a class="ts-link" href="' + url + '" target="_blank" rel="noopener noreferrer">[' + mm + ':' + ss + ']</a>' + escaped + '</p>';
 }
 
 // ── Episodes page ──
@@ -1865,7 +1923,7 @@ function toggleEpisodeDetail(videoId, containerId, playerId, card) {
 
                 // Action buttons
                 html += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">';
-                html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank">&#9654; YouTube</a>';
+                html += '<a class="group-btn group-btn-yt" href="https://www.youtube.com/watch?v=' + videoId + '" target="_blank" rel="noopener noreferrer">&#9654; YouTube</a>';
                 html += '<button class="group-btn group-btn-expand" onclick="playSegment(\'' + videoId + '\', 0, \'' + playerId + '\')">&#9654; Пусни</button>';
                 html += '<button class="group-btn" style="color:var(--accent2);border-color:var(--accent2)" onclick="searchFromEpisode(\'' + videoId + '\')"><svg style="width:12px;height:12px;vertical-align:-1px;margin-right:3px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Търси в епизода</button>';
                 html += '<a class="group-btn group-btn-episode" href="/episode/' + videoId + '">Пълен епизод &rarr;</a>';
