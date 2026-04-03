@@ -1078,7 +1078,7 @@ def _render_about_page():
   .sacred-bg .glow {{ position:absolute; top:0; left:0; right:0; bottom:0;
     background: radial-gradient(ellipse 600px 700px at 50% 40%, rgba(200,153,76,0.04) 0%, transparent 70%),
                 radial-gradient(ellipse 400px 500px at 5% 60%, rgba(107,32,56,0.05) 0%, transparent 70%); }}
-  .content {{ position:relative; z-index:1; max-width:680px; margin:0 auto; padding:48px 24px 80px; }}
+  .content {{ position:relative; z-index:1; max-width:680px; margin:0 auto; padding:48px 24px 80px; text-align:center; }}
   h1 {{ font-size:28px; color:var(--gold); font-weight:400; margin-bottom:8px; letter-spacing:0.5px; }}
   h2 {{ font-size:18px; color:var(--text); font-weight:500; margin:36px 0 12px;
        padding-bottom:8px; border-bottom:1px solid var(--glass-border); }}
@@ -1118,7 +1118,7 @@ def _render_about_page():
   <h1>За сайта</h1>
   <p class="subtitle">Неофициален архив на предаването Светоглед по Радио Зорана</p>
 
-  <p>Този сайт не е свързан с Радио Зорана или екипа на предаването. Създаден е от слушател, който желае съдържанието да бъде по-лесно достъпно и търсимо. Всички епизоди са публично достъпни в <a href="https://www.youtube.com/@RadioZorana" target="_blank" rel="noopener noreferrer">YouTube канала на Радио Зорана</a>.</p>
+  <p>Този сайт не е свързан с Радио Зорана или екипа на предаването. Създаден е от слушател, който желае съдържанието да бъде по-лесно достъпно и търсимо. Всички епизоди са публично достъпни в <a href="https://www.youtube.com/watch?v=384of_OtcfI&amp;list=PLvX0cuPYCospMRKzBKtS5xYPFpsuEQwDQ" target="_blank" rel="noopener noreferrer">YouTube канала на Радио Зорана</a>.</p>
 
   <h2>Как работи</h2>
   <p>Транскрипциите на {EPISODE_COUNT}-те епизода са генерирани автоматично от аудиото чрез AI модел за разпознаване на реч. Текстът е индексиран за мигновено търсене, а резултатите включват времеви маркери с директни връзки към YouTube.</p>
