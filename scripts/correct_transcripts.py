@@ -12,6 +12,10 @@ import sys
 
 # Literal replacements (word/phrase level). Applied to each snippet.
 LITERAL_REPLACEMENTS = [
+    # --- Show name (Whisper consistently mishears the final Д as Т) ---
+    ("СВЕТОГЛЕТ", "СВЕТОГЛЕД"),
+    ("Светоглет", "Светоглед"),
+    ("светоглет", "светоглед"),
     # --- Common Whisper mishearings ---
     ("получителни", "поучителни"),
     ("човекотворни", "ръкотворни"),

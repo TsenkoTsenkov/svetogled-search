@@ -19,6 +19,23 @@ from pathlib import Path
 TRANSCRIPTS_DIR = Path(__file__).parent.parent / "transcripts"
 PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLvX0cuPYCospMRKzBKtS5xYPFpsuEQwDQ"
 
+# After lowercasing an ALL-CAPS title to sentence case, re-capitalize proper
+# nouns and abbreviations that recur in this podcast's titles. Word-boundary
+# regexes so substrings aren't touched. Bulgarian uses sentence case, so we
+# capitalize *only* these, not every word.
+RESTORE_CAPS = [
+    (r'\bсв\. ', 'Св. '),
+    (r'\bбог\b', 'Бог'),
+    (r'\bхристос\b', 'Христос'),
+    (r'\bхриста\b', 'Христа'),
+    (r'\bкръста\b', 'Кръста'),
+    (r'\bборис\b', 'Борис'),
+    (r'\bалександър\b', 'Александър'),
+    (r'\bневски\b', 'Невски'),
+    (r'\bилия\b', 'Илия'),
+    (r'\bбългария\b', 'България'),
+]
+
 
 def _ytdlp_args():
     """yt-dlp args: EJS JS-challenge solver + --cookies when YTDLP_COOKIES is set."""
@@ -95,7 +112,8 @@ def clean_title(title):
         r'^СВЕТОГЛЕД С ГЕОРГИ ТОДОРОВ\s*\|\s*',
         r'^Светоглед\s+\d+\s+',
     ]
-    cleaned = title
+    # Strip zero-width and other invisible characters that break casing/trim
+    cleaned = re.sub(r'[​‌‍﻿ ]', ' ', title)
     for pat in patterns:
         cleaned = re.sub(pat, '', cleaned, flags=re.IGNORECASE)
 
@@ -120,20 +138,26 @@ def clean_title(title):
         '', cleaned
     )
 
-    # Fix ALL CAPS to title-like case, but carefully
-    if cleaned == cleaned.upper() and len(cleaned) > 10:
+    # Fix ALL CAPS to Bulgarian sentence case: only the first word is
+    # capitalized; everything else is lowercased. Proper nouns (saints, names,
+    # places) are then restored by RESTORE_CAPS below, since blindly title-casing
+    # every word produces wrong English-style capitalization.
+    if cleaned == cleaned.upper() and len(re.sub(r'[^А-Яа-я]', '', cleaned)) > 6:
         words = cleaned.split()
         result = []
         for i, word in enumerate(words):
-            if i == 0:
-                result.append(word[0] + word[1:].lower() if len(word) > 1 else word)
-            elif word in ('И', 'В', 'НА', 'ОТ', 'ЗА', 'С', 'ПО', 'БЕЗ', 'ДО'):
-                result.append(word.lower())
-            elif len(word) <= 3 and word.isalpha():
-                result.append(word.lower())
+            lw = word.lower()
+            # Keep tokens that aren't Cyrillic words as-is (Latin, numbers, "I")
+            if not any('а' <= c <= 'я' for c in lw):
+                result.append(word)
+            elif i == 0:
+                result.append(lw[0].upper() + lw[1:])
             else:
-                result.append(word[0] + word[1:].lower() if len(word) > 1 else word)
+                result.append(lw)
         cleaned = ' '.join(result)
+        # Restore capitalization of known proper nouns / abbreviations.
+        for pat, repl in RESTORE_CAPS:
+            cleaned = re.sub(pat, repl, cleaned)
 
     # Clean up whitespace and punctuation artifacts
     cleaned = cleaned.strip(' -–—.,')
