@@ -11,12 +11,22 @@ Goals:
 """
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
 
 TRANSCRIPTS_DIR = Path(__file__).parent.parent / "transcripts"
 PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLvX0cuPYCospMRKzBKtS5xYPFpsuEQwDQ"
+
+
+def _ytdlp_args():
+    """yt-dlp args: EJS JS-challenge solver + --cookies when YTDLP_COOKIES is set."""
+    args = ["--remote-components", "ejs:github"]
+    cookies = os.environ.get("YTDLP_COOKIES", "")
+    if cookies and Path(cookies).exists():
+        args += ["--cookies", cookies]
+    return args
 
 
 def get_playlist_order():
@@ -28,10 +38,11 @@ def get_playlist_order():
     result = subprocess.run(
         [
             "yt-dlp", "--flat-playlist",
+            *_ytdlp_args(),
             "--print", "%(playlist_index)s\t%(id)s\t%(title)s",
             PLAYLIST_URL,
         ],
-        capture_output=True, text=True, timeout=120,
+        capture_output=True, text=True, timeout=180,
     )
     # Collect unique video IDs in playlist order (newest first)
     seen = set()

@@ -16,6 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
+    # YouTube blocks anonymous downloads from datacenter IPs (GitHub runners),
+    # so every yt-dlp call authenticates with cookies. Scripts read this path
+    # and pass --cookies when the file exists; locally it's unset and ignored.
+    env:
+      YTDLP_COOKIES: ${{ github.workspace }}/cookies.txt
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -29,6 +35,24 @@ jobs:
         run: |
           pip install yt-dlp youtube-transcript-api
           sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Write YouTube cookies
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+        run: |
+          if [ -z "$YOUTUBE_COOKIES" ]; then
+            echo "::error::YOUTUBE_COOKIES secret is empty or unset. Add it in" \
+                 "Settings → Secrets and variables → Actions. Without it, YouTube" \
+                 "blocks downloads from GitHub's IPs and transcription cannot run."
+            exit 1
+          fi
+          printf '%s\n' "$YOUTUBE_COOKIES" > "$YTDLP_COOKIES"
+          # Netscape cookie jars must start with this header line.
+          if ! head -n1 "$YTDLP_COOKIES" | grep -q "# Netscape HTTP Cookie File\|# HTTP Cookie File"; then
+            echo "::warning::cookies.txt does not start with the Netscape header." \
+                 "If yt-dlp rejects it, re-export with a 'Netscape format' cookie tool."
+          fi
+          echo "Wrote $(wc -l < "$YTDLP_COOKIES") cookie lines."
 
       - name: Check for new episodes
         id: check
@@ -94,3 +118,7 @@ jobs:
             git push
           fi
           # The push will trigger the deploy workflow automatically
+
+      - name: Remove cookie file
+        if: always()
+        run: rm -f "$YTDLP_COOKIES"

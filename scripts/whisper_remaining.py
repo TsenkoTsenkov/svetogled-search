@@ -2,6 +2,7 @@
 """Transcribe remaining videos with Whisper (for GitHub Actions)."""
 
 import json
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -12,6 +13,25 @@ WHISPER_CLI = "./whisper-cli"
 MODEL_PATH = "./ggml-small.bin"
 LANGUAGE = "bg"
 
+# Optional cookie file for yt-dlp (needed on datacenter IPs like GitHub Actions,
+# where YouTube blocks anonymous downloads). Set YTDLP_COOKIES to a Netscape
+# cookies.txt path; ignored when unset (e.g. local runs from a residential IP).
+COOKIES_FILE = os.environ.get("YTDLP_COOKIES", "")
+
+
+def _ytdlp_args():
+    """Common yt-dlp args: cookies (when provided) + the EJS challenge solver.
+
+    YouTube now gates audio formats behind a JS ("nsig") challenge. yt-dlp
+    solves it with a JS runtime (node/deno, preinstalled on GitHub runners)
+    via the downloadable EJS solver; without this, only image formats are
+    offered and audio extraction fails with "Requested format is not available".
+    """
+    args = ["--remote-components", "ejs:github"]
+    if COOKIES_FILE and Path(COOKIES_FILE).exists():
+        args += ["--cookies", COOKIES_FILE]
+    return args
+
 
 def download_audio(video_id, output_path):
     url = f"https://www.youtube.com/watch?v={video_id}"
@@ -19,14 +39,25 @@ def download_audio(video_id, output_path):
         subprocess.run(
             [
                 "yt-dlp", "-x", "--audio-format", "wav",
+                *_ytdlp_args(),
                 "--postprocessor-args", "ffmpeg:-ar 16000 -ac 1",
                 "-o", str(output_path),
                 "--no-playlist", "--quiet", url,
             ],
-            check=True, capture_output=True, text=True, timeout=300,
+            check=True, capture_output=True, text=True, timeout=600,
         )
         return Path(output_path).exists()
-    except Exception:
+    except subprocess.CalledProcessError as e:
+        # Surface the real reason instead of silently skipping. yt-dlp writes
+        # the useful diagnostics (bot-check, 403, format errors) to stderr.
+        err = (e.stderr or e.stdout or "").strip()
+        print(f"  yt-dlp error: {err[-400:]}" if err else "  yt-dlp failed with no output")
+        return False
+    except subprocess.TimeoutExpired:
+        print("  yt-dlp timed out after 600s")
+        return False
+    except Exception as e:
+        print(f"  download error: {type(e).__name__}: {e}")
         return False
 
 

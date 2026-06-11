@@ -16,3 +16,4 @@ terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 new_videos.json
 remaining_videos.json
+cookies.txt

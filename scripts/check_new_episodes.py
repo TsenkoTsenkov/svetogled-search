@@ -12,7 +12,14 @@ TRANSCRIPTS_DIR = Path("transcripts")
 
 
 def get_playlist_videos():
-    ydl_opts = {"quiet": True, "no_warnings": True, "extract_flat": True}
+    # Optional cookies for datacenter IPs (GitHub Actions); ignored locally.
+    cookies = os.environ.get("YTDLP_COOKIES", "")
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "cookiefile": cookies if cookies and Path(cookies).exists() else None,
+    }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(PLAYLIST_URL, download=False)
         entries = list(info.get("entries", []))
