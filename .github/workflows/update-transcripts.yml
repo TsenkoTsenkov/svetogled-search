@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -57,7 +57,24 @@ jobs:
 
       - name: Fix common transcription errors
         if: steps.check.outputs.new_count > 0
-        run: python fix_transcriptions.py --skip-combined
+        run: |
+          # Apply Bulgarian corrections only to the newly added transcripts.
+          # scripts/correct_transcripts.py takes transcript file paths as args.
+          python - <<'PY'
+          import json, subprocess, sys
+          from pathlib import Path
+
+          videos = json.loads(Path("new_videos.json").read_text(encoding="utf-8"))
+          files = [
+              str(p) for v in videos
+              if (p := Path("transcripts") / f"{v['id']}.json").exists()
+          ]
+          if not files:
+              print("No new transcript files to correct.")
+              sys.exit(0)
+          print(f"Correcting {len(files)} new transcript(s)...")
+          subprocess.run([sys.executable, "scripts/correct_transcripts.py", *files], check=True)
+          PY
 
       - name: Normalize titles and add playlist order
         if: steps.check.outputs.new_count > 0
