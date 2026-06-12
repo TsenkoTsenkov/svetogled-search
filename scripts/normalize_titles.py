@@ -201,12 +201,23 @@ def main():
         if ep_num is not None and not re.search(r'\(Беседа\s+\d+\)', new_title):
             new_title = f"{new_title} (Беседа {ep_num})"
 
-        # Add playlist_order for chronological sorting
         needs_write = False
 
+        # Add playlist_order for chronological sorting
         if vid in playlist_order:
             if data.get("playlist_order") != playlist_order[vid]:
                 data["playlist_order"] = playlist_order[vid]
+                needs_write = True
+
+        # Persist episode_number so the site can sort/dedupe by it. Without this,
+        # new episodes default to 0, collide in the /api/episodes dedup, and get
+        # dropped from the list. Only FILL IN a missing/zero value from the title;
+        # never overwrite an existing number (older episodes carry canonical
+        # numbers inferred from YouTube descriptions that the title may not show).
+        if not data.get("episode_number"):
+            title_num = extract_episode_number(new_title)
+            if title_num:
+                data["episode_number"] = title_num
                 needs_write = True
 
         if new_title != old_title:
