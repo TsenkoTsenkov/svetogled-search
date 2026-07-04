@@ -46,6 +46,10 @@ def _minify_html(html_bytes):
     text = re.sub(r"[ \t]+", " ", text)
     # Remove whitespace around newlines
     text = re.sub(r" ?\n ?", "\n", text)
+    # Collapse newlines *inside* a tag's angle brackets to single spaces, so
+    # multi-line tags (e.g. <link\n rel=...\n href=...>) don't leave attributes
+    # stranded on their own lines. Skip <script>/<style> bodies via [^<>] only.
+    text = re.sub(r"<[^<>]+>", lambda m: re.sub(r"\s*\n\s*", " ", m.group(0)), text)
     # Collapse multiple blank lines into one
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.encode("utf-8")
@@ -84,16 +88,110 @@ def _count_episodes():
 EPISODE_COUNT = _count_episodes()
 
 
-# Pre-minify at startup, inject dynamic episode count
+def _build_episode_index():
+    """Metadata for every unique episode, loaded once at startup. Powers the
+    archive page, theme pages, related-episode links and the sitemap.
+
+    Re-uploads (same episode number, ~same duration) are excluded from the
+    index and mapped to their primary video so their pages can canonicalize."""
+    episodes = {}
+    reupload_of = {}
+    seen = {}  # episode_number -> (duration, primary_vid)
+    for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        vid = data.get("video_id") or f.stem
+        try:
+            num = int(data.get("episode_number") or 0)
+        except (TypeError, ValueError):
+            num = 0
+        dur = _get_duration(data)
+        if num in seen and _is_reupload(seen[num][0], dur):
+            reupload_of[vid] = seen[num][1]
+            continue
+        seen[num] = (dur, vid)
+        episodes[vid] = {
+            "video_id": vid,
+            "title": data.get("title") or vid,
+            "episode_number": num,
+            "upload_date": data.get("upload_date") or "",
+        }
+    ordered = sorted(
+        episodes.values(),
+        key=lambda e: (
+            e["episode_number"] if e["episode_number"] else 10**9,
+            e["upload_date"],
+            e["video_id"],
+        ),
+    )
+    order = [e["video_id"] for e in ordered]
+    pos = {v: i for i, v in enumerate(order)}
+    return episodes, order, pos, reupload_of
+
+
+EPISODES, EPISODE_ORDER, EPISODE_POS, REUPLOAD_OF = _build_episode_index()
+
+# Episodes removed from the archive whose URLs may still be known to search
+# engines: 301 them to the archive instead of returning 404.
+REMOVED_EPISODES = {"gGhf8HSSGwI": "/arhiv"}  # Пророк Илия (премахнат дубликат)
+
+
+def _build_theme_maps():
+    """Theme lookup tables from themes.json: id → theme and video → its themes."""
+    raw = _load_themes()
+    if not raw:
+        return {}, {}, {}
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except ValueError:
+        return {}, {}, {}
+    groups = data.get("groups", {})
+    themes = {}
+    video_themes = {}
+    for t in data.get("themes", []):
+        tid = t.get("id")
+        if not tid:
+            continue
+        themes[tid] = t
+        for vid, score in t.get("episodes", []):
+            video_themes.setdefault(vid, []).append((tid, score))
+    for lst in video_themes.values():
+        lst.sort(key=lambda x: -x[1])
+    return groups, themes, video_themes
+
+
+THEME_GROUPS, THEMES_BY_ID, VIDEO_THEMES = _build_theme_maps()
+
+
+def _related_episodes(video_id, limit=6):
+    """Episodes sharing this episode's strongest themes; falls back to
+    chronological neighbours so every episode page links onward."""
+    scored = {}
+    for tid, base in VIDEO_THEMES.get(video_id, [])[:3]:
+        for vid, score in THEMES_BY_ID.get(tid, {}).get("episodes", []):
+            if vid != video_id and vid in EPISODES:
+                scored[vid] = scored.get(vid, 0) + score * base
+    ranked = [vid for vid, _ in sorted(scored.items(), key=lambda x: -x[1])]
+    if len(ranked) < limit and video_id in EPISODE_POS:
+        i = EPISODE_POS[video_id]
+        for j in list(range(i - 3, i)) + list(range(i + 1, i + 4)):
+            if 0 <= j < len(EPISODE_ORDER) and EPISODE_ORDER[j] not in ranked:
+                ranked.append(EPISODE_ORDER[j])
+    return [EPISODES[v] for v in ranked[:limit]]
+
+
+# Inject dynamic episode count + recent episode links, then minify.
+# (The module-level _prepare_html() call happens further down, after the
+# HTML helpers it depends on are defined.)
 def _prepare_html():
     if not HTML_FILE.exists():
         return b""
     html = HTML_FILE.read_bytes()
     html = html.replace(b"{{EPISODE_COUNT}}", str(EPISODE_COUNT).encode())
+    html = html.replace(b"{{RECENT_EPISODES}}", _recent_episodes_html().encode())
     return _minify_html(html)
-
-
-_MINIFIED_HTML = _prepare_html()
 
 STOP_WORDS = set(
     """
@@ -452,6 +550,67 @@ def _format_timestamp(seconds):
     return f"{m}:{s:02d}"
 
 
+def _ep_label(ep):
+    """Display label for an episode link: 'Беседа 38: Заглавие' (or just the
+    title when it already mentions its number)."""
+    n = ep.get("episode_number", 0)
+    t = _html_escape(ep.get("title", ""))
+    if n and f"беседа {n}" not in t.lower():
+        return f"Беседа {n}: {t}"
+    return t
+
+
+def _fmt_date(iso):
+    """2021-01-04 → 4.01.2021 (Bulgarian date display)."""
+    if not iso or len(iso) != 10:
+        return iso or ""
+    y, m, d = iso.split("-")
+    return f"{int(d)}.{m}.{y}"
+
+
+def _recent_episodes_html(limit=8):
+    """Static list of the newest episodes, injected into the homepage HTML so
+    crawlers see fresh, followable links without executing JavaScript."""
+    eps = sorted(EPISODES.values(), key=lambda e: e["upload_date"], reverse=True)
+    return "".join(
+        f'<li><a href="/episode/{e["video_id"]}">{_ep_label(e)}</a>'
+        f'<span class="recent-date">{_fmt_date(e["upload_date"])}</span></li>'
+        for e in eps[:limit]
+    )
+
+
+_MINIFIED_HTML = _prepare_html()
+
+
+_INTRO_RE = re.compile(
+    r"^.{0,400}?(?:Здравейте|[Рр]адио\s+Зорана)[\s!.,;:–—-]*", re.DOTALL
+)
+_GREETING_RE = re.compile(r"^(?:Здравейте|Добър ден|Добър вечер)[\s!.,;:–—-]*")
+
+
+def _episode_description(data):
+    """Unique meta description per episode. Skips the standard show intro
+    (identical in every episode) so descriptions don't look duplicated, and
+    prefixes the episode number/year so each one is distinct and descriptive."""
+    text = re.sub(r"\s+", " ", data.get("full_text", "")).strip()
+    body = _INTRO_RE.sub("", text, count=1).strip()
+    body = _GREETING_RE.sub("", body).strip() or text
+    try:
+        num = int(data.get("episode_number") or 0)
+    except (TypeError, ValueError):
+        num = 0
+    year = (data.get("upload_date") or "")[:4]
+    label = (
+        f"Беседа {num} на богослова Георги Тодоров по Радио Зорана"
+        if num
+        else "Беседа на богослова Георги Тодоров по Радио Зорана"
+    )
+    if year:
+        label += f" ({year} г.)"
+    desc = f"{label}: {body[:200].strip()}..."
+    return desc.replace('"', "'")
+
+
 def _render_episode_page(data):
     video_id = data["video_id"]
     title = _html_escape(data["title"])
@@ -484,26 +643,129 @@ def _render_episode_page(data):
         seo_paragraphs.append("<p>" + " ".join(chunk) + "</p>")
     seo_html = "\n".join(seo_paragraphs)
 
-    # First 300 chars of text for meta description
-    full_text = data.get("full_text", "")
-    desc_text = full_text[:300].replace('"', "'").replace("\n", " ").strip()
-    if len(full_text) > 300:
-        desc_text += "..."
+    desc_text = _episode_description(data)
+
+    try:
+        num = int(data.get("episode_number") or 0)
+    except (TypeError, ValueError):
+        num = 0
+    upload_date = data.get("upload_date", "")
+
+    # Re-uploads canonicalize to their primary video's page
+    canonical_id = REUPLOAD_OF.get(video_id, video_id)
+
+    if num and f"беседа {num}" not in data["title"].lower():
+        page_title = f"{title} — Беседа {num} | Светоглед с Георги Тодоров"
+    else:
+        page_title = f"{title} — Светоглед с Георги Тодоров"
+
+    # Extra JSON-LD fields when available
+    jsonld_extra = ""
+    if num:
+        jsonld_extra += f'\n        "episodeNumber": {num},'
+    if upload_date:
+        jsonld_extra += f'\n        "datePublished": "{upload_date}",'
+
+    # Breadcrumbs (visible + JSON-LD)
+    crumb_cur = f"Беседа {num}" if num else _html_escape(data["title"][:48])
+    crumbs_html = (
+        '<nav class="crumbs" aria-label="Пътека">'
+        '<a href="/">Начало</a> <span class="sep">›</span> '
+        '<a href="/arhiv">Всички беседи</a> <span class="sep">›</span> '
+        f'<span class="cur">{crumb_cur}</span></nav>'
+    )
+    crumbs_jsonld = (
+        '<script type="application/ld+json">'
+        + json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Начало",
+                        "item": "https://svetogled-arhiv.com/",
+                    },
+                    {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": "Всички беседи",
+                        "item": "https://svetogled-arhiv.com/arhiv",
+                    },
+                    {"@type": "ListItem", "position": 3, "name": data["title"]},
+                ],
+            },
+            ensure_ascii=False,
+        )
+        + "</script>"
+    )
+
+    # Theme links for this episode (internal links to the theme hub pages)
+    theme_links = []
+    for tid, _score in VIDEO_THEMES.get(video_id, [])[:3]:
+        t = THEMES_BY_ID.get(tid)
+        if t:
+            theme_links.append(f'<a href="/tema/{tid}">{_html_escape(t["label"])}</a>')
+    themes_html = (
+        '<div class="ep-themes">Теми: ' + " · ".join(theme_links) + "</div>"
+        if theme_links
+        else ""
+    )
+
+    # Previous / next episode links
+    prev_html = next_html = ""
+    pos = EPISODE_POS.get(video_id)
+    if pos is not None:
+        if pos > 0:
+            p = EPISODES[EPISODE_ORDER[pos - 1]]
+            prev_html = (
+                f'<a class="ep-nav-link" href="/episode/{p["video_id"]}">'
+                f"&larr; {_ep_label(p)}</a>"
+            )
+        if pos < len(EPISODE_ORDER) - 1:
+            nx = EPISODES[EPISODE_ORDER[pos + 1]]
+            next_html = (
+                f'<a class="ep-nav-link next" href="/episode/{nx["video_id"]}">'
+                f"{_ep_label(nx)} &rarr;</a>"
+            )
+    prevnext_html = (
+        f'<nav class="ep-nav">{prev_html}{next_html}</nav>'
+        if (prev_html or next_html)
+        else ""
+    )
+
+    # Related episodes by shared themes
+    related = _related_episodes(video_id)
+    related_html = ""
+    if related:
+        items = "".join(
+            f'<li><a href="/episode/{r["video_id"]}">{_ep_label(r)}</a></li>'
+            for r in related
+        )
+        related_html = (
+            '<section class="related"><h2>Свързани беседи</h2><ul>'
+            + items
+            + "</ul>"
+            + f'<p class="related-more"><a href="/arhiv">Всички {EPISODE_COUNT} беседи &rarr;</a>'
+            + ' &middot; <a href="/temi">Беседи по теми &rarr;</a></p></section>'
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="bg">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
-    <link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png?v=2">
-    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png?v=2">
-    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
     <meta name="theme-color" content="#0a0a0e">
-    <title>{title} — Светоглед с Георги Тодоров</title>
+    <title>{page_title}</title>
     <meta name="description" content="{_html_escape(desc_text)}">
-    <link rel="canonical" href="https://svetogled-arhiv.com/episode/{video_id}">
+    <link rel="canonical" href="https://svetogled-arhiv.com/episode/{canonical_id}">
     <meta property="og:type" content="article">
     <meta property="og:url" content="https://svetogled-arhiv.com/episode/{video_id}">
     <meta property="og:title" content="{title} — Светоглед">
@@ -519,7 +781,7 @@ def _render_episode_page(data):
         "@context": "https://schema.org",
         "@type": "PodcastEpisode",
         "name": "{title}",
-        "url": "https://svetogled-arhiv.com/episode/{video_id}",
+        "url": "https://svetogled-arhiv.com/episode/{video_id}",{jsonld_extra}
         "description": "{_html_escape(desc_text)}",
         "associatedMedia": {{
             "@type": "VideoObject",
@@ -545,6 +807,7 @@ def _render_episode_page(data):
         "inLanguage": "bg"
     }}
     </script>
+    {crumbs_jsonld}
     <style>
         :root {{
             --bg: #0a0a0e;
@@ -838,6 +1101,25 @@ def _render_episode_page(data):
             transition: all 0.2s;
         }}
         .font-btn:hover {{ color: #fff; border-color: var(--text-dim); }}
+        .crumbs {{ font-size: 13px; color: var(--text-dimmer); margin-bottom: 14px; }}
+        .crumbs a {{ color: var(--text-dim); text-decoration: none; }}
+        .crumbs a:hover {{ color: var(--gold); }}
+        .crumbs .cur {{ color: var(--gold); }}
+        .ep-themes {{ font-size: 13px; color: var(--text-dim); margin: 10px 0 16px; }}
+        .ep-themes a {{ color: var(--gold); text-decoration: none; }}
+        .ep-themes a:hover {{ text-decoration: underline; }}
+        .ep-nav {{ display: flex; justify-content: space-between; gap: 12px; margin: 28px 0 8px; flex-wrap: wrap; }}
+        .ep-nav-link {{ color: var(--text-dim); text-decoration: none; font-size: 13.5px; max-width: 48%; }}
+        .ep-nav-link.next {{ margin-left: auto; text-align: right; }}
+        .ep-nav-link:hover {{ color: var(--gold); }}
+        .related {{ margin-top: 24px; padding: 20px 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); }}
+        .related h2 {{ font-size: 15px; color: var(--gold); margin-bottom: 12px; }}
+        .related ul {{ list-style: none; }}
+        .related li {{ margin: 7px 0; }}
+        .related a {{ color: var(--text-dim); text-decoration: none; font-size: 14px; }}
+        .related a:hover {{ color: var(--gold); }}
+        .related-more {{ margin-top: 14px; font-size: 13px; }}
+        .related-more a {{ color: var(--gold); text-decoration: none; }}
         @media (max-width: 600px) {{
             .container {{ padding: 14px; }}
             h1 {{ font-size: 18px; }}
@@ -866,13 +1148,14 @@ def _render_episode_page(data):
         <div class="ep-header-sub">Архив на предаването с Георги Тодоров по Радио Зорана</div>
     </header>
     <div class="container">
-        <a href="/" class="back">&larr; Към търсенето</a>
+        {crumbs_html}
         <h1>{title}</h1>
         <div class="meta">
             Светоглед с Георги Тодоров по Радио Зорана &middot;
             {segment_count} сегмента &middot;
             <a href="{yt_url}" target="_blank" rel="noopener noreferrer">Гледай в YouTube &rarr;</a>
         </div>
+        {themes_html}
         <div class="video-embed">
             <iframe src="https://www.youtube.com/embed/{video_id}" allowfullscreen loading="lazy"></iframe>
         </div>
@@ -901,6 +1184,8 @@ def _render_episode_page(data):
             <noscript><div class="transcript-body">{seo_html}</div></noscript>
             <div class="seo-fallback">{seo_html}</div>
         </div>
+        {prevnext_html}
+        {related_html}
     </div>
     <div class="reader-overlay" id="reader-overlay">
         <div class="reader-toolbar">
@@ -1082,10 +1367,11 @@ def _render_about_page():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
-<link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png?v=2">
-<link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png?v=2">
-<link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0a0a0e">
 <title>За сайта — Светоглед Архив</title>
@@ -1175,14 +1461,254 @@ def _render_about_page():
 </html>"""
 
 
+# ── Server-rendered listing pages (/arhiv, /temi, /tema/<id>) ──────────────
+# These give crawlers a real link graph: every episode is reachable through
+# plain <a> links (homepage → archive/themes → episodes → related episodes),
+# instead of being discoverable only through the JS search or the sitemap.
+
+_LISTING_CSS = """
+:root { --bg:#0a0a0e; --bg-card:#161218; --gold:#c8994c; --wine:#6b2038;
+        --text:#e8e4e0; --text-dim:#8a8078; --text-dimmer:#6a6060; --border:#2a2228; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); line-height:1.6;
+       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.page-header { text-align:center; padding:28px 16px 6px; }
+.page-header .brand { font-size:22px; letter-spacing:0.5px; }
+.page-header .brand a { color:var(--gold); text-decoration:none; }
+.page-header .sub { font-size:12.5px; color:var(--text-dimmer); margin-top:4px; }
+.container { max-width:860px; margin:0 auto; padding:24px 20px 60px; }
+.crumbs { font-size:13px; color:var(--text-dimmer); margin:6px 0 22px; }
+.crumbs a { color:var(--text-dim); text-decoration:none; }
+.crumbs a:hover { color:var(--gold); }
+h1 { font-size:24px; color:var(--gold); font-weight:600; margin-bottom:12px; }
+.intro { color:var(--text-dim); font-size:14.5px; margin-bottom:26px; max-width:720px; }
+.intro a { color:var(--gold); }
+h2.year, h2.group { font-size:16px; margin:28px 0 10px; padding-bottom:6px;
+                    border-bottom:1px solid var(--border); }
+ul.ep-list { list-style:none; }
+ul.ep-list li { display:flex; justify-content:space-between; gap:14px;
+                padding:7px 2px; border-bottom:1px dashed rgba(255,255,255,0.05); }
+ul.ep-list a { color:var(--text); text-decoration:none; font-size:14.5px; }
+ul.ep-list a:hover { color:var(--gold); }
+ul.ep-list .date { color:var(--text-dimmer); font-size:12.5px; white-space:nowrap; }
+.theme-card { display:block; background:var(--bg-card); border:1px solid var(--border);
+              border-radius:12px; padding:14px 18px; margin:10px 0; text-decoration:none; }
+.theme-card:hover { border-color:var(--gold); }
+.theme-card .t-label { color:var(--gold); font-size:15px; font-weight:600; }
+.theme-card .t-count { color:var(--text-dimmer); font-size:12.5px; margin-left:8px; }
+.theme-card .t-desc { color:var(--text-dim); font-size:13.5px; margin-top:4px; }
+.hub-links { margin-top:34px; font-size:13.5px; color:var(--text-dim); }
+.hub-links a { color:var(--gold); text-decoration:none; }
+.site-footer { text-align:center; color:var(--text-dimmer); font-size:12px;
+               padding:10px 16px 40px; }
+.site-footer a { color:var(--text-dim); }
+"""
+
+
+def _render_listing_page(page_title, meta_desc, path, h1, intro_html, body_html, crumbs):
+    """Shared chrome for the archive/themes hub pages."""
+    canonical = f"https://svetogled-arhiv.com{path}"
+    meta_desc = _html_escape(meta_desc.replace('"', "'"))
+    crumb_parts = []
+    for name, url in crumbs:
+        esc = _html_escape(name)
+        crumb_parts.append(f'<a href="{url}">{esc}</a>' if url else f"<span>{esc}</span>")
+    crumbs_html = '<nav class="crumbs">' + " › ".join(crumb_parts) + "</nav>"
+    items = []
+    for i, (name, url) in enumerate(crumbs, 1):
+        item = {"@type": "ListItem", "position": i, "name": name}
+        if url:
+            item["item"] = f"https://svetogled-arhiv.com{url}"
+        items.append(item)
+    crumbs_jsonld = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": items,
+        },
+        ensure_ascii=False,
+    )
+    return f"""<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+    <meta name="theme-color" content="#0a0a0e">
+    <title>{page_title}</title>
+    <meta name="description" content="{meta_desc}">
+    <link rel="canonical" href="{canonical}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{canonical}">
+    <meta property="og:title" content="{page_title}">
+    <meta property="og:description" content="{meta_desc}">
+    <meta property="og:locale" content="bg_BG">
+    <meta property="og:site_name" content="Светоглед Архив">
+    <meta property="og:image" content="https://svetogled-arhiv.com/static/og-image.jpg">
+    <script type="application/ld+json">{crumbs_jsonld}</script>
+    <style>{_LISTING_CSS}</style>
+</head>
+<body>
+    <header class="page-header">
+        <div class="brand"><a href="/">Светоглед</a></div>
+        <div class="sub">Архив на предаването с Георги Тодоров по Радио Зорана</div>
+    </header>
+    <div class="container">
+        {crumbs_html}
+        <h1>{h1}</h1>
+        <div class="intro">{intro_html}</div>
+        {body_html}
+        <div class="hub-links">
+            <a href="/">Търсене в транскрипциите</a> &middot;
+            <a href="/arhiv">Пълен архив</a> &middot;
+            <a href="/temi">Беседи по теми</a> &middot;
+            <a href="/about">За сайта</a>
+        </div>
+    </div>
+    <footer class="site-footer">Слава Богу за всичко</footer>
+</body>
+</html>"""
+
+
+def _render_archive_page():
+    eps = sorted(
+        EPISODES.values(),
+        key=lambda e: (e["upload_date"], e["episode_number"]),
+        reverse=True,
+    )
+    parts = []
+    cur_year = None
+    for e in eps:
+        year = e["upload_date"][:4] if e["upload_date"] else "Без дата"
+        if year != cur_year:
+            if cur_year is not None:
+                parts.append("</ul>")
+            parts.append(f'<h2 class="year">{year}</h2><ul class="ep-list">')
+            cur_year = year
+        parts.append(
+            f'<li><a href="/episode/{e["video_id"]}">{_ep_label(e)}</a>'
+            f'<span class="date">{_fmt_date(e["upload_date"])}</span></li>'
+        )
+    if cur_year is not None:
+        parts.append("</ul>")
+    intro = (
+        "Пълен архив на предаването „Светоглед“ с богослова Георги Тодоров по "
+        f"Радио Зорана — {EPISODE_COUNT} беседи с пълни текстови транскрипции, "
+        'подредени по дата на излъчване. Може да <a href="/">търсите в текста '
+        'на всички беседи</a> или да разглеждате <a href="/temi">беседите по '
+        "теми</a> — богословие, българска история, култура и съвременност."
+    )
+    return _render_listing_page(
+        page_title="Всички беседи — пълен архив | Светоглед с Георги Тодоров",
+        meta_desc=(
+            f"Пълен архив на {EPISODE_COUNT} беседи на Георги Тодоров от "
+            "предаването Светоглед по Радио Зорана — с пълни транскрипции, "
+            "подредени по година."
+        ),
+        path="/arhiv",
+        h1=f"Всички беседи ({EPISODE_COUNT})",
+        intro_html=intro,
+        body_html="".join(parts),
+        crumbs=[("Начало", "/"), ("Всички беседи", None)],
+    )
+
+
+def _render_themes_index():
+    parts = []
+    for gid, glabel in THEME_GROUPS.items():
+        themes = [t for t in THEMES_BY_ID.values() if t.get("group") == gid]
+        if not themes:
+            continue
+        parts.append(f'<h2 class="group">{_html_escape(glabel)}</h2>')
+        for t in themes:
+            count = t.get("count", len(t.get("episodes", [])))
+            parts.append(
+                f'<a class="theme-card" href="/tema/{t["id"]}">'
+                f'<span class="t-label">{_html_escape(t["label"])}</span>'
+                f'<span class="t-count">{count} беседи</span>'
+                f'<div class="t-desc">{_html_escape(t.get("description", ""))}</div></a>'
+            )
+    intro = (
+        f"Беседите от „Светоглед“, подредени в {len(THEMES_BY_ID)} теми — от "
+        "богословието и историята на Църквата до българската съдба, културата "
+        "и съвременния свят. Всяка тема събира беседите, в които Георги "
+        "Тодоров разглежда съответния кръг от въпроси."
+    )
+    return _render_listing_page(
+        page_title="Беседи по теми — православие, история, култура | Светоглед",
+        meta_desc=(
+            f"{len(THEMES_BY_ID)} теми от беседите на Георги Тодоров по Радио "
+            "Зорана: богословие, църковна история, българска история, култура "
+            "и съвременност."
+        ),
+        path="/temi",
+        h1="Беседи по теми",
+        intro_html=intro,
+        body_html="".join(parts),
+        crumbs=[("Начало", "/"), ("Теми", None)],
+    )
+
+
+def _render_theme_page(tid):
+    theme = THEMES_BY_ID[tid]
+    label = theme.get("label", tid)
+    eps = [EPISODES[vid] for vid, _score in theme.get("episodes", []) if vid in EPISODES]
+    rows = "".join(
+        f'<li><a href="/episode/{e["video_id"]}">{_ep_label(e)}</a>'
+        f'<span class="date">{_fmt_date(e["upload_date"])}</span></li>'
+        for e in eps
+    )
+    body = f'<ul class="ep-list">{rows}</ul>'
+    siblings = [
+        t
+        for t in THEMES_BY_ID.values()
+        if t.get("group") == theme.get("group") and t["id"] != tid
+    ]
+    if siblings:
+        links = " · ".join(
+            f'<a href="/tema/{s["id"]}">{_html_escape(s["label"])}</a>'
+            for s in siblings[:8]
+        )
+        body += f'<div class="hub-links">Сродни теми: {links}</div>'
+    desc = theme.get("description", "")
+    intro = (
+        f"{_html_escape(desc)} Тук са събрани {len(eps)} беседи на Георги "
+        'Тодоров по тази тема, с пълни транскрипции. Виж и <a href="/temi">'
+        "всички теми</a>."
+    )
+    return _render_listing_page(
+        page_title=f"{_html_escape(label)} — беседи | Светоглед с Георги Тодоров",
+        meta_desc=f"{desc} {len(eps)} беседи на Георги Тодоров по темата, с пълни транскрипции.",
+        path=f"/tema/{tid}",
+        h1=_html_escape(label),
+        intro_html=intro,
+        body_html=body,
+        crumbs=[("Начало", "/"), ("Теми", "/temi"), (label, None)],
+    )
+
+
+_PAGE_CACHE = {}
+
+
+def _page_cached(key, builder):
+    """Listing pages are static per process; render once and reuse."""
+    if key not in _PAGE_CACHE:
+        _PAGE_CACHE[key] = builder().encode("utf-8")
+    return _PAGE_CACHE[key]
+
+
 _CUSTOM_404 = """<!DOCTYPE html>
 <html lang="bg">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
-<link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png?v=2">
-<link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <meta name="theme-color" content="#0a0a0e">
 <title>404 — Страницата не е намерена | Светоглед Архив</title>
 <style>
@@ -1258,6 +1784,13 @@ class SearchHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_redirect(self, location, permanent=True):
+        """301/302 redirect (e.g. removed episodes → archive)."""
+        self.send_response(301 if permanent else 302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def _send_body(self, body, content_type, extra_headers=None):
         """Send response body, gzip-compressed if client supports it."""
@@ -1384,6 +1917,9 @@ class SearchHandler(SimpleHTTPRequestHandler):
             if not video_id or not re.match(r"^[\w-]+$", video_id):
                 self._send_404()
                 return
+            if video_id in REMOVED_EPISODES:
+                self._send_redirect(REMOVED_EPISODES[video_id])
+                return
             fpath = TRANSCRIPTS_DIR / f"{video_id}.json"
             if not fpath.exists():
                 self._send_404()
@@ -1391,6 +1927,28 @@ class SearchHandler(SimpleHTTPRequestHandler):
             data = json.loads(fpath.read_text(encoding="utf-8"))
             content = _render_episode_page(data).encode("utf-8")
             self._send_body(content, "text/html; charset=utf-8")
+
+        elif parsed.path.rstrip("/") == "/arhiv":
+            self._send_body(
+                _page_cached("arhiv", _render_archive_page),
+                "text/html; charset=utf-8",
+            )
+
+        elif parsed.path.rstrip("/") == "/temi":
+            self._send_body(
+                _page_cached("temi", _render_themes_index),
+                "text/html; charset=utf-8",
+            )
+
+        elif parsed.path.startswith("/tema/"):
+            tid = parsed.path[len("/tema/") :].strip("/")
+            if tid in THEMES_BY_ID:
+                self._send_body(
+                    _page_cached(f"tema:{tid}", lambda: _render_theme_page(tid)),
+                    "text/html; charset=utf-8",
+                )
+            else:
+                self._send_404()
 
         elif parsed.path == "/about":
             content = _render_about_page().encode("utf-8")
@@ -1474,18 +2032,27 @@ class SearchHandler(SimpleHTTPRequestHandler):
             self.wfile.write(error)
 
     def _serve_sitemap(self):
+        base = "https://svetogled-arhiv.com"
+        latest = max(
+            (e["upload_date"] for e in EPISODES.values() if e["upload_date"]),
+            default="",
+        )
+        lm_latest = f"<lastmod>{latest}</lastmod>" if latest else ""
         xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
         xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        xml += "  <url><loc>https://svetogled-arhiv.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n"
-        xml += "  <url><loc>https://svetogled-arhiv.com/about</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>\n"
-        for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
-            vid = f.stem
-            data = json.loads(f.read_text(encoding="utf-8"))
-            lastmod = data.get("upload_date", "")
-            xml += f"  <url><loc>https://svetogled-arhiv.com/episode/{vid}</loc>"
-            if lastmod:
-                xml += f"<lastmod>{lastmod}</lastmod>"
-            xml += "<changefreq>monthly</changefreq><priority>0.8</priority></url>\n"
+        xml += f"  <url><loc>{base}/</loc>{lm_latest}<changefreq>weekly</changefreq><priority>1.0</priority></url>\n"
+        xml += f"  <url><loc>{base}/arhiv</loc>{lm_latest}<changefreq>weekly</changefreq><priority>0.9</priority></url>\n"
+        xml += f"  <url><loc>{base}/temi</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>\n"
+        xml += f"  <url><loc>{base}/about</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>\n"
+        for tid in THEMES_BY_ID:
+            xml += f"  <url><loc>{base}/tema/{tid}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>\n"
+        # Only unique episodes (re-upload duplicates canonicalize elsewhere)
+        for vid in EPISODE_ORDER:
+            e = EPISODES[vid]
+            lastmod = (
+                f"<lastmod>{e['upload_date']}</lastmod>" if e["upload_date"] else ""
+            )
+            xml += f"  <url><loc>{base}/episode/{vid}</loc>{lastmod}<changefreq>monthly</changefreq><priority>0.8</priority></url>\n"
         xml += "</urlset>\n"
         body = xml.encode("utf-8")
         self._send_body(body, "application/xml; charset=utf-8")

@@ -133,6 +133,8 @@ def main():
     render(16, medallion_frac=0.88).save(STATIC / "favicon-16.png")
     render(32, medallion_frac=0.86).save(STATIC / "favicon-32.png")
     render(48, medallion_frac=0.84).save(STATIC / "favicon-48.png")
+    # 96px = 48×2, the size Google renders in Search results
+    render(96, medallion_frac=0.82).save(STATIC / "favicon-96.png")
 
     # iOS supplies its own corner mask — full-bleed square tile
     render(180, rounded=False, medallion_frac=0.8).save(
@@ -153,7 +155,7 @@ def main():
     )
 
     for f in [
-        "favicon-16.png", "favicon-32.png", "favicon-48.png",
+        "favicon-16.png", "favicon-32.png", "favicon-48.png", "favicon-96.png",
         "apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico",
     ]:
         p = STATIC / f
