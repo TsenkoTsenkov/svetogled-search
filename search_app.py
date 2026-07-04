@@ -495,9 +495,10 @@ def _render_episode_page(data):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="/favicon.ico" sizes="32x32">
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+    <link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
+    <link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png?v=2">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png?v=2">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
     <link rel="manifest" href="/site.webmanifest">
     <meta name="theme-color" content="#0a0a0e">
     <title>{title} — Светоглед с Георги Тодоров</title>
@@ -1081,9 +1082,10 @@ def _render_about_page():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
+<link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png?v=2">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0a0a0e">
 <title>За сайта — Светоглед Архив</title>
@@ -1178,9 +1180,9 @@ _CUSTOM_404 = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
+<link rel="icon" type="image/png" sizes="48x48" href="/static/favicon-48.png?v=2">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=2">
 <meta name="theme-color" content="#0a0a0e">
 <title>404 — Страницата не е намерена | Светоглед Архив</title>
 <style>

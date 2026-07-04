@@ -1,67 +1,84 @@
 #!/usr/bin/env python3
 """
-Rasterize the Светоглед favicon (eight-pointed star, gold on dark) into
-PNG/ICO assets. Mirrors the geometry of static/favicon.svg exactly.
+Generate the Светоглед favicon set: a circular medallion of the Sinai
+Christ Pantocrator (the site's hero icon) with a gold ring on the site's
+dark tile — the favicon is literally one of the site's icons.
 
 Outputs (in static/):
-    favicon-16.png, favicon-32.png      browser tabs
-    apple-touch-icon.png (180x180)      iOS home screen (square, iOS masks it)
-    icon-192.png, icon-512.png          web manifest / Android (maskable-safe)
-    favicon.ico                         16+32+48 multi-size
+    favicon-16.png, favicon-32.png, favicon-48.png    browser tabs / SERP
+    apple-touch-icon.png (180x180)                    iOS home screen
+    icon-192.png, icon-512.png                        manifest / Android
+    favicon.ico                                       16+32+48 multi-size
+
+Google Search prefers icons sized in multiples of 48px with a stable,
+crawlable URL — favicon-48 and icon-192 are exposed for that.
 
 Requires Pillow:  pip install Pillow
 Run from anywhere: python3 scripts/generate_favicons.py
 """
 
-import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
+SRC = STATIC / "christ-pantocrator-lg.jpg"
+
+# Face crop: fractions of the source image width, tuned by eye for the
+# 600x1119 Sinai Pantocrator so the halo frames the face.
+FACE_CX = 0.47   # face center x (fraction of width)
+FACE_CY = 0.272  # face center y (fraction of HEIGHT)
+FACE_SIDE = 0.72 # crop square side (fraction of width)
 
 # Palette (matches the site's CSS variables)
 TILE_TOP = (20, 16, 25, 255)
 TILE_BOTTOM = (9, 7, 12, 255)
-BORDER = (200, 153, 76, 72)
-GLOW = (212, 168, 83, 70)
-STAR_TOP = (236, 210, 154)
-STAR_BOTTOM = (165, 118, 47)
-CORE_DARK = (13, 10, 17, 255)
-CORE_DOT = (226, 189, 119, 255)
+GLOW = (212, 168, 83, 80)
+RING_GOLD = (200, 153, 76, 255)
+RING_LIGHT = (232, 201, 135, 255)
 
-SS = 8  # supersampling factor
+SS = 4  # supersampling factor
 
 
-def star_points(cx, cy, r_out, r_in, n=8):
-    """Vertices of an n-pointed star, one ray pointing straight up."""
-    pts = []
-    for i in range(n * 2):
-        r = r_out if i % 2 == 0 else r_in
-        a = math.radians(-90 + i * (360 / (n * 2)))
-        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-    return pts
+def load_face():
+    im = Image.open(SRC).convert("RGB")
+    w, h = im.size
+    side = int(w * FACE_SIDE)
+    cx = int(w * FACE_CX)
+    cy = int(h * FACE_CY)
+    box = (
+        max(0, cx - side // 2),
+        max(0, cy - side // 2),
+        min(w, cx + side // 2),
+        min(h, cy + side // 2),
+    )
+    face = im.crop(box)
+    # Slight lift so the medallion pops on the dark tile
+    face = ImageEnhance.Color(face).enhance(1.12)
+    face = ImageEnhance.Contrast(face).enhance(1.06)
+    face = ImageEnhance.Brightness(face).enhance(1.04)
+    return face
 
 
-def vertical_gradient(size, top, bottom):
-    img = Image.new("RGBA", (size, size))
-    d = ImageDraw.Draw(img)
-    for y in range(size):
-        t = y / max(1, size - 1)
-        c = tuple(round(top[i] + (bottom[i] - top[i]) * t) for i in range(3))
-        d.line([(0, y), (size, y)], fill=c + (255,))
-    return img
+FACE = load_face()
 
 
-def render(size, rounded=True, star_scale=1.0):
-    """Render the icon at `size`. star_scale<1 shrinks the star for
-    maskable icons whose edges may be cropped by the platform."""
+def render(size, rounded=True, medallion_frac=0.8):
     s = size * SS
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
 
     # Tile with vertical gradient, optionally rounded
-    tile = vertical_gradient(s, TILE_TOP, TILE_BOTTOM)
+    tile = Image.new("RGBA", (s, s))
+    d = ImageDraw.Draw(tile)
+    for y in range(s):
+        t = y / max(1, s - 1)
+        c = tuple(
+            round(TILE_TOP[i] + (TILE_BOTTOM[i] - TILE_TOP[i]) * t)
+            for i in range(3)
+        )
+        d.line([(0, y), (s, y)], fill=c + (255,))
+    mask = None
     if rounded:
         mask = Image.new("L", (s, s), 0)
         ImageDraw.Draw(mask).rounded_rectangle(
@@ -71,49 +88,40 @@ def render(size, rounded=True, star_scale=1.0):
     else:
         img.paste(tile, (0, 0))
 
-    # Soft radial glow behind the star
+    # Warm glow behind the medallion
     glow = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    gr = s * 0.34 * star_scale
+    gr = s * 0.44
     ImageDraw.Draw(glow).ellipse(
-        [s / 2 - gr, s * 0.47 - gr, s / 2 + gr, s * 0.47 + gr], fill=GLOW
+        [s / 2 - gr, s / 2 - gr, s / 2 + gr, s / 2 + gr], fill=GLOW
     )
-    glow = glow.filter(ImageFilter.GaussianBlur(s * 0.07))
+    glow = glow.filter(ImageFilter.GaussianBlur(s * 0.08))
     if rounded:
         clipped = Image.new("RGBA", (s, s), (0, 0, 0, 0))
         clipped.paste(glow, (0, 0), mask)
         glow = clipped
     img = Image.alpha_composite(img, glow)
 
-    # Star: gold vertical gradient through a star-shaped mask
-    r_out = s * 0.30 * star_scale
-    r_in = r_out * 0.44
-    star_mask = Image.new("L", (s, s), 0)
-    ImageDraw.Draw(star_mask).polygon(
-        star_points(s / 2, s / 2, r_out, r_in), fill=255
+    # Circular medallion of the icon
+    md = round(s * medallion_frac)
+    face = FACE.resize((md, md), Image.LANCZOS)
+    circle = Image.new("L", (md, md), 0)
+    ImageDraw.Draw(circle).ellipse([0, 0, md - 1, md - 1], fill=255)
+    ox = (s - md) // 2
+    img.paste(face, (ox, ox), circle)
+
+    # Gold ring (thin light inner line over a solid gold ring)
+    d = ImageDraw.Draw(img)
+    rw = max(SS, round(s * 0.02))
+    d.ellipse(
+        [ox - rw // 2, ox - rw // 2, ox + md + rw // 2, ox + md + rw // 2],
+        outline=RING_GOLD,
+        width=rw,
     )
-    grad = vertical_gradient(s, STAR_TOP, STAR_BOTTOM)
-    star_layer = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    star_layer.paste(grad, (0, 0), star_mask)
-    img = Image.alpha_composite(img, star_layer)
-
-    # Center: dark core with a small gold dot (the "node" of the map).
-    # At tab sizes the core muddies the star, so keep it solid there.
-    if size >= 48:
-        d = ImageDraw.Draw(img)
-        cr = s * 0.046 * star_scale
-        d.ellipse([s / 2 - cr, s / 2 - cr, s / 2 + cr, s / 2 + cr], fill=CORE_DARK)
-        dr = s * 0.02 * star_scale
-        d.ellipse([s / 2 - dr, s / 2 - dr, s / 2 + dr, s / 2 + dr], fill=CORE_DOT)
-
-    # Hairline border to keep the tile visible on dark browser chrome
-    if rounded:
-        bw = max(1, round(s * 0.012))
-        ImageDraw.Draw(img).rounded_rectangle(
-            [bw // 2, bw // 2, s - 1 - bw // 2, s - 1 - bw // 2],
-            radius=round(s * 0.215),
-            outline=BORDER,
-            width=bw,
-        )
+    d.ellipse(
+        [ox + rw // 2, ox + rw // 2, ox + md - rw // 2, ox + md - rw // 2],
+        outline=(232, 201, 135, 110),
+        width=max(1, rw // 3),
+    )
 
     return img.resize((size, size), Image.LANCZOS)
 
@@ -121,18 +129,22 @@ def render(size, rounded=True, star_scale=1.0):
 def main():
     STATIC.mkdir(exist_ok=True)
 
-    render(16).save(STATIC / "favicon-16.png")
-    render(32).save(STATIC / "favicon-32.png")
+    # Small sizes: medallion fills more of the tile to stay legible
+    render(16, medallion_frac=0.88).save(STATIC / "favicon-16.png")
+    render(32, medallion_frac=0.86).save(STATIC / "favicon-32.png")
+    render(48, medallion_frac=0.84).save(STATIC / "favicon-48.png")
 
     # iOS supplies its own corner mask — full-bleed square tile
-    render(180, rounded=False, star_scale=0.92).save(STATIC / "apple-touch-icon.png")
+    render(180, rounded=False, medallion_frac=0.8).save(
+        STATIC / "apple-touch-icon.png"
+    )
 
-    # Manifest icons: full-bleed, star inside the 80% maskable safe zone
-    render(192, rounded=False, star_scale=0.86).save(STATIC / "icon-192.png")
-    render(512, rounded=False, star_scale=0.86).save(STATIC / "icon-512.png")
+    # Manifest icons: full-bleed, medallion inside the maskable safe zone
+    render(192, rounded=False, medallion_frac=0.78).save(STATIC / "icon-192.png")
+    render(512, rounded=False, medallion_frac=0.78).save(STATIC / "icon-512.png")
 
     ico_sizes = [16, 32, 48]
-    imgs = [render(n) for n in ico_sizes]
+    imgs = [render(n, medallion_frac=0.86) for n in ico_sizes]
     imgs[-1].save(
         STATIC / "favicon.ico",
         format="ICO",
@@ -141,8 +153,8 @@ def main():
     )
 
     for f in [
-        "favicon-16.png", "favicon-32.png", "apple-touch-icon.png",
-        "icon-192.png", "icon-512.png", "favicon.ico",
+        "favicon-16.png", "favicon-32.png", "favicon-48.png",
+        "apple-touch-icon.png", "icon-192.png", "icon-512.png", "favicon.ico",
     ]:
         p = STATIC / f
         print(f"  {f:24s} {p.stat().st_size:6d} B")
