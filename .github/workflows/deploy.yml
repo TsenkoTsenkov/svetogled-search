@@ -10,6 +10,8 @@ on:
       - 'transcripts/**'
       - 'search_app.py'
       - 'index.html'
+      - 'themes.json'
+      - 'static/**'
       - 'index_to_meili.py'
       - 'update.sh'
   workflow_dispatch:

@@ -17,6 +17,13 @@
         <meta name="author" content="Светоглед — Радио Зорана" />
         <link rel="canonical" href="https://svetogled-arhiv.com" />
 
+        <!-- Favicon: осмолъчната звезда -->
+        <link rel="icon" href="/favicon.ico" sizes="32x32" />
+        <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+        <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="theme-color" content="#0a0a0e" />
+
         <!-- Open Graph -->
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://svetogled-arhiv.com" />
@@ -1669,6 +1676,388 @@
                 font-size: 10px;
             }
 
+            /* ── Карта на темите (theme constellation) ── */
+            .themes-container {
+                max-width: 1020px;
+                margin: 20px auto;
+                padding: 0 20px;
+                min-height: 60vh;
+            }
+            .themes-header {
+                margin-bottom: 14px;
+            }
+            .themes-header h2 {
+                color: #fff;
+                font-size: 19px;
+                letter-spacing: 0.2px;
+                margin-bottom: 4px;
+            }
+            .themes-header .tm-sub {
+                color: var(--text-dim);
+                font-size: 13px;
+            }
+            .tm-map-wrap {
+                position: relative;
+                border-radius: 20px;
+                overflow: hidden;
+                border: 1px solid var(--glass-border-gold);
+                background:
+                    radial-gradient(
+                        ellipse 70% 90% at 50% 8%,
+                        rgba(200, 153, 76, 0.05) 0%,
+                        transparent 60%
+                    ),
+                    radial-gradient(
+                        ellipse 60% 80% at 12% 92%,
+                        rgba(107, 32, 56, 0.1) 0%,
+                        transparent 65%
+                    ),
+                    linear-gradient(180deg, #0b0910 0%, #090710 100%);
+                box-shadow: var(--glass-shadow), var(--glass-inset);
+            }
+            #theme-map {
+                display: block;
+                width: 100%;
+                height: clamp(430px, 64vh, 700px);
+                cursor: grab;
+                touch-action: none;
+                -webkit-tap-highlight-color: transparent;
+                outline: none;
+            }
+            #theme-map.tm-dragging {
+                cursor: grabbing;
+            }
+            #theme-map.tm-pointer {
+                cursor: pointer;
+            }
+            .tm-legend {
+                position: absolute;
+                top: 12px;
+                left: 14px;
+                right: 60px;
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+                z-index: 3;
+            }
+            .tm-legend-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 11px;
+                color: var(--text-dim);
+                padding: 4px 11px;
+                border-radius: 16px;
+                border: 1px solid var(--glass-border);
+                background: rgba(10, 10, 14, 0.55);
+                backdrop-filter: blur(12px) saturate(1.3);
+                -webkit-backdrop-filter: blur(12px) saturate(1.3);
+                cursor: pointer;
+                transition: all 0.2s;
+                user-select: none;
+            }
+            .tm-legend-chip .dot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                box-shadow: 0 0 6px currentColor;
+            }
+            .tm-legend-chip:hover {
+                color: #fff;
+                border-color: rgba(200, 153, 76, 0.35);
+            }
+            .tm-legend-chip.active {
+                color: #fff;
+                border-color: rgba(200, 153, 76, 0.5);
+                background: rgba(200, 153, 76, 0.1);
+            }
+            .tm-legend-chip.dimmed {
+                opacity: 0.4;
+            }
+            .tm-hint {
+                position: absolute;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 11px;
+                color: var(--text-dimmer);
+                background: rgba(10, 10, 14, 0.5);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                padding: 4px 14px;
+                border-radius: 14px;
+                border: 1px solid var(--glass-border);
+                pointer-events: none;
+                transition: opacity 0.8s;
+                z-index: 3;
+                white-space: nowrap;
+            }
+            .tm-hint.faded {
+                opacity: 0;
+            }
+            .tm-reset {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                z-index: 3;
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                border: 1px solid var(--glass-border);
+                border-top-color: rgba(255, 255, 255, 0.12);
+                background: rgba(10, 10, 14, 0.55);
+                backdrop-filter: blur(12px) saturate(1.3);
+                -webkit-backdrop-filter: blur(12px) saturate(1.3);
+                color: var(--text-dim);
+                font-size: 16px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .tm-reset:hover {
+                color: var(--gold);
+                border-color: rgba(200, 153, 76, 0.35);
+            }
+            .tm-loading {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2;
+                color: var(--text-dimmer);
+                font-size: 13px;
+            }
+            /* Theme detail panel */
+            .tm-panel {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                bottom: 12px;
+                width: 344px;
+                max-width: calc(100% - 24px);
+                z-index: 5;
+                border-radius: 18px;
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-top-color: rgba(255, 255, 255, 0.18);
+                background: rgba(12, 10, 16, 0.78);
+                backdrop-filter: blur(40px) saturate(1.5);
+                -webkit-backdrop-filter: blur(40px) saturate(1.5);
+                box-shadow:
+                    0 12px 48px rgba(0, 0, 0, 0.55),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+                display: flex;
+                flex-direction: column;
+                opacity: 0;
+                transform: translateX(16px);
+                pointer-events: none;
+                transition:
+                    opacity 0.3s,
+                    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+            }
+            .tm-panel.open {
+                opacity: 1;
+                transform: none;
+                pointer-events: auto;
+            }
+            .tm-panel-head {
+                padding: 16px 44px 12px 18px;
+                border-bottom: 1px solid var(--glass-border-gold);
+                position: relative;
+            }
+            .tm-panel-group {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 10px;
+                letter-spacing: 1.4px;
+                text-transform: uppercase;
+                color: var(--text-dimmer);
+            }
+            .tm-panel-group .dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                box-shadow: 0 0 8px currentColor;
+            }
+            .tm-panel h3 {
+                color: #fff;
+                font-size: 17px;
+                font-weight: 600;
+                margin: 7px 0 5px;
+                line-height: 1.3;
+            }
+            .tm-panel-desc {
+                color: var(--text-dim);
+                font-size: 12.5px;
+                line-height: 1.55;
+            }
+            .tm-panel-count {
+                color: var(--gold);
+                font-size: 11.5px;
+                margin-top: 7px;
+            }
+            .tm-panel-close {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                border: 1px solid var(--glass-border);
+                background: rgba(255, 255, 255, 0.05);
+                color: var(--text-dim);
+                font-size: 15px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .tm-panel-close:hover {
+                color: #fff;
+                border-color: rgba(200, 153, 76, 0.35);
+            }
+            .tm-spark-wrap {
+                padding: 12px 18px 4px;
+            }
+            #tm-spark {
+                width: 100%;
+                height: 46px;
+                display: block;
+            }
+            .tm-spark-label {
+                display: flex;
+                justify-content: space-between;
+                color: var(--text-dimmer);
+                font-size: 10px;
+                margin-top: 3px;
+            }
+            .tm-panel-actions {
+                display: flex;
+                gap: 8px;
+                padding: 10px 18px 10px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .tm-sort {
+                display: inline-flex;
+                gap: 4px;
+                margin-left: auto;
+            }
+            .tm-sort button {
+                font-size: 10.5px;
+                padding: 3px 9px;
+                border-radius: 12px;
+                border: 1px solid var(--glass-border);
+                background: transparent;
+                color: var(--text-dimmer);
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .tm-sort button.active {
+                color: var(--gold);
+                border-color: rgba(200, 153, 76, 0.4);
+                background: rgba(200, 153, 76, 0.08);
+            }
+            .tm-panel-eps {
+                flex: 1;
+                overflow-y: auto;
+                padding: 2px 10px 14px;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(200, 153, 76, 0.3) transparent;
+            }
+            .tm-panel-eps::-webkit-scrollbar {
+                width: 5px;
+            }
+            .tm-panel-eps::-webkit-scrollbar-thumb {
+                background: rgba(200, 153, 76, 0.3);
+                border-radius: 3px;
+            }
+            .tm-ep-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 8px;
+                border-radius: 12px;
+                cursor: pointer;
+                transition: background 0.15s;
+                text-decoration: none;
+            }
+            .tm-ep-row:hover {
+                background: rgba(255, 255, 255, 0.05);
+            }
+            .tm-ep-n {
+                flex-shrink: 0;
+                font-size: 10.5px;
+                color: var(--gold);
+                border: 1px solid rgba(200, 153, 76, 0.3);
+                border-radius: 10px;
+                padding: 1px 7px;
+                background: rgba(200, 153, 76, 0.07);
+                min-width: 36px;
+                text-align: center;
+                white-space: nowrap;
+            }
+            .tm-ep-title {
+                flex: 1;
+                font-size: 12.5px;
+                color: var(--text);
+                line-height: 1.4;
+            }
+            .tm-ep-w {
+                flex-shrink: 0;
+                width: 34px;
+                height: 3px;
+                border-radius: 2px;
+                background: rgba(255, 255, 255, 0.08);
+                overflow: hidden;
+            }
+            .tm-ep-w i {
+                display: block;
+                height: 100%;
+                background: linear-gradient(90deg, #8f6a2e, var(--gold));
+                border-radius: 2px;
+            }
+            .tm-all-themes {
+                margin-top: 24px;
+            }
+            .tm-all-themes .topic-chip .tdot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                flex-shrink: 0;
+                box-shadow: 0 0 6px currentColor;
+            }
+            @media (max-width: 700px) {
+                .themes-container {
+                    padding: 0 12px;
+                }
+                #theme-map {
+                    height: clamp(360px, 58vh, 560px);
+                }
+                .tm-hint {
+                    display: none;
+                }
+                .tm-panel {
+                    position: fixed;
+                    left: 8px;
+                    right: 8px;
+                    bottom: 8px;
+                    top: auto;
+                    width: auto;
+                    max-width: none;
+                    max-height: 64vh;
+                    transform: translateY(24px);
+                    z-index: 1005;
+                }
+                .tm-panel.open {
+                    transform: none;
+                }
+            }
+
             .no-results {
                 text-align: center;
                 color: var(--text-dimmer);
@@ -2145,8 +2534,41 @@
             </div>
 
             <div class="page" id="page-topics">
-                <div class="topics-container" id="topics-content">
-                    <div class="spinner active" id="topics-spinner"></div>
+                <div class="themes-container">
+                    <div class="themes-header">
+                        <h2>Карта на темите</h2>
+                        <p class="tm-sub" id="tm-sub">
+                            Съзвездието на беседите — изберете тема, за да
+                            видите епизодите ѝ.
+                        </p>
+                    </div>
+                    <div class="tm-map-wrap" id="tm-map-wrap">
+                        <canvas
+                            id="theme-map"
+                            role="application"
+                            aria-label="Интерактивна карта на темите. За достъп с клавиатура използвайте списъка с теми под картата."
+                        ></canvas>
+                        <div class="tm-loading" id="tm-loading">
+                            Зареждане на картата...
+                        </div>
+                        <div class="tm-legend" id="tm-legend"></div>
+                        <button
+                            class="tm-reset"
+                            id="tm-reset"
+                            title="Центрирай картата"
+                            aria-label="Центрирай картата"
+                            style="display: none"
+                        >
+                            &#8982;
+                        </button>
+                        <div class="tm-hint" id="tm-hint">
+                            Влачете &middot; приближете с колелцето &middot;
+                            изберете тема
+                        </div>
+                        <aside class="tm-panel" id="tm-panel"></aside>
+                    </div>
+                    <div class="tm-all-themes" id="tm-all-themes"></div>
+                    <div id="tm-custom"></div>
                 </div>
             </div>
         </main>
@@ -2218,7 +2640,8 @@
             let lastResults = [];
             const transcriptCache = {};
             let episodesData = null;
-            let topicsData = null;
+            let themesData = null;
+            let themeMap = null;
             let exactMode = false;
             var scrollObserver = null;
             var searchGeneration = 0;
@@ -2381,6 +2804,10 @@
                     });
                     // Show empty state if no active search
                     if (!searchInput.value.trim()) showEmptyState();
+                    // Deep-linked episodes page loaded before data arrived
+                    var activePage = document.querySelector(".page.active");
+                    if (activePage && activePage.id === "page-episodes")
+                        renderEpisodes();
                 });
 
             function showEmptyState() {
@@ -2494,9 +2921,31 @@
                     btn.classList.add("active");
 
                     if (page === "episodes" && episodesData) renderEpisodes();
-                    if (page === "topics" && !topicsData) loadTopics();
+                    if (page === "topics") initThemesPage();
+
+                    // Shareable deep links: /#topics, /#episodes
+                    if (page === "search") {
+                        history.replaceState(
+                            null,
+                            "",
+                            location.pathname + location.search,
+                        );
+                    } else {
+                        history.replaceState(null, "", "#" + page);
+                    }
                 });
             });
+
+            // Apply deep link on load
+            (function () {
+                var page = (location.hash || "").replace("#", "");
+                if (page === "topics" || page === "episodes") {
+                    showPageDirect(page);
+                    if (page === "topics") initThemesPage();
+                    if (page === "episodes" && episodesData)
+                        renderEpisodes();
+                }
+            })();
 
             // ── Search ──
             searchInput.addEventListener("input", function () {
@@ -3176,34 +3625,1282 @@
                 document.getElementById("page-" + page).classList.add("active");
             }
 
-            // ── Topics page ──
-            function loadTopics() {
-                fetch("/api/topics")
+            // ── Теми: Карта на темите ──
+            var THEME_GROUP_COLORS = {
+                vyara: "#d9ab56",
+                bulgaria: "#c06478",
+                istoria: "#7f9fc6",
+                kultura: "#9aab6d",
+                savremennost: "#8b9cb3",
+            };
+            // Where each group gravitates on the map (degrees, -90 = top)
+            var THEME_GROUP_ANGLES = {
+                vyara: -90,
+                bulgaria: -18,
+                savremennost: 54,
+                kultura: 126,
+                istoria: 198,
+            };
+            var themesMaxN = 0;
+            var tmSort = "weight";
+
+            function initThemesPage() {
+                renderCustomTopics();
+                if (themesData) return;
+                fetch("/api/themes")
                     .then(function (r) {
+                        if (!r.ok) throw new Error("HTTP " + r.status);
                         return r.json();
                     })
                     .then(function (data) {
-                        topicsData = data;
-                        renderTopics();
+                        themesData = data;
+                        Object.keys(data.episodes).forEach(function (vid) {
+                            var n = data.episodes[vid].n || 0;
+                            if (n > themesMaxN) themesMaxN = n;
+                        });
+                        document.getElementById("tm-loading").style.display =
+                            "none";
+                        document.getElementById("tm-reset").style.display =
+                            "flex";
+                        document.getElementById("tm-sub").textContent =
+                            data.themes.length +
+                            " теми в " +
+                            Object.keys(data.episodes).length +
+                            " беседи — изберете тема, за да видите епизодите и пътя ѝ през архива.";
+                        buildThemeLegend(data);
+                        buildAllThemeChips(data);
+                        themeMap = new ThemeMap(
+                            document.getElementById("theme-map"),
+                            data,
+                        );
                     })
                     .catch(function () {
-                        document.getElementById("topics-content").innerHTML =
-                            '<div class="no-results">Грешка при зареждане на темите</div>';
+                        document.getElementById("tm-loading").textContent =
+                            "Картата не можа да се зареди.";
                     });
             }
 
-            function renderTopics() {
-                if (!topicsData) return;
-                var container = document.getElementById("topics-content");
+            // ── Small utilities for the map ──
+            function tmSeed(str) {
+                var h = 1779033703 ^ str.length;
+                for (var i = 0; i < str.length; i++) {
+                    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+                    h = (h << 13) | (h >>> 19);
+                }
+                return function () {
+                    h = Math.imul(h ^ (h >>> 16), 2246822507);
+                    h = Math.imul(h ^ (h >>> 13), 3266489909);
+                    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+                };
+            }
+            function tmHexRgb(hex) {
+                return [
+                    parseInt(hex.substr(1, 2), 16),
+                    parseInt(hex.substr(3, 2), 16),
+                    parseInt(hex.substr(5, 2), 16),
+                ];
+            }
+            function tmRgba(rgb, a) {
+                return (
+                    "rgba(" +
+                    rgb[0] +
+                    "," +
+                    rgb[1] +
+                    "," +
+                    rgb[2] +
+                    "," +
+                    a +
+                    ")"
+                );
+            }
+            function tmShade(rgb, f) {
+                // f > 0 lightens toward white, f < 0 darkens
+                var t = f > 0 ? 255 : 0;
+                var p = Math.abs(f);
+                return [
+                    Math.round(rgb[0] + (t - rgb[0]) * p),
+                    Math.round(rgb[1] + (t - rgb[1]) * p),
+                    Math.round(rgb[2] + (t - rgb[2]) * p),
+                ];
+            }
+            function tmMix(a, b) {
+                return [
+                    Math.round((a[0] + b[0]) / 2),
+                    Math.round((a[1] + b[1]) / 2),
+                    Math.round((a[2] + b[2]) / 2),
+                ];
+            }
+            function tmWrapLabel(label) {
+                if (label.length <= 15) return [label];
+                var mid = label.length / 2;
+                var best = -1;
+                var bestDist = 1e9;
+                for (var i = 0; i < label.length; i++) {
+                    if (label[i] === " " || label[i] === "—") {
+                        var d = Math.abs(i - mid);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            best = i;
+                        }
+                    }
+                }
+                if (best < 0) return [label];
+                var l1 = label.substring(0, best).trim();
+                var l2 = label.substring(best + 1).trim();
+                if (l2.length > 17) {
+                    var sub = tmWrapLabel(l2);
+                    return [l1].concat(sub);
+                }
+                return [l1, l2];
+            }
+
+            // ── The constellation engine ──
+            function ThemeMap(canvas, data) {
+                var self = this;
+                this.canvas = canvas;
+                this.ctx = canvas.getContext("2d");
+                this.data = data;
+                this.WORLD_W = 1180;
+                this.WORLD_H = 780;
+                this.view = { x: 0, y: 0, k: 1 };
+                this.viewTarget = null;
+                this.userMoved = false;
+                this.hoverId = null;
+                this.selectedId = null;
+                this.focusGroup = null;
+                this.alpha = 1;
+                this.time = 0;
+                this.running = false;
+                this.visible = false;
+                this.hintFaded = false;
+                this.reduced = window.matchMedia(
+                    "(prefers-reduced-motion: reduce)",
+                ).matches;
+
+                // Build nodes
+                this.nodes = [];
+                this.byId = {};
+                var cx = this.WORLD_W / 2;
+                var cy = this.WORLD_H / 2;
+                var anchorR = Math.min(this.WORLD_W, this.WORLD_H) * 0.34;
+                this.anchors = {};
+                Object.keys(THEME_GROUP_ANGLES).forEach(function (g) {
+                    var a = (THEME_GROUP_ANGLES[g] * Math.PI) / 180;
+                    self.anchors[g] = {
+                        x: cx + anchorR * Math.cos(a),
+                        y: cy + anchorR * Math.sin(a) * 0.82,
+                    };
+                });
+                data.themes.forEach(function (t) {
+                    var rng = tmSeed(t.id);
+                    var anchor = self.anchors[t.group] || { x: cx, y: cy };
+                    var rgb = tmHexRgb(
+                        THEME_GROUP_COLORS[t.group] || "#d9ab56",
+                    );
+                    var node = {
+                        id: t.id,
+                        theme: t,
+                        group: t.group,
+                        x: anchor.x + (rng() - 0.5) * 170,
+                        y: anchor.y + (rng() - 0.5) * 150,
+                        vx: 0,
+                        vy: 0,
+                        fx: null,
+                        fy: null,
+                        r: 7 + Math.sqrt(t.count) * 1.8,
+                        rgb: rgb,
+                        rgbLight: tmShade(rgb, 0.35),
+                        rgbDark: tmShade(rgb, -0.45),
+                        lines: tmWrapLabel(t.label),
+                        phase: rng() * Math.PI * 2,
+                        op: 1,
+                        opT: 1,
+                        scale: 1,
+                    };
+                    self.nodes.push(node);
+                    self.byId[t.id] = node;
+                });
+
+                // Build links + neighbor sets
+                this.links = [];
+                this.neighbors = {};
+                this.nodes.forEach(function (n) {
+                    self.neighbors[n.id] = {};
+                    self.neighbors[n.id][n.id] = true;
+                });
+                data.links.forEach(function (l, i) {
+                    var a = self.byId[l.source];
+                    var b = self.byId[l.target];
+                    if (!a || !b) return;
+                    self.links.push({
+                        a: a,
+                        b: b,
+                        w: l.weight,
+                        shared: l.shared,
+                        bow: i % 2 === 0 ? 1 : -1,
+                        rgb: tmMix(a.rgb, b.rgb),
+                    });
+                    self.neighbors[a.id][b.id] = true;
+                    self.neighbors[b.id][a.id] = true;
+                });
+
+                // Starfield (world space, slight parallax)
+                var srng = tmSeed("svetogled-stars");
+                this.stars = [];
+                for (var i = 0; i < 150; i++) {
+                    this.stars.push({
+                        x: -250 + srng() * (this.WORLD_W + 500),
+                        y: -200 + srng() * (this.WORLD_H + 400),
+                        r: 0.4 + srng() * 1.1,
+                        a: 0.04 + srng() * 0.14,
+                        ph: srng() * Math.PI * 2,
+                        sp: 0.0004 + srng() * 0.0009,
+                    });
+                }
+
+                this._bind();
+                this.resize(true);
+                // Pre-settle so the map never appears as a chaotic burst
+                for (var k = 0; k < (this.reduced ? 600 : 260); k++)
+                    this._tick();
+                this._observe();
+            }
+
+            ThemeMap.prototype.resize = function (initial) {
+                var rect = this.canvas.getBoundingClientRect();
+                if (rect.width === 0) return;
+                var zoomFix = window.matchMedia("(min-width: 1024px)").matches
+                    ? 1.3
+                    : 1;
+                this.RES = (window.devicePixelRatio || 1) * zoomFix;
+                this.cw = rect.width;
+                this.ch = rect.height;
+                this.canvas.width = Math.round(rect.width * this.RES);
+                this.canvas.height = Math.round(rect.height * this.RES);
+                if (initial || !this.userMoved) {
+                    this.view = this.fitView();
+                    this.viewTarget = null;
+                }
+                this._draw();
+            };
+
+            ThemeMap.prototype.fitView = function () {
+                var k =
+                    Math.min(
+                        this.cw / this.WORLD_W,
+                        this.ch / this.WORLD_H,
+                    ) * 0.94;
+                return {
+                    x: (this.cw - this.WORLD_W * k) / 2,
+                    y: (this.ch - this.WORLD_H * k) / 2,
+                    k: k,
+                };
+            };
+
+            ThemeMap.prototype._observe = function () {
+                var self = this;
+                if ("IntersectionObserver" in window) {
+                    this._io = new IntersectionObserver(
+                        function (entries) {
+                            self.visible = entries[0].isIntersecting;
+                            if (self.visible) self.start();
+                        },
+                        { threshold: 0.01 },
+                    );
+                    this._io.observe(this.canvas);
+                } else {
+                    this.visible = true;
+                    this.start();
+                }
+                document.addEventListener("visibilitychange", function () {
+                    if (!document.hidden && self.visible) self.start();
+                });
+                window.addEventListener("resize", function () {
+                    self.resize();
+                });
+            };
+
+            ThemeMap.prototype.start = function () {
+                if (this.running) return;
+                this.running = true;
+                var self = this;
+                function frame() {
+                    if (!self.visible || document.hidden) {
+                        self.running = false;
+                        return;
+                    }
+                    self.time += 16.7;
+                    self._tick();
+                    self._draw();
+                    requestAnimationFrame(frame);
+                }
+                requestAnimationFrame(frame);
+            };
+
+            // ── Physics ──
+            ThemeMap.prototype._tick = function () {
+                var nodes = this.nodes;
+                var A = this.alpha;
+                var i, j, n, m, dx, dy, d2, d, f;
+
+                if (A > 0.004) {
+                    // Repulsion
+                    for (i = 0; i < nodes.length; i++) {
+                        for (j = i + 1; j < nodes.length; j++) {
+                            n = nodes[i];
+                            m = nodes[j];
+                            dx = m.x - n.x;
+                            dy = m.y - n.y;
+                            d2 = dx * dx + dy * dy;
+                            if (d2 < 1) d2 = 1;
+                            if (d2 > 140000) continue;
+                            d = Math.sqrt(d2);
+                            f = (3400 / d2) * A;
+                            dx /= d;
+                            dy /= d;
+                            n.vx -= dx * f;
+                            n.vy -= dy * f;
+                            m.vx += dx * f;
+                            m.vy += dy * f;
+                        }
+                    }
+                    // Springs
+                    for (i = 0; i < this.links.length; i++) {
+                        var l = this.links[i];
+                        dx = l.b.x - l.a.x;
+                        dy = l.b.y - l.a.y;
+                        d = Math.sqrt(dx * dx + dy * dy) || 1;
+                        var rest =
+                            l.a.r + l.b.r + 74 + 78 * (1 - l.w);
+                        f = (d - rest) * 0.012 * (0.4 + l.w) * A;
+                        dx /= d;
+                        dy /= d;
+                        l.a.vx += dx * f;
+                        l.a.vy += dy * f;
+                        l.b.vx -= dx * f;
+                        l.b.vy -= dy * f;
+                    }
+                    // Group anchors + soft bounds
+                    for (i = 0; i < nodes.length; i++) {
+                        n = nodes[i];
+                        var anchor = this.anchors[n.group];
+                        if (anchor) {
+                            n.vx += (anchor.x - n.x) * 0.009 * A;
+                            n.vy += (anchor.y - n.y) * 0.009 * A;
+                        }
+                        n.vx += (this.WORLD_W / 2 - n.x) * 0.002 * A;
+                        n.vy += (this.WORLD_H / 2 - n.y) * 0.002 * A;
+                    }
+                    // Collision (positional separation)
+                    for (i = 0; i < nodes.length; i++) {
+                        for (j = i + 1; j < nodes.length; j++) {
+                            n = nodes[i];
+                            m = nodes[j];
+                            dx = m.x - n.x;
+                            dy = m.y - n.y;
+                            d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+                            var minD = n.r + m.r + 30;
+                            if (d < minD) {
+                                var push = ((minD - d) / d) * 0.3;
+                                dx *= push;
+                                dy *= push;
+                                n.x -= dx;
+                                n.y -= dy;
+                                m.x += dx;
+                                m.y += dy;
+                            }
+                        }
+                    }
+                    this.alpha *= 0.986;
+                }
+
+                // Integrate + ambient drift
+                var drifting = !this.reduced && A <= 0.03;
+                for (i = 0; i < nodes.length; i++) {
+                    n = nodes[i];
+                    if (n.fx !== null) {
+                        n.x = n.fx;
+                        n.y = n.fy;
+                        n.vx = 0;
+                        n.vy = 0;
+                        continue;
+                    }
+                    n.vx *= 0.84;
+                    n.vy *= 0.84;
+                    if (n.vx > 4) n.vx = 4;
+                    if (n.vx < -4) n.vx = -4;
+                    if (n.vy > 4) n.vy = 4;
+                    if (n.vy < -4) n.vy = -4;
+                    n.x += n.vx;
+                    n.y += n.vy;
+                    if (drifting) {
+                        n.x +=
+                            Math.sin(this.time * 0.00035 + n.phase) * 0.055;
+                        n.y +=
+                            Math.cos(
+                                this.time * 0.00028 + n.phase * 1.7,
+                            ) * 0.05;
+                    }
+                    // Keep inside the world
+                    var pad = n.r + 14;
+                    if (n.x < pad) n.x += (pad - n.x) * 0.2;
+                    if (n.x > this.WORLD_W - pad)
+                        n.x -= (n.x - (this.WORLD_W - pad)) * 0.2;
+                    if (n.y < pad) n.y += (pad - n.y) * 0.2;
+                    if (n.y > this.WORLD_H - pad)
+                        n.y -= (n.y - (this.WORLD_H - pad)) * 0.2;
+                }
+
+                // Smooth opacity + scale targets
+                for (i = 0; i < nodes.length; i++) {
+                    n = nodes[i];
+                    n.op += (n.opT - n.op) * 0.16;
+                    var sT =
+                        n.id === this.hoverId || n.id === this.selectedId
+                            ? 1.14
+                            : 1;
+                    n.scale += (sT - n.scale) * 0.18;
+                }
+
+                // Camera tween
+                if (this.viewTarget) {
+                    var v = this.view;
+                    var t = this.viewTarget;
+                    v.x += (t.x - v.x) * 0.14;
+                    v.y += (t.y - v.y) * 0.14;
+                    v.k += (t.k - v.k) * 0.14;
+                    if (
+                        Math.abs(t.x - v.x) < 0.5 &&
+                        Math.abs(t.y - v.y) < 0.5 &&
+                        Math.abs(t.k - v.k) < 0.003
+                    )
+                        this.viewTarget = null;
+                }
+            };
+
+            ThemeMap.prototype._updateDim = function () {
+                var self = this;
+                var refId = this.selectedId || this.hoverId;
+                this.nodes.forEach(function (n) {
+                    var op = 1;
+                    if (refId) {
+                        op = self.neighbors[refId][n.id]
+                            ? 1
+                            : self.selectedId
+                              ? 0.14
+                              : 0.3;
+                    }
+                    if (
+                        self.focusGroup &&
+                        n.group !== self.focusGroup
+                    )
+                        op = Math.min(op, 0.13);
+                    n.opT = op;
+                });
+            };
+
+            // ── Rendering ──
+            ThemeMap.prototype._draw = function () {
+                var ctx = this.ctx;
+                var v = this.view;
+                var self = this;
+                ctx.setTransform(this.RES, 0, 0, this.RES, 0, 0);
+                ctx.clearRect(0, 0, this.cw, this.ch);
+
+                // Stars with parallax
+                ctx.save();
+                ctx.translate(v.x * 0.55, v.y * 0.55);
+                ctx.scale(v.k, v.k);
+                for (var i = 0; i < this.stars.length; i++) {
+                    var s = this.stars[i];
+                    var tw = this.reduced
+                        ? 1
+                        : 0.65 +
+                          0.35 * Math.sin(this.time * s.sp + s.ph);
+                    ctx.globalAlpha = s.a * tw;
+                    ctx.fillStyle = i % 5 === 0 ? "#d9c08a" : "#cfd4e2";
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.r, 0, 6.2832);
+                    ctx.fill();
+                }
+                ctx.restore();
+                ctx.globalAlpha = 1;
+
+                ctx.save();
+                ctx.translate(v.x, v.y);
+                ctx.scale(v.k, v.k);
+
+                // Edges (two-pass: soft wide + crisp thin)
+                var refId = this.selectedId || this.hoverId;
+                for (i = 0; i < this.links.length; i++) {
+                    var l = this.links[i];
+                    var involved =
+                        refId &&
+                        (l.a.id === refId || l.b.id === refId);
+                    var op = Math.min(l.a.op, l.b.op);
+                    var baseA = (0.07 + l.w * 0.16) * op;
+                    if (involved) baseA = 0.32 + l.w * 0.3;
+                    var mx = (l.a.x + l.b.x) / 2;
+                    var my = (l.a.y + l.b.y) / 2;
+                    var ddx = l.b.x - l.a.x;
+                    var ddy = l.b.y - l.a.y;
+                    var dist = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+                    var cxp = mx + (-ddy / dist) * dist * 0.07 * l.bow;
+                    var cyp = my + (ddx / dist) * dist * 0.07 * l.bow;
+                    ctx.strokeStyle = tmRgba(
+                        involved ? tmShade(l.rgb, 0.25) : l.rgb,
+                        baseA,
+                    );
+                    ctx.lineWidth = involved
+                        ? 1.4 + l.w * 2.6
+                        : 0.7 + l.w * 2.1;
+                    ctx.beginPath();
+                    ctx.moveTo(l.a.x, l.a.y);
+                    ctx.quadraticCurveTo(cxp, cyp, l.b.x, l.b.y);
+                    ctx.stroke();
+                }
+
+                // Nodes — pass 1: glows and discs. Labels render in a
+                // second pass so text never hides under a neighboring disc.
+                var fontScreenMin = 8;
+                var n, r, isRef;
+                for (i = 0; i < this.nodes.length; i++) {
+                    n = this.nodes[i];
+                    r = n.r * n.scale;
+                    isRef =
+                        n.id === this.selectedId || n.id === this.hoverId;
+                    ctx.globalAlpha = n.op;
+
+                    // Glow
+                    var glowR = r * (isRef ? 3.4 : 2.6);
+                    var pulse =
+                        isRef && !this.reduced
+                            ? 1 + 0.06 * Math.sin(this.time * 0.004)
+                            : 1;
+                    glowR *= pulse;
+                    var g = ctx.createRadialGradient(
+                        n.x,
+                        n.y,
+                        r * 0.4,
+                        n.x,
+                        n.y,
+                        glowR,
+                    );
+                    g.addColorStop(
+                        0,
+                        tmRgba(n.rgb, isRef ? 0.4 : 0.22),
+                    );
+                    g.addColorStop(1, tmRgba(n.rgb, 0));
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.y, glowR, 0, 6.2832);
+                    ctx.fill();
+
+                    // Disc
+                    var dg = ctx.createRadialGradient(
+                        n.x - r * 0.35,
+                        n.y - r * 0.4,
+                        r * 0.1,
+                        n.x,
+                        n.y,
+                        r,
+                    );
+                    dg.addColorStop(0, tmRgba(n.rgbLight, 1));
+                    dg.addColorStop(0.55, tmRgba(n.rgb, 1));
+                    dg.addColorStop(1, tmRgba(n.rgbDark, 1));
+                    ctx.fillStyle = dg;
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.y, r, 0, 6.2832);
+                    ctx.fill();
+
+                    // Rim
+                    ctx.strokeStyle =
+                        "rgba(255,255,255," + 0.28 * n.op + ")";
+                    ctx.lineWidth = 1 / v.k;
+                    ctx.stroke();
+
+                    // Selection ring
+                    if (n.id === this.selectedId) {
+                        ctx.strokeStyle = tmRgba(
+                            tmShade(n.rgb, 0.4),
+                            0.85,
+                        );
+                        ctx.lineWidth = 1.6 / v.k;
+                        ctx.beginPath();
+                        ctx.arc(
+                            n.x,
+                            n.y,
+                            r + 5 / v.k + 2,
+                            0,
+                            6.2832,
+                        );
+                        ctx.stroke();
+                    }
+
+                }
+
+                // Nodes — pass 2: labels, largest node first, with greedy
+                // collision culling: a label that would overlap an already
+                // placed one is skipped (it reappears on hover or zoom-in)
+                ctx.textAlign = "center";
+                ctx.textBaseline = "top";
+                ctx.lineJoin = "round";
+                if (!this._labelOrder) {
+                    this._labelOrder = this.nodes
+                        .slice()
+                        .sort(function (a, b) {
+                            return b.r - a.r;
+                        });
+                }
+                var placed = [];
+                var refNode = null;
+                for (i = 0; i < this._labelOrder.length; i++) {
+                    n = this._labelOrder[i];
+                    if (
+                        n.id === this.selectedId ||
+                        n.id === this.hoverId
+                    ) {
+                        refNode = n;
+                        continue;
+                    }
+                    this._drawLabel(ctx, n, false, fontScreenMin, placed);
+                }
+                if (refNode) this._drawLabel(ctx, refNode, true, 0, null);
+
+                ctx.restore();
+                ctx.globalAlpha = 1;
+            };
+
+            ThemeMap.prototype._drawLabel = function (
+                ctx,
+                n,
+                isRef,
+                fontScreenMin,
+                placed,
+            ) {
+                var v = this.view;
+                var r = n.r * n.scale;
+                var fs = Math.max(9, Math.min(14.5, 5 + n.r * 0.42));
+                // Keep labels readable at any zoom: floor the on-screen
+                // size and let collision culling decide what fits.
+                if (fs * v.k < fontScreenMin) {
+                    if (isRef || n.r >= 11) {
+                        fs = Math.min(26, fontScreenMin / v.k);
+                    } else {
+                        return; // smallest themes label on hover/zoom-in
+                    }
+                }
+                ctx.font =
+                    "500 " +
+                    fs +
+                    'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                if (placed) {
+                    var wMax = 0;
+                    for (var wi = 0; wi < n.lines.length; wi++) {
+                        var lw = ctx.measureText(n.lines[wi]).width;
+                        if (lw > wMax) wMax = lw;
+                    }
+                    var box = {
+                        x0: n.x - wMax / 2 - 4,
+                        y0: n.y + r + 2,
+                        x1: n.x + wMax / 2 + 4,
+                        y1: n.y + r + 7 + n.lines.length * fs * 1.25,
+                    };
+                    for (var pi = 0; pi < placed.length; pi++) {
+                        var b = placed[pi];
+                        if (
+                            box.x0 < b.x1 &&
+                            box.x1 > b.x0 &&
+                            box.y0 < b.y1 &&
+                            box.y1 > b.y0
+                        )
+                            return;
+                    }
+                    placed.push(box);
+                }
+                ctx.globalAlpha = n.op;
+                ctx.font =
+                    (isRef ? "600 " : "500 ") +
+                    fs +
+                    'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                var ly = n.y + r + 5;
+                for (var li = 0; li < n.lines.length; li++) {
+                    ctx.strokeStyle = "rgba(8,7,12,0.85)";
+                    ctx.lineWidth = 3.5;
+                    ctx.strokeText(n.lines[li], n.x, ly);
+                    ctx.fillStyle = isRef
+                        ? "#ffffff"
+                        : "rgba(232,228,224," + 0.9 * n.op + ")";
+                    ctx.fillText(n.lines[li], n.x, ly);
+                    ly += fs * 1.25;
+                }
+                if (isRef) {
+                    ctx.font =
+                        "500 " +
+                        fs * 0.82 +
+                        "px -apple-system, BlinkMacSystemFont, sans-serif";
+                    ctx.strokeStyle = "rgba(8,7,12,0.85)";
+                    ctx.lineWidth = 3;
+                    var cntTxt = n.theme.count + " епизода";
+                    ctx.strokeText(cntTxt, n.x, ly + 1);
+                    ctx.fillStyle = tmRgba(tmShade(n.rgb, 0.35), 1);
+                    ctx.fillText(cntTxt, n.x, ly + 1);
+                }
+            };
+
+            // ── Coordinates & hit testing ──
+            ThemeMap.prototype.toWorld = function (px, py) {
+                return {
+                    x: (px - this.view.x) / this.view.k,
+                    y: (py - this.view.y) / this.view.k,
+                };
+            };
+            ThemeMap.prototype.nodeAt = function (wx, wy) {
+                var best = null;
+                var bestD = 1e9;
+                for (var i = 0; i < this.nodes.length; i++) {
+                    var n = this.nodes[i];
+                    var dx = wx - n.x;
+                    var dy = wy - n.y;
+                    var d = Math.sqrt(dx * dx + dy * dy);
+                    if (d < n.r + 12 / this.view.k && d < bestD) {
+                        bestD = d;
+                        best = n;
+                    }
+                }
+                return best;
+            };
+
+            // ── Interaction ──
+            ThemeMap.prototype._bind = function () {
+                var self = this;
+                var canvas = this.canvas;
+                var pointers = {};
+                var dragNode = null;
+                var panStart = null;
+                var pinchStart = null;
+                var downPos = null;
+                var moved = false;
+
+                function rectPos(e) {
+                    var rect = canvas.getBoundingClientRect();
+                    return {
+                        x: e.clientX - rect.left,
+                        y: e.clientY - rect.top,
+                    };
+                }
+
+                canvas.addEventListener("pointerdown", function (e) {
+                    canvas.setPointerCapture(e.pointerId);
+                    var p = rectPos(e);
+                    pointers[e.pointerId] = p;
+                    var keys = Object.keys(pointers);
+                    self._fadeHint();
+                    if (keys.length === 2) {
+                        var a = pointers[keys[0]];
+                        var b = pointers[keys[1]];
+                        pinchStart = {
+                            d: Math.hypot(b.x - a.x, b.y - a.y),
+                            k: self.view.k,
+                            mid: {
+                                x: (a.x + b.x) / 2,
+                                y: (a.y + b.y) / 2,
+                            },
+                            world: self.toWorld(
+                                (a.x + b.x) / 2,
+                                (a.y + b.y) / 2,
+                            ),
+                        };
+                        dragNode = null;
+                        panStart = null;
+                        return;
+                    }
+                    downPos = p;
+                    moved = false;
+                    var w = self.toWorld(p.x, p.y);
+                    var hit = self.nodeAt(w.x, w.y);
+                    if (hit) {
+                        dragNode = hit;
+                        hit.fx = w.x;
+                        hit.fy = w.y;
+                        self.alpha = Math.max(self.alpha, 0.25);
+                    } else {
+                        panStart = {
+                            px: p.x,
+                            py: p.y,
+                            vx: self.view.x,
+                            vy: self.view.y,
+                        };
+                        canvas.classList.add("tm-dragging");
+                    }
+                    self.start();
+                });
+
+                canvas.addEventListener("pointermove", function (e) {
+                    var p = rectPos(e);
+                    if (pointers[e.pointerId])
+                        pointers[e.pointerId] = p;
+                    var keys = Object.keys(pointers);
+
+                    if (pinchStart && keys.length === 2) {
+                        var a = pointers[keys[0]];
+                        var b = pointers[keys[1]];
+                        var d = Math.hypot(b.x - a.x, b.y - a.y);
+                        var k = Math.max(
+                            0.45,
+                            Math.min(
+                                3,
+                                (pinchStart.k * d) /
+                                    Math.max(20, pinchStart.d),
+                            ),
+                        );
+                        var mid = {
+                            x: (a.x + b.x) / 2,
+                            y: (a.y + b.y) / 2,
+                        };
+                        self.view.k = k;
+                        self.view.x =
+                            mid.x - pinchStart.world.x * k;
+                        self.view.y =
+                            mid.y - pinchStart.world.y * k;
+                        self.userMoved = true;
+                        self.viewTarget = null;
+                        self._draw();
+                        return;
+                    }
+
+                    if (downPos) {
+                        if (
+                            Math.abs(p.x - downPos.x) > 5 ||
+                            Math.abs(p.y - downPos.y) > 5
+                        )
+                            moved = true;
+                    }
+
+                    if (dragNode) {
+                        var w = self.toWorld(p.x, p.y);
+                        dragNode.fx = w.x;
+                        dragNode.fy = w.y;
+                        self.alpha = Math.max(self.alpha, 0.2);
+                        return;
+                    }
+                    if (panStart) {
+                        self.view.x = panStart.vx + (p.x - panStart.px);
+                        self.view.y = panStart.vy + (p.y - panStart.py);
+                        self.userMoved = true;
+                        self.viewTarget = null;
+                        return;
+                    }
+
+                    // Hover
+                    var w2 = self.toWorld(p.x, p.y);
+                    var hit2 = self.nodeAt(w2.x, w2.y);
+                    var newHover = hit2 ? hit2.id : null;
+                    if (newHover !== self.hoverId) {
+                        self.hoverId = newHover;
+                        canvas.classList.toggle(
+                            "tm-pointer",
+                            !!newHover,
+                        );
+                        self._updateDim();
+                        self.start();
+                    }
+                });
+
+                function endPointer(e) {
+                    delete pointers[e.pointerId];
+                    if (Object.keys(pointers).length < 2)
+                        pinchStart = null;
+                    canvas.classList.remove("tm-dragging");
+                    if (dragNode) {
+                        var wasDrag = moved;
+                        dragNode.fx = null;
+                        dragNode.fy = null;
+                        if (!wasDrag) {
+                            self.select(dragNode.id, false);
+                        } else {
+                            self.alpha = Math.max(self.alpha, 0.3);
+                        }
+                        dragNode = null;
+                    } else if (panStart && !moved) {
+                        // Background click — clear selection
+                        if (self.selectedId) {
+                            closeThemePanel();
+                        }
+                    }
+                    panStart = null;
+                    downPos = null;
+                }
+                canvas.addEventListener("pointerup", endPointer);
+                canvas.addEventListener("pointercancel", endPointer);
+
+                canvas.addEventListener(
+                    "wheel",
+                    function (e) {
+                        e.preventDefault();
+                        self._fadeHint();
+                        var p = rectPos(e);
+                        var w = self.toWorld(p.x, p.y);
+                        var factor = Math.exp(-e.deltaY * 0.0016);
+                        var k = Math.max(
+                            0.45,
+                            Math.min(3, self.view.k * factor),
+                        );
+                        self.view.x = p.x - w.x * k;
+                        self.view.y = p.y - w.y * k;
+                        self.view.k = k;
+                        self.userMoved = true;
+                        self.viewTarget = null;
+                        self.start();
+                        self._draw();
+                    },
+                    { passive: false },
+                );
+
+                canvas.addEventListener("dblclick", function () {
+                    self.resetView();
+                });
+
+                document
+                    .getElementById("tm-reset")
+                    .addEventListener("click", function () {
+                        self.resetView();
+                    });
+            };
+
+            ThemeMap.prototype._fadeHint = function () {
+                if (this.hintFaded) return;
+                this.hintFaded = true;
+                var hint = document.getElementById("tm-hint");
+                if (hint) hint.classList.add("faded");
+            };
+
+            ThemeMap.prototype.resetView = function () {
+                this.viewTarget = this.fitView();
+                this.userMoved = false;
+                this.alpha = Math.max(this.alpha, 0.12);
+                this.start();
+            };
+
+            ThemeMap.prototype.setFocusGroup = function (g) {
+                this.focusGroup = g;
+                this._updateDim();
+                this.start();
+            };
+
+            ThemeMap.prototype.select = function (id, fly) {
+                this.selectedId = id;
+                this._updateDim();
+                if (id) {
+                    var theme = this.byId[id].theme;
+                    renderThemePanel(theme);
+                    if (fly) this.flyTo(this.byId[id]);
+                }
+                this.start();
+                this._draw();
+            };
+
+            ThemeMap.prototype.flyTo = function (node) {
+                var panelW =
+                    this.cw > 700 &&
+                    document
+                        .getElementById("tm-panel")
+                        .classList.contains("open")
+                        ? 360
+                        : 0;
+                var k = Math.max(this.view.k, 1.05);
+                this.viewTarget = {
+                    k: k,
+                    x: (this.cw - panelW) / 2 - node.x * k,
+                    y: this.ch / 2 - node.y * k,
+                };
+                this.start();
+            };
+
+            // ── Legend, chips, panel ──
+            function buildThemeLegend(data) {
+                var el = document.getElementById("tm-legend");
+                var html = "";
+                Object.keys(data.groups).forEach(function (g) {
+                    html +=
+                        '<span class="tm-legend-chip" data-group="' +
+                        g +
+                        '"><span class="dot" style="background:' +
+                        THEME_GROUP_COLORS[g] +
+                        ";color:" +
+                        THEME_GROUP_COLORS[g] +
+                        '"></span>' +
+                        escapeHtml(data.groups[g]) +
+                        "</span>";
+                });
+                el.innerHTML = html;
+                el.querySelectorAll(".tm-legend-chip").forEach(
+                    function (chip) {
+                        chip.addEventListener("click", function () {
+                            var g = chip.getAttribute("data-group");
+                            var active =
+                                chip.classList.contains("active");
+                            el.querySelectorAll(
+                                ".tm-legend-chip",
+                            ).forEach(function (c) {
+                                c.classList.remove("active", "dimmed");
+                            });
+                            if (active) {
+                                if (themeMap)
+                                    themeMap.setFocusGroup(null);
+                            } else {
+                                chip.classList.add("active");
+                                el.querySelectorAll(
+                                    ".tm-legend-chip",
+                                ).forEach(function (c) {
+                                    if (c !== chip)
+                                        c.classList.add("dimmed");
+                                });
+                                if (themeMap)
+                                    themeMap.setFocusGroup(g);
+                            }
+                        });
+                    },
+                );
+            }
+
+            function buildAllThemeChips(data) {
+                var el = document.getElementById("tm-all-themes");
+                var byGroup = {};
+                data.themes.forEach(function (t) {
+                    if (!byGroup[t.group]) byGroup[t.group] = [];
+                    byGroup[t.group].push(t);
+                });
+                var html = "";
+                Object.keys(data.groups).forEach(function (g) {
+                    if (!byGroup[g]) return;
+                    byGroup[g].sort(function (a, b) {
+                        return b.count - a.count;
+                    });
+                    html +=
+                        '<div class="topic-section"><h3>' +
+                        escapeHtml(data.groups[g]) +
+                        '</h3><div class="topic-grid">';
+                    byGroup[g].forEach(function (t) {
+                        html +=
+                            '<button class="topic-chip" style="font-family:inherit;text-align:left" onclick="selectThemeFromChip(\'' +
+                            t.id +
+                            '\')"><span class="tdot" style="background:' +
+                            THEME_GROUP_COLORS[g] +
+                            ";color:" +
+                            THEME_GROUP_COLORS[g] +
+                            '"></span>' +
+                            escapeHtml(t.label) +
+                            '<span class="count">' +
+                            t.count +
+                            " еп.</span></button>";
+                    });
+                    html += "</div></div>";
+                });
+                el.innerHTML = html;
+            }
+
+            function selectThemeFromChip(id) {
+                if (!themeMap) return;
+                document
+                    .getElementById("tm-map-wrap")
+                    .scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                    });
+                themeMap.select(id, true);
+            }
+
+            function renderThemePanel(theme) {
+                var panel = document.getElementById("tm-panel");
+                var color = THEME_GROUP_COLORS[theme.group];
+                var groupName = themesData.groups[theme.group] || "";
+                var html =
+                    '<div class="tm-panel-head">' +
+                    '<span class="tm-panel-group"><span class="dot" style="background:' +
+                    color +
+                    ";color:" +
+                    color +
+                    '"></span>' +
+                    escapeHtml(groupName) +
+                    "</span>" +
+                    '<button class="tm-panel-close" onclick="closeThemePanel()" title="Затвори" aria-label="Затвори">&times;</button>' +
+                    "<h3>" +
+                    escapeHtml(theme.label) +
+                    "</h3>" +
+                    '<div class="tm-panel-desc">' +
+                    escapeHtml(theme.description || "") +
+                    "</div>" +
+                    '<div class="tm-panel-count">' +
+                    theme.count +
+                    " епизода</div>" +
+                    "</div>" +
+                    '<div class="tm-spark-wrap">' +
+                    '<canvas id="tm-spark"></canvas>' +
+                    '<div class="tm-spark-label"><span>Беседа 1</span><span>през годините</span><span>Беседа ' +
+                    themesMaxN +
+                    "</span></div>" +
+                    "</div>" +
+                    '<div class="tm-panel-actions">' +
+                    '<button class="group-btn group-btn-yt" onclick="searchTopic(\'' +
+                    escapeAttr(theme.query || theme.label) +
+                    "')\">" +
+                    '<svg style="width:11px;height:11px;vertical-align:-1px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+                    "Търси в архива</button>" +
+                    '<span class="tm-sort">' +
+                    '<button id="tm-sort-w" class="' +
+                    (tmSort === "weight" ? "active" : "") +
+                    '" onclick="setThemeSort(\'weight\')">По сила</button>' +
+                    '<button id="tm-sort-c" class="' +
+                    (tmSort === "chrono" ? "active" : "") +
+                    '" onclick="setThemeSort(\'chrono\')">Хронологично</button>' +
+                    "</span>" +
+                    "</div>" +
+                    '<div class="tm-panel-eps" id="tm-ep-list"></div>';
+                panel.innerHTML = html;
+                panel.classList.add("open");
+                panel.setAttribute("data-theme-id", theme.id);
+                renderThemeEpisodeList(theme);
+                drawThemeSpark(theme);
+            }
+
+            function renderThemeEpisodeList(theme) {
+                var eps = themesData.episodes;
+                var rows = theme.episodes.slice();
+                if (tmSort === "chrono") {
+                    rows.sort(function (a, b) {
+                        return (
+                            (eps[b[0]] ? eps[b[0]].n : 0) -
+                            (eps[a[0]] ? eps[a[0]].n : 0)
+                        );
+                    });
+                }
+                var html = "";
+                rows.forEach(function (row) {
+                    var vid = row[0];
+                    var w = row[1];
+                    var meta = eps[vid];
+                    if (!meta) return;
+                    var label =
+                        meta.n > 0 ? "Б. " + meta.n : "&middot;&middot;&middot;";
+                    html +=
+                        '<a class="tm-ep-row" href="/episode/' +
+                        vid +
+                        '">' +
+                        '<span class="tm-ep-n">' +
+                        label +
+                        "</span>" +
+                        '<span class="tm-ep-title">' +
+                        escapeHtml(
+                            meta.title.replace(/\s*\(Беседа\s+\d+\)/, ""),
+                        ) +
+                        "</span>" +
+                        '<span class="tm-ep-w"><i style="width:' +
+                        Math.round(30 + w * 70) +
+                        '%"></i></span>' +
+                        "</a>";
+                });
+                document.getElementById("tm-ep-list").innerHTML = html;
+            }
+
+            function setThemeSort(mode) {
+                tmSort = mode;
+                var panel = document.getElementById("tm-panel");
+                var tid = panel.getAttribute("data-theme-id");
+                if (!tid || !themesData) return;
+                var theme = null;
+                themesData.themes.forEach(function (t) {
+                    if (t.id === tid) theme = t;
+                });
+                if (!theme) return;
+                document
+                    .getElementById("tm-sort-w")
+                    .classList.toggle("active", mode === "weight");
+                document
+                    .getElementById("tm-sort-c")
+                    .classList.toggle("active", mode === "chrono");
+                renderThemeEpisodeList(theme);
+            }
+
+            function drawThemeSpark(theme) {
+                var canvas = document.getElementById("tm-spark");
+                if (!canvas || !themesMaxN) return;
+                var cssW = canvas.clientWidth || 300;
+                var cssH = 46;
+                var dpr = window.devicePixelRatio || 1;
+                canvas.width = cssW * dpr;
+                canvas.height = cssH * dpr;
+                var ctx = canvas.getContext("2d");
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                var buckets = 44;
+                var vals = [];
+                for (var i = 0; i < buckets; i++) vals.push(0);
+                var eps = themesData.episodes;
+                theme.episodes.forEach(function (row) {
+                    var meta = eps[row[0]];
+                    if (!meta || !meta.n) return;
+                    var b = Math.min(
+                        buckets - 1,
+                        Math.floor(
+                            ((meta.n - 1) / themesMaxN) * buckets,
+                        ),
+                    );
+                    vals[b] += row[1];
+                });
+                var maxV = 0.001;
+                vals.forEach(function (x) {
+                    if (x > maxV) maxV = x;
+                });
+                // Baseline
+                ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, cssH - 0.5);
+                ctx.lineTo(cssW, cssH - 0.5);
+                ctx.stroke();
+                var bw = cssW / buckets;
+                var color = THEME_GROUP_COLORS[theme.group] || "#d4a853";
+                var rgb = tmHexRgb(color);
+                for (i = 0; i < buckets; i++) {
+                    if (vals[i] <= 0) continue;
+                    var h = Math.max(
+                        2,
+                        (vals[i] / maxV) * (cssH - 6),
+                    );
+                    ctx.fillStyle = tmRgba(
+                        rgb,
+                        0.45 + 0.55 * (vals[i] / maxV),
+                    );
+                    ctx.beginPath();
+                    var x = i * bw + 1;
+                    var y = cssH - 1 - h;
+                    var w = Math.max(2, bw - 2);
+                    ctx.moveTo(x, y + 1);
+                    ctx.arcTo(x + w, y, x + w, y + h, 1.5);
+                    ctx.lineTo(x + w, cssH - 1);
+                    ctx.lineTo(x, cssH - 1);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            function closeThemePanel() {
+                var panel = document.getElementById("tm-panel");
+                panel.classList.remove("open");
+                if (themeMap) {
+                    themeMap.selectedId = null;
+                    themeMap._updateDim();
+                    themeMap.start();
+                }
+            }
+
+            // ── Мои теми (custom topics, preserved) ──
+            function renderCustomTopics() {
+                var container = document.getElementById("tm-custom");
+                if (!container) return;
                 var customTopics = loadCustomTopics();
 
-                var html =
-                    '<div class="topics-header">' +
-                    "<h2>Теми и имена</h2>" +
-                    "<p>Кликнете върху тема за търсене. Броят показва в колко епизода се споменава.</p></div>";
-
-                // Custom topics section
-                html += '<div class="custom-topics-section">';
+                var html = '<div class="custom-topics-section">';
                 html += '<div class="custom-topics-header">';
                 html += "<h3>Мои теми</h3>";
                 html +=
@@ -3224,25 +4921,6 @@
                         '<span style="color:var(--text-dimmer);font-size:12px;">Все още нямате добавени теми</span>';
                 }
                 html += "</div></div>";
-
-                // Auto-detected topics
-                topicsData.forEach(function (section) {
-                    html +=
-                        '<div class="topic-section"><h3>' +
-                        escapeHtml(section.category) +
-                        '</h3><div class="topic-grid">';
-                    section.items.forEach(function (item) {
-                        html +=
-                            '<div class="topic-chip" onclick="searchTopic(\'' +
-                            escapeAttr(item.term) +
-                            "')\">" +
-                            escapeHtml(item.term) +
-                            '<span class="count">' +
-                            item.count +
-                            " еп.</span></div>";
-                    });
-                    html += "</div></div>";
-                });
                 container.innerHTML = html;
 
                 // Fetch episode counts for custom topics (count unique episodes, not segments)
@@ -3333,7 +5011,7 @@
                     saveCustomTopics(topics);
                 }
                 input.value = "";
-                renderTopics();
+                renderCustomTopics();
             }
 
             function removeCustomTopic(term) {
@@ -3341,7 +5019,7 @@
                     return t !== term;
                 });
                 saveCustomTopics(topics);
-                renderTopics();
+                renderCustomTopics();
             }
 
             function searchTopic(term) {
@@ -3963,6 +5641,15 @@
                     e.preventDefault();
                     if (isInput) {
                         e.target.blur();
+                        return;
+                    }
+                    // Theme panel takes priority when open
+                    var _tmPanel = document.getElementById("tm-panel");
+                    if (
+                        _tmPanel &&
+                        _tmPanel.classList.contains("open")
+                    ) {
+                        closeThemePanel();
                         return;
                     }
                     // Check DOM state as well as navMode — button-triggered fullscreen

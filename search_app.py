@@ -20,6 +20,21 @@ from urllib.request import Request, urlopen
 PORT = int(os.environ.get("PORT", 8080))
 TRANSCRIPTS_DIR = Path(__file__).parent / "transcripts"
 HTML_FILE = Path(__file__).parent / "index.html"
+THEMES_FILE = Path(__file__).parent / "themes.json"
+
+# themes.json is generated offline by scripts/generate_themes.py and
+# committed to the repo; serve it from memory, reloading on mtime change.
+_themes_cache = {"mtime": None, "body": None}
+
+
+def _load_themes():
+    if not THEMES_FILE.exists():
+        return None
+    mtime = THEMES_FILE.stat().st_mtime
+    if _themes_cache["mtime"] != mtime:
+        _themes_cache["body"] = THEMES_FILE.read_bytes()
+        _themes_cache["mtime"] = mtime
+    return _themes_cache["body"]
 
 
 def _minify_html(html_bytes):
@@ -344,8 +359,15 @@ def _is_proper_noun(word):
     return True
 
 
+_topics_cache = None
+
+
 def build_topics():
-    """Analyze transcripts for meaningful names and concepts using smarter filtering."""
+    """Analyze transcripts for meaningful names and concepts using smarter filtering.
+    The corpus only changes on deploy (which restarts the app), so cache the result."""
+    global _topics_cache
+    if _topics_cache is not None:
+        return _topics_cache
     import math
 
     name_episode_count = Counter()
@@ -399,7 +421,7 @@ def build_topics():
 
     scored_concepts.sort(key=lambda x: -x[2])  # Sort by TF-IDF score
 
-    return [
+    _topics_cache = [
         {
             "category": "Имена и лица",
             "items": [{"term": w, "count": c} for w, c in names[:50]],
@@ -409,6 +431,7 @@ def build_topics():
             "items": [{"term": w, "count": c} for w, c, _ in scored_concepts[:50]],
         },
     ]
+    return _topics_cache
 
 
 def _html_escape(text):
@@ -472,6 +495,11 @@ def _render_episode_page(data):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#0a0a0e">
     <title>{title} — Светоглед с Георги Тодоров</title>
     <meta name="description" content="{_html_escape(desc_text)}">
     <link rel="canonical" href="https://svetogled-arhiv.com/episode/{video_id}">
@@ -1053,6 +1081,11 @@ def _render_about_page():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0a0a0e">
 <title>За сайта — Светоглед Архив</title>
 <meta name="description" content="Информация за архива на предаването Светоглед — как е създаден, какви технологии използва и какви са ограниченията на транскрипциите.">
 <link rel="canonical" href="https://svetogled-arhiv.com/about">
@@ -1145,6 +1178,10 @@ _CUSTOM_404 = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#0a0a0e">
 <title>404 — Страницата не е намерена | Светоглед Архив</title>
 <style>
   body { margin:0; background:#0a0a0e; color:#e8e4e0; font-family:system-ui,-apple-system,sans-serif;
@@ -1304,6 +1341,42 @@ class SearchHandler(SimpleHTTPRequestHandler):
         elif parsed.path == "/api/topics":
             self._serve_json(build_topics())
 
+        elif parsed.path == "/api/themes":
+            body = _load_themes()
+            if body is None:
+                self.send_error(404, "themes.json not generated")
+                return
+            self._send_body(
+                body,
+                "application/json; charset=utf-8",
+                {
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=3600",
+                },
+            )
+
+        elif parsed.path == "/favicon.ico":
+            fpath = Path(__file__).parent / "static" / "favicon.ico"
+            if fpath.exists():
+                self._send_body(
+                    fpath.read_bytes(),
+                    "image/x-icon",
+                    {"Cache-Control": "public, max-age=604800"},
+                )
+            else:
+                self._send_404()
+
+        elif parsed.path == "/site.webmanifest":
+            fpath = Path(__file__).parent / "static" / "site.webmanifest"
+            if fpath.exists():
+                self._send_body(
+                    fpath.read_bytes(),
+                    "application/manifest+json; charset=utf-8",
+                    {"Cache-Control": "public, max-age=604800"},
+                )
+            else:
+                self._send_404()
+
         elif parsed.path.startswith("/episode/"):
             video_id = parsed.path[len("/episode/") :].strip("/")
             if not video_id or not re.match(r"^[\w-]+$", video_id):
@@ -1343,6 +1416,9 @@ class SearchHandler(SimpleHTTPRequestHandler):
                     ".png": "image/png",
                     ".svg": "image/svg+xml",
                     ".webp": "image/webp",
+                    ".ico": "image/x-icon",
+                    ".json": "application/json; charset=utf-8",
+                    ".webmanifest": "application/manifest+json; charset=utf-8",
                 }.get(ext, "application/octet-stream")
                 self.send_response(200)
                 self.send_header("Content-Type", ctype)
