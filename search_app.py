@@ -148,8 +148,18 @@ def _build_episode_index():
 EPISODES, EPISODE_ORDER, EPISODE_POS, REUPLOAD_OF = _build_episode_index()
 
 # Episodes removed from the archive whose URLs may still be known to search
-# engines: 301 them to the archive instead of returning 404.
-REMOVED_EPISODES = {"gGhf8HSSGwI": "/arhiv"}  # Пророк Илия (премахнат дубликат)
+# engines: 301 them to the archive instead of returning 404. This is the single
+# source of truth (removed_episodes.json) — scripts/check_new_episodes.py reads
+# the same file so a removed video is never re-detected as "new" and re-fetched.
+def _load_removed_episodes():
+    fpath = Path(__file__).parent / "removed_episodes.json"
+    try:
+        return json.loads(fpath.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"gGhf8HSSGwI": "/arhiv"}  # Пророк Илия — fallback if file missing
+
+
+REMOVED_EPISODES = _load_removed_episodes()
 
 
 def _build_theme_maps():
