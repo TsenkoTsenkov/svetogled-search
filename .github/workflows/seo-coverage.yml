@@ -1,0 +1,71 @@
+name: SEO Coverage Report
+
+# Weekly read-only indexing-coverage check via the Search Console URL
+# Inspection API. Reports which sitemap URLs Google has indexed vs. not.
+# Also re-submits the sitemap (harmless, keeps lastSubmitted fresh).
+#
+# Requires repo secret GSC_SA_KEY: a Google service-account JSON whose
+# client_email has been added as a full user/owner of the Search Console
+# property (https://search.google.com/search-console/users). Until that
+# secret exists the job self-skips — it never fails the repo.
+
+on:
+  schedule:
+    - cron: '0 8 * * 3'   # Wednesdays 08:00 UTC (after the transcript update)
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Only inspect first N URLs (0 = all 331)'
+        default: '0'
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if no credentials configured
+        id: gate
+        run: |
+          if [ -z "${{ secrets.GSC_SA_KEY }}" ]; then
+            echo "GSC_SA_KEY not set — skipping (configure it to enable this report)."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pip install google-api-python-client google-auth
+
+      - name: Write service-account key
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          echo '${{ secrets.GSC_SA_KEY }}' > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Submit sitemap
+        if: steps.gate.outputs.run == 'true'
+        run: python3 scripts/gsc_seo.py submit
+
+      - name: Coverage report
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          python3 scripts/gsc_seo.py coverage \
+            --limit "${{ github.event.inputs.limit || 0 }}" \
+            --json coverage.json | tee coverage.txt
+
+      - name: Upload report
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-coverage
+          path: |
+            coverage.txt
+            coverage.json
