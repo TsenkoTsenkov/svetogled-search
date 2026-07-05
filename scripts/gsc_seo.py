@@ -57,11 +57,14 @@ def _build_service(scopes):
     """Build the Search Console API client from Application Default Credentials."""
     try:
         import google.auth
+        import google_auth_httplib2
+        import httplib2
         from googleapiclient.discovery import build
     except ImportError:
         sys.exit(
             "Missing deps. Run:\n"
-            "  pip install google-api-python-client google-auth"
+            "  pip install google-api-python-client google-auth "
+            "google-auth-httplib2"
         )
     try:
         creds, _ = google.auth.default(scopes=scopes)
@@ -70,8 +73,13 @@ def _build_service(scopes):
             f"Could not load Google credentials: {e}\n"
             "Run the gcloud auth command in this script's docstring first."
         )
-    # searchconsole v1 exposes both urlInspection and sitemaps.
-    return build("searchconsole", "v1", credentials=creds, cache_discovery=False)
+    # A 30s socket timeout keeps one hung request from blocking a pool worker
+    # forever (bulk inspection occasionally stalls). searchconsole v1 exposes
+    # both urlInspection and sitemaps.
+    http = google_auth_httplib2.AuthorizedHttp(
+        creds, http=httplib2.Http(timeout=30)
+    )
+    return build("searchconsole", "v1", http=http, cache_discovery=False)
 
 
 def _url_kind(url):
@@ -109,13 +117,18 @@ def cmd_coverage(args):
     print(f"Inspecting {len(urls)} URLs from {SITEMAP_URL} ...\n", file=sys.stderr)
 
     # Each URL Inspection call takes ~6-7s of API latency, so serial over 331
-    # URLs is ~35 min. Fan out across a thread pool: the googleapiclient http
-    # object isn't thread-safe, so each worker builds its OWN service instance.
-    # 8 workers × ~9 req/min ≈ 72/min — well under the 600/min quota ceiling.
+    # URLs is ~35 min. Fan out across a small thread pool: googleapiclient's
+    # http object isn't thread-safe, so each worker builds its OWN service.
+    # Google throttles bulk inspection aggressively — at 8 workers a live run
+    # returned ~30 timeouts/connection-resets, so we use 4 workers and a
+    # 30s per-request socket timeout with up to 3 retries (backoff) to make
+    # the report complete rather than fast.
     from concurrent.futures import ThreadPoolExecutor
     import threading
 
     _local = threading.local()
+    RETRIABLE = ("429", "timed out", "timeout", "reset by peer",
+                 "connection", "503", "500", "502", "504")
 
     def _svc():
         s = getattr(_local, "svc", None)
@@ -131,9 +144,16 @@ def cmd_coverage(args):
         body = {"inspectionUrl": url, "siteUrl": SITE_URL, "languageCode": "bg"}
         row = {"url": url, "kind": _url_kind(url),
                "verdict": "ERROR", "coverageState": "no response"}
-        for attempt in range(2):
+        last_err = ""
+        for attempt in range(3):
             try:
-                resp = _svc().urlInspection().index().inspect(body=body).execute()
+                # num_retries handles transient 5xx inside the client; the
+                # 30s http timeout stops a hung socket from blocking a worker.
+                resp = (
+                    _svc().urlInspection().index()
+                    .inspect(body=body)
+                    .execute(num_retries=2)
+                )
                 idx = resp.get("inspectionResult", {}).get("indexStatusResult", {})
                 row = {
                     "url": url,
@@ -141,23 +161,33 @@ def cmd_coverage(args):
                     "verdict": idx.get("verdict", "UNKNOWN"),
                     "coverageState": idx.get("coverageState", "unknown"),
                 }
+                last_err = ""
                 break
             except Exception as e:  # noqa: BLE001
-                # 429 = quota. Back off once, then give up on this URL.
-                if "429" in str(e) and attempt == 0:
-                    time.sleep(30)
+                last_err = str(e)
+                if any(t in last_err.lower() for t in RETRIABLE) and attempt < 2:
+                    time.sleep(5 * (attempt + 1))  # 5s, 10s backoff
                     continue
-                row = {"url": url, "kind": _url_kind(url),
-                       "verdict": "ERROR", "coverageState": str(e)[:80]}
                 break
+        if last_err:
+            row = {"url": url, "kind": _url_kind(url),
+                   "verdict": "ERROR", "coverageState": last_err[:80]}
         with done_lock:
             done[0] += 1
             if done[0] % 25 == 0 or done[0] == len(urls):
                 print(f"  ... {done[0]}/{len(urls)}", file=sys.stderr)
         return row
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         rows = list(pool.map(_inspect, urls))
+
+    # If any URL still errored after retries, say so loudly — a silent partial
+    # report would read as "these pages aren't indexed" when we just failed to
+    # check them.
+    errored = [r for r in rows if r["verdict"] == "ERROR"]
+    if errored:
+        print(f"\n⚠ {len(errored)} URL(s) could not be inspected (API errors, "
+              f"not indexing problems) — rerun to fill gaps.", file=sys.stderr)
 
     buckets = {}
     not_indexed = []

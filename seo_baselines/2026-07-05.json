@@ -1,0 +1,34 @@
+{
+  "date": "2026-07-05",
+  "note": "Baseline right after the SEO overhaul + minifier fix deployed. Google had not yet recrawled /arhiv to discover episodes.",
+  "total_urls": 331,
+  "indexed_total": 2,
+  "by_kind": {
+    "episode": {
+      "total": 282,
+      "indexed": 0
+    },
+    "theme": {
+      "total": 45,
+      "indexed": 0
+    },
+    "hub": {
+      "total": 2,
+      "indexed": 1
+    },
+    "home": {
+      "total": 1,
+      "indexed": 1
+    },
+    "other": {
+      "total": 1,
+      "indexed": 0
+    }
+  },
+  "coverage_states": {
+    "Страницата е изпратена и индексирана": 2,
+    "URL адресът не е известен на Google": 160,
+    "Страницата е открита – понастоящем не е индексирана": 138
+  },
+  "inspect_errors": 31
+}
