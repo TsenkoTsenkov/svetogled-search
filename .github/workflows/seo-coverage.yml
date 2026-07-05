@@ -42,7 +42,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.gate.outputs.run == 'true'
-        run: pip install google-api-python-client google-auth
+        run: pip install google-api-python-client google-auth google-auth-httplib2
 
       - name: Write service-account key
         if: steps.gate.outputs.run == 'true'
