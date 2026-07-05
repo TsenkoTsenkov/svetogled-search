@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # allows the job to re-trigger itself to drain the backlog
 
 jobs:
   update:
@@ -21,6 +22,9 @@ jobs:
     # and pass --cookies when the file exists; locally it's unset and ignored.
     env:
       YTDLP_COOKIES: ${{ github.workspace }}/cookies.txt
+      # CPU Whisper is ~real-time, so cap each run to a couple of episodes to
+      # stay under the job timeout; the job re-triggers itself for the rest.
+      WHISPER_MAX_PER_RUN: '2'
 
     steps:
       - name: Checkout
@@ -139,6 +143,27 @@ jobs:
           git commit -m "Add ${COUNT} new transcript(s) from weekly update"
           git push
           # The push will trigger the deploy workflow automatically
+
+      # If Whisper capped this run (WHISPER_MAX_PER_RUN) and episodes still
+      # remain, re-trigger this same workflow so the backlog drains over a few
+      # short runs instead of one run that times out. The just-pushed commit
+      # means the next run's check sees fewer "new" episodes.
+      - name: Re-trigger if episodes remain
+        if: steps.check.outputs.new_count > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Recompute the backlog against the transcripts we just committed.
+          git pull --quiet --rebase origin main || true
+          REMAINING=$(python scripts/check_new_episodes.py 2>/dev/null \
+            | grep -oE 'New episodes: [0-9]+' | grep -oE '[0-9]+' || echo 0)
+          echo "Episodes still needing transcription: ${REMAINING:-0}"
+          if [ "${REMAINING:-0}" -gt 0 ]; then
+            echo "Re-triggering weekly update to process the remaining ${REMAINING}."
+            gh workflow run update-transcripts.yml
+          else
+            echo "Backlog empty — all new episodes transcribed."
+          fi
 
       - name: Remove cookie file
         if: always()

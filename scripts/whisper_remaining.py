@@ -119,6 +119,16 @@ def main():
         print("No remaining videos")
         return
 
+    # CPU Whisper is slow (~real-time), so transcribing many full talks in one
+    # run blows past GitHub's job timeout. Cap each run to WHISPER_MAX_PER_RUN
+    # episodes; the workflow re-triggers itself until the backlog is empty.
+    max_per_run = int(os.environ.get("WHISPER_MAX_PER_RUN", "0") or "0")
+    total = len(videos)
+    if max_per_run > 0 and total > max_per_run:
+        videos = videos[:max_per_run]
+        print(f"Capping this run to {max_per_run} of {total} videos "
+              f"({total - max_per_run} will be picked up by the next run).")
+
     # Check whisper is available
     if not Path(WHISPER_CLI).exists():
         print(f"Whisper CLI not found at {WHISPER_CLI}, skipping transcription")
