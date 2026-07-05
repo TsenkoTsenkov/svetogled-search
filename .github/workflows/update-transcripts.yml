@@ -33,8 +33,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install yt-dlp youtube-transcript-api
+          # yt-dlp[default] bundles the EJS challenge-solver package.
+          pip install "yt-dlp[default]" youtube-transcript-api
           sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      # YouTube now gates audio formats behind a JS ("nsig") challenge. yt-dlp
+      # fetches the EJS solver via --remote-components ejs:github, but needs a
+      # JS RUNTIME to execute it. Without Deno, only image formats are offered
+      # and audio download fails with "Requested format is not available" — the
+      # exact failure that silently dropped Беседи 288-291.
+      - name: Install Deno (JS runtime for yt-dlp's EJS solver)
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
 
       - name: Write YouTube cookies
         env:
@@ -115,12 +126,18 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add transcripts/ themes.json
           if git diff --staged --quiet; then
-            echo "No new transcripts to commit"
-          else
-            COUNT=$(git diff --staged --name-only | wc -l)
-            git commit -m "Add ${COUNT} new transcript(s) from weekly update"
-            git push
+            # new_count > 0 got us here, yet nothing was produced — transcription
+            # failed (e.g. YouTube blocked audio download). Fail LOUDLY instead
+            # of the old silent "success", which hid Беседи 288-291 for weeks.
+            echo "::error::${{ steps.check.outputs.new_count }} new episode(s) were" \
+                 "detected but NONE were transcribed — nothing to commit. The audio" \
+                 "download or transcription step failed (check YOUTUBE_COOKIES and the" \
+                 "yt-dlp/EJS logs above). Failing the job so this is not silently missed."
+            exit 1
           fi
+          COUNT=$(git diff --staged --name-only | wc -l)
+          git commit -m "Add ${COUNT} new transcript(s) from weekly update"
+          git push
           # The push will trigger the deploy workflow automatically
 
       - name: Remove cookie file
