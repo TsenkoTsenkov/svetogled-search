@@ -1,0 +1,54 @@
+name: Regenerate theme map
+
+# Keeps themes.json in sync with its generator. The weekly transcript update
+# already regenerates themes.json when NEW episodes arrive — but editing the
+# taxonomy in scripts/generate_themes.py (adding a theme, tweaking a regex or
+# weight) would otherwise ship nothing, because deploy just serves whatever
+# themes.json is committed. This runs the generator on any change to it (or to
+# the transcripts) and commits the result, which then triggers deploy.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/generate_themes.py'
+      - 'transcripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Avoid racing/looping with the weekly update's own push.
+concurrency:
+  group: themes-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    # Skip commits made by the bot itself (the weekly update already committed
+    # a fresh themes.json) to avoid a redundant second run.
+    if: >-
+      github.actor != 'github-actions[bot]' ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Regenerate theme map
+        run: python3 scripts/generate_themes.py
+
+      - name: Commit if themes.json changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add themes.json
+          if git diff --staged --quiet; then
+            echo "themes.json already in sync — nothing to commit."
+          else
+            git commit -m "Regenerate themes.json (taxonomy or transcripts changed)"
+            git push
+          fi
