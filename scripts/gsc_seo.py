@@ -74,6 +74,20 @@ def _build_service(scopes):
     return build("searchconsole", "v1", credentials=creds, cache_discovery=False)
 
 
+def _url_kind(url):
+    """Classify a sitemap URL so the report can headline episodes separately."""
+    path = url.split("svetogled-arhiv.com", 1)[-1]
+    if path in ("", "/"):
+        return "home"
+    if "/episode/" in path:
+        return "episode"
+    if "/tema/" in path:
+        return "theme"
+    if path.rstrip("/") in ("/arhiv", "/temi"):
+        return "hub"
+    return "other"
+
+
 def _fetch_sitemap_urls():
     """Return the list of <loc> URLs from the live sitemap."""
     with urlopen(SITEMAP_URL, timeout=30) as resp:
@@ -127,7 +141,13 @@ def cmd_coverage(args):
         verdict = idx.get("verdict", "UNKNOWN")            # PASS / FAIL / NEUTRAL
         coverage = idx.get("coverageState", "unknown")     # human-readable state
         buckets[coverage] = buckets.get(coverage, 0) + 1
-        rows.append({"url": url, "verdict": verdict, "coverageState": coverage})
+        rows.append({
+            "url": url,
+            "kind": _url_kind(url),
+            "verdict": verdict,
+            "coverageState": coverage,
+        })
+        # verdict == "PASS" means the URL is on Google. Anything else = a gap.
         if verdict != "PASS":
             not_indexed.append((url, coverage))
 
@@ -140,22 +160,42 @@ def cmd_coverage(args):
     print("\n=== Indexing coverage ===")
     for state, n in sorted(buckets.items(), key=lambda kv: -kv[1]):
         print(f"  {n:4d}  {state}")
-    indexed = sum(n for s, n in buckets.items() if "indexed" in s.lower()
-                  and "not indexed" not in s.lower())
-    print(f"\n  {indexed}/{len(rows)} URLs report an indexed coverage state.")
 
-    if not_indexed:
-        print("\n=== NOT indexed (prioritize these) ===")
-        for url, state in not_indexed[:50]:
+    # Per-kind headline: episodes are what we actually care about.
+    print("\n=== Indexed by page type (verdict PASS) ===")
+    for kind in ("episode", "theme", "hub", "home", "other"):
+        krows = [r for r in rows if r["kind"] == kind]
+        if not krows:
+            continue
+        ok = sum(1 for r in krows if r["verdict"] == "PASS")
+        print(f"  {kind:8s} {ok:3d}/{len(krows):3d} indexed")
+
+    # The stragglers, split so you can act on the episodes first.
+    missing_eps = [(u, s) for (u, s) in not_indexed if _url_kind(u) == "episode"]
+    if missing_eps:
+        print(f"\n=== Episodes NOT yet indexed ({len(missing_eps)}) ===")
+        print("  (Request-Index these by hand in Search Console — ~10/day quota)")
+        for url, state in missing_eps:
             print(f"  [{state}] {url}")
-        if len(not_indexed) > 50:
-            print(f"  ... and {len(not_indexed) - 50} more")
+
+    other_missing = [(u, s) for (u, s) in not_indexed if _url_kind(u) != "episode"]
+    if other_missing:
+        print(f"\n=== Non-episode pages NOT indexed ({len(other_missing)}) ===")
+        for url, state in other_missing:
+            print(f"  [{_url_kind(url)}] [{state}] {url}")
 
     if args.json:
         import json
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump(rows, f, ensure_ascii=False, indent=2)
         print(f"\nWrote {len(rows)} rows to {args.json}", file=sys.stderr)
+
+    # Plain list of not-yet-indexed episode URLs — easy to paste one per day.
+    if args.missing_out and missing_eps:
+        with open(args.missing_out, "w", encoding="utf-8") as f:
+            f.write("\n".join(u for u, _ in missing_eps) + "\n")
+        print(f"Wrote {len(missing_eps)} missing episode URLs to {args.missing_out}",
+              file=sys.stderr)
 
 
 def cmd_submit(args):
@@ -182,6 +222,8 @@ def main():
     c.add_argument("--limit", type=int, default=0,
                    help="Only inspect the first N URLs (for a quick sample)")
     c.add_argument("--json", metavar="FILE", help="Also write full results as JSON")
+    c.add_argument("--missing-out", metavar="FILE",
+                   help="Write not-yet-indexed episode URLs, one per line")
     c.set_defaults(func=cmd_coverage)
 
     s = sub.add_parser("submit", help="Submit the sitemap to Search Console")
