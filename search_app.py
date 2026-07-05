@@ -48,8 +48,22 @@ def _minify_html(html_bytes):
     text = re.sub(r" ?\n ?", "\n", text)
     # Collapse newlines *inside* a tag's angle brackets to single spaces, so
     # multi-line tags (e.g. <link\n rel=...\n href=...>) don't leave attributes
-    # stranded on their own lines. Skip <script>/<style> bodies via [^<>] only.
-    text = re.sub(r"<[^<>]+>", lambda m: re.sub(r"\s*\n\s*", " ", m.group(0)), text)
+    # stranded on their own lines. Must NOT touch <script>/<style> bodies:
+    # JS string concatenations like '<div ...' + x + '...>' span lines without
+    # any < or > between them, so a bare <[^<>]+> regex would join those lines
+    # and let a // comment swallow the merged code (breaks the whole SPA).
+    parts = re.split(
+        r"(<script\b.*?</script>|<style\b.*?</style>)",
+        text,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    for i in range(0, len(parts), 2):  # even indices = outside script/style
+        parts[i] = re.sub(
+            r"<[^<>]+>",
+            lambda m: re.sub(r"\s*\n\s*", " ", m.group(0)),
+            parts[i],
+        )
+    text = "".join(parts)
     # Collapse multiple blank lines into one
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.encode("utf-8")

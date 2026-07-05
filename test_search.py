@@ -271,6 +271,41 @@ def test_homepage_favicon_markup():
         f"Minifier left {len(stranded)} tag attribute(s) stranded on their own lines"
 
 
+def test_minifier_preserves_inline_scripts():
+    """The minifier must never merge or drop lines inside <script> blocks.
+
+    Regression test for the tag-collapsing step: JS builds HTML in string
+    concatenations like '<div ...' + x + '...>', which a naive <[^<>]+> regex
+    matches across lines — merging them and letting a // comment swallow the
+    merged code. That parse error killed search/episodes/themes on 2026-07-05.
+    Invariant: the sequence of non-blank, whitespace-stripped script lines is
+    identical before and after minification.
+    """
+    sys.path.insert(0, str(Path(__file__).parent))
+    import importlib
+    app = importlib.import_module("search_app")
+
+    import re
+    raw = (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
+    mini = app._MINIFIED_HTML.decode("utf-8")
+    raw_scripts = re.findall(r"<script>(.*?)</script>", raw, re.DOTALL)
+    mini_scripts = re.findall(r"<script>(.*?)</script>", mini, re.DOTALL)
+    assert len(raw_scripts) == len(mini_scripts), (
+        f"Minifier changed inline <script> block count: "
+        f"{len(raw_scripts)} → {len(mini_scripts)}"
+    )
+    for idx, (rs, ms) in enumerate(zip(raw_scripts, mini_scripts)):
+        strip = lambda s: [
+            re.sub(r"\s+", "", ln) for ln in s.splitlines() if ln.strip()
+        ]
+        r_lines, m_lines = strip(rs), strip(ms)
+        assert r_lines == m_lines, (
+            f"Minifier altered line structure of inline script #{idx}: "
+            f"{len(r_lines)} raw vs {len(m_lines)} minified non-blank lines "
+            "(merged/dropped lines break JS via // comments and ASI)"
+        )
+
+
 def test_favicon_files_exist_and_square():
     """Every favicon the homepage references must exist and be square."""
     static = Path(__file__).parent / "static"
@@ -313,6 +348,7 @@ def run_all_tests():
         test_search_app_serves_html,
         test_indexer_builds_documents,
         test_homepage_favicon_markup,
+        test_minifier_preserves_inline_scripts,
         test_favicon_files_exist_and_square,
     ]
 
