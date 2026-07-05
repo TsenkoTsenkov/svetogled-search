@@ -41,13 +41,13 @@ import time
 import xml.etree.ElementTree as ET
 from urllib.request import urlopen
 
-SITE_URL = "https://svetogled-arhiv.com/"
+# Search Console's siteUrl for a Domain property is "sc-domain:<domain>"; for a
+# URL-prefix property it's the full origin. This site is verified as a Domain
+# property (confirmed via sites().list() → siteOwner on sc-domain:...), so the
+# API calls must use the sc-domain form or Google returns "you do not own this
+# site". The sitemap and inspected URLs are still the normal https:// URLs.
+SITE_URL = "sc-domain:svetogled-arhiv.com"
 SITEMAP_URL = "https://svetogled-arhiv.com/sitemap.xml"
-
-# Search Console's siteUrl for a domain property is "sc-domain:<domain>";
-# for a URL-prefix property it's the full origin. This site is verified as a
-# URL-prefix property, so SITE_URL above is correct. If you switch to a domain
-# property, set SITE_URL = "sc-domain:svetogled-arhiv.com".
 
 SCOPES_RO = ["https://www.googleapis.com/auth/webmasters.readonly"]
 SCOPES_RW = ["https://www.googleapis.com/auth/webmasters"]
@@ -108,53 +108,63 @@ def cmd_coverage(args):
         urls = urls[: args.limit]
     print(f"Inspecting {len(urls)} URLs from {SITEMAP_URL} ...\n", file=sys.stderr)
 
-    buckets = {}          # verdict -> count
-    not_indexed = []      # urls Google knows but hasn't indexed
-    rows = []             # full per-url detail for --json
+    # Each URL Inspection call takes ~6-7s of API latency, so serial over 331
+    # URLs is ~35 min. Fan out across a thread pool: the googleapiclient http
+    # object isn't thread-safe, so each worker builds its OWN service instance.
+    # 8 workers × ~9 req/min ≈ 72/min — well under the 600/min quota ceiling.
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
 
-    for i, url in enumerate(urls, 1):
+    _local = threading.local()
+
+    def _svc():
+        s = getattr(_local, "svc", None)
+        if s is None:
+            s = _build_service(SCOPES_RO)
+            _local.svc = s
+        return s
+
+    done = [0]
+    done_lock = threading.Lock()
+
+    def _inspect(url):
         body = {"inspectionUrl": url, "siteUrl": SITE_URL, "languageCode": "bg"}
-        try:
-            resp = (
-                service.urlInspection()
-                .index()
-                .inspect(body=body)
-                .execute()
-            )
-        except Exception as e:  # noqa: BLE001
-            # 429 = quota (2000/day, 600/min). Back off and retry once.
-            if "429" in str(e):
-                time.sleep(60)
-                try:
-                    resp = (
-                        service.urlInspection().index().inspect(body=body).execute()
-                    )
-                except Exception as e2:  # noqa: BLE001
-                    print(f"  [{i}/{len(urls)}] ERROR {url}: {e2}", file=sys.stderr)
+        row = {"url": url, "kind": _url_kind(url),
+               "verdict": "ERROR", "coverageState": "no response"}
+        for attempt in range(2):
+            try:
+                resp = _svc().urlInspection().index().inspect(body=body).execute()
+                idx = resp.get("inspectionResult", {}).get("indexStatusResult", {})
+                row = {
+                    "url": url,
+                    "kind": _url_kind(url),
+                    "verdict": idx.get("verdict", "UNKNOWN"),
+                    "coverageState": idx.get("coverageState", "unknown"),
+                }
+                break
+            except Exception as e:  # noqa: BLE001
+                # 429 = quota. Back off once, then give up on this URL.
+                if "429" in str(e) and attempt == 0:
+                    time.sleep(30)
                     continue
-            else:
-                print(f"  [{i}/{len(urls)}] ERROR {url}: {e}", file=sys.stderr)
-                continue
+                row = {"url": url, "kind": _url_kind(url),
+                       "verdict": "ERROR", "coverageState": str(e)[:80]}
+                break
+        with done_lock:
+            done[0] += 1
+            if done[0] % 25 == 0 or done[0] == len(urls):
+                print(f"  ... {done[0]}/{len(urls)}", file=sys.stderr)
+        return row
 
-        result = resp.get("inspectionResult", {})
-        idx = result.get("indexStatusResult", {})
-        verdict = idx.get("verdict", "UNKNOWN")            # PASS / FAIL / NEUTRAL
-        coverage = idx.get("coverageState", "unknown")     # human-readable state
-        buckets[coverage] = buckets.get(coverage, 0) + 1
-        rows.append({
-            "url": url,
-            "kind": _url_kind(url),
-            "verdict": verdict,
-            "coverageState": coverage,
-        })
-        # verdict == "PASS" means the URL is on Google. Anything else = a gap.
-        if verdict != "PASS":
-            not_indexed.append((url, coverage))
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        rows = list(pool.map(_inspect, urls))
 
-        # Polite pacing: 600 req/min ceiling → ~10/s. Stay well under.
-        time.sleep(0.15)
-        if i % 25 == 0:
-            print(f"  ... {i}/{len(urls)}", file=sys.stderr)
+    buckets = {}
+    not_indexed = []
+    for r in rows:
+        buckets[r["coverageState"]] = buckets.get(r["coverageState"], 0) + 1
+        if r["verdict"] != "PASS":
+            not_indexed.append((r["url"], r["coverageState"]))
 
     # ── Report ──
     print("\n=== Indexing coverage ===")
