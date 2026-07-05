@@ -231,6 +231,66 @@ def test_indexer_builds_documents():
     assert "youtube_url" in doc
 
 
+# ── Test: Favicon / <head> markup contract ───────────────────────────────────
+
+def test_homepage_favicon_markup():
+    """The served (minified) homepage must expose crawlable favicon tags.
+
+    Validates the real output of search_app's minifier — not a running server —
+    so it runs in CI and catches regressions like the minifier mangling
+    multi-line <link> tags or a stray ?v= cache-buster sneaking back in.
+    """
+    sys.path.insert(0, str(Path(__file__).parent))
+    import importlib
+    app = importlib.import_module("search_app")
+
+    html = app._MINIFIED_HTML.decode("utf-8")
+    assert html, "search_app produced no minified HTML"
+
+    import re
+    link_tags = re.findall(r"<link[^>]*>", html)
+
+    # A primary icon and the Google-Search 96px icon must be present.
+    assert any('rel="icon"' in t and "favicon.ico" in t for t in link_tags), \
+        "Missing <link rel=icon href=/favicon.ico> in homepage <head>"
+    assert any('sizes="96x96"' in t and "favicon-96" in t for t in link_tags), \
+        "Missing 96x96 favicon tag (the size Google renders in Search results)"
+    assert any("apple-touch-icon" in t for t in link_tags), \
+        "Missing apple-touch-icon tag"
+    assert "site.webmanifest" in html, "Missing web app manifest link"
+
+    # No cache-buster query strings on icon URLs — Googlebot fetches them
+    # unreliably, which is what blanked the Search favicon before.
+    icon_tags = [t for t in link_tags if "icon" in t or "manifest" in t]
+    assert not any("?v=" in t for t in icon_tags), \
+        f"Cache-buster ?v= on an icon URL will hurt Google favicon crawl: {icon_tags}"
+
+    # The minifier must not strand tag attributes on their own lines.
+    stranded = re.findall(r"^\s*(?:rel|href|type|sizes)=", html, re.M)
+    assert not stranded, \
+        f"Minifier left {len(stranded)} tag attribute(s) stranded on their own lines"
+
+
+def test_favicon_files_exist_and_square():
+    """Every favicon the homepage references must exist and be square."""
+    static = Path(__file__).parent / "static"
+    required = {
+        "favicon.ico": None,
+        "favicon-48.png": (48, 48),
+        "favicon-96.png": (96, 96),
+        "icon-192.png": (192, 192),
+        "apple-touch-icon.png": None,
+    }
+    for name, expected in required.items():
+        p = static / name
+        assert p.exists() and p.stat().st_size > 0, f"Missing/empty favicon: {name}"
+        if expected:
+            from PIL import Image
+            with Image.open(p) as im:
+                assert im.size == expected, f"{name} is {im.size}, expected {expected}"
+                assert im.size[0] == im.size[1], f"{name} is not square"
+
+
 # ── Runner ───────────────────────────────────────────────────────────────────
 
 def run_all_tests():
@@ -252,6 +312,8 @@ def run_all_tests():
         test_transcript_snippets_have_timestamps,
         test_search_app_serves_html,
         test_indexer_builds_documents,
+        test_homepage_favicon_markup,
+        test_favicon_files_exist_and_square,
     ]
 
     passed = 0

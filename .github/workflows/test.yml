@@ -1,0 +1,42 @@
+name: Tests
+
+# Runs on every push/PR that touches the app or its markup. These tests do NOT
+# need Meilisearch running — they validate the served HTML contract (favicon
+# tags, no cache-busters, minifier sanity) and that referenced static assets
+# exist. Server/index-dependent tests self-SKIP when Meili isn't up.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'search_app.py'
+      - 'index.html'
+      - 'static/**'
+      - 'index_to_meili.py'
+      - 'scripts/generate_favicons.py'
+      - 'test_search.py'
+  pull_request:
+    paths:
+      - 'search_app.py'
+      - 'index.html'
+      - 'static/**'
+      - 'index_to_meili.py'
+      - 'scripts/generate_favicons.py'
+      - 'test_search.py'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install meilisearch pillow
+
+      - name: Run tests
+        run: python test_search.py
