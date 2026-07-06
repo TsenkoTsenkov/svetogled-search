@@ -594,8 +594,18 @@ def _fmt_date(iso):
 
 def _recent_episodes_html(limit=8):
     """Static list of the newest episodes, injected into the homepage HTML so
-    crawlers see fresh, followable links without executing JavaScript."""
-    eps = sorted(EPISODES.values(), key=lambda e: e["upload_date"], reverse=True)
+    crawlers see fresh, followable links without executing JavaScript.
+
+    Rank by episode_number first (it's the reliable recency signal for this
+    show and is monotonic), with upload_date as the tiebreaker. Sorting purely
+    by upload_date sent Whisper-transcribed episodes — which have no
+    upload_date ("") — to the BOTTOM, so the "latest" list showed stale
+    episodes even though newer ones existed."""
+    eps = sorted(
+        EPISODES.values(),
+        key=lambda e: (e["episode_number"], e["upload_date"]),
+        reverse=True,
+    )
     return "".join(
         f'<li><a href="/episode/{e["video_id"]}">{_ep_label(e)}</a>'
         f'<span class="recent-date">{_fmt_date(e["upload_date"])}</span></li>'

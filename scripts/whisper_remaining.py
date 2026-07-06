@@ -33,6 +33,26 @@ def _ytdlp_args():
     return args
 
 
+def get_upload_date(video_id):
+    """Fetch the YouTube upload date (YYYY-MM-DD) via a metadata-only yt-dlp
+    call. Without this, Whisper-transcribed episodes have no date and sink to
+    the bottom of the homepage's 'Последни беседи' list. Returns "" on failure
+    (the site tolerates a missing date and falls back to episode_number)."""
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    try:
+        out = subprocess.run(
+            ["yt-dlp", *_ytdlp_args(), "--no-playlist", "--skip-download",
+             "--print", "%(upload_date)s", url],
+            check=True, capture_output=True, text=True, timeout=120,
+        ).stdout.strip()
+        # yt-dlp prints upload_date as YYYYMMDD; convert to YYYY-MM-DD.
+        if len(out) == 8 and out.isdigit():
+            return f"{out[:4]}-{out[4:6]}-{out[6:]}"
+    except Exception as e:  # noqa: BLE001
+        print(f"  upload_date lookup failed: {type(e).__name__}")
+    return ""
+
+
 def download_audio(video_id, output_path):
     url = f"https://www.youtube.com/watch?v={video_id}"
     try:
@@ -171,6 +191,7 @@ def main():
         data = {
             "video_id": vid,
             "title": title,
+            "upload_date": get_upload_date(vid),
             "source": "whisper-small",
             "segment_count": parsed["segment_count"],
             "snippets": parsed["snippets"],
