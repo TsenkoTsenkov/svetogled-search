@@ -797,6 +797,8 @@ def _render_episode_page(data):
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
     <meta name="theme-color" content="#0a0a0e">
+    <link rel="preload" href="/static/fonts/forum-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/literata-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
     <title>{page_title}</title>
     <meta name="description" content="{_html_escape(desc_text)}">
     <link rel="canonical" href="https://svetogled-arhiv.com/episode/{canonical_id}">
@@ -843,7 +845,41 @@ def _render_episode_page(data):
     </script>
     {crumbs_jsonld}
     <style>
+        @font-face {{
+            font-family: "Forum";
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/static/fonts/forum-cyrillic.woff2) format("woff2");
+            unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+        }}
+        @font-face {{
+            font-family: "Forum";
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/static/fonts/forum-latin.woff2) format("woff2");
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }}
+        @font-face {{
+            font-family: "Literata";
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/static/fonts/literata-cyrillic.woff2) format("woff2");
+            unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+        }}
+        @font-face {{
+            font-family: "Literata";
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/static/fonts/literata-latin.woff2) format("woff2");
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }}
         :root {{
+            --font-display: "Forum", Georgia, serif;
+            --font-serif: "Literata", Georgia, "Times New Roman", serif;
             --bg: #0a0a0e;
             --bg-card: #161218;
             --accent: #c8994c;
@@ -936,12 +972,13 @@ def _render_episode_page(data):
             text-align: center;
         }}
         .ep-header-title {{
-            font-size: 15px;
-            font-weight: 600;
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 400;
             color: var(--gold);
             text-shadow: 0 0 30px rgba(218, 165, 32, 0.2);
             margin-bottom: 3px;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
         }}
         .ep-header-sub {{
             font-size: 11px;
@@ -961,9 +998,12 @@ def _render_episode_page(data):
         }}
         .back:hover {{ text-decoration: underline; }}
         h1 {{
-            font-size: 22px;
+            font-family: var(--font-display);
+            font-weight: 400;
+            font-size: 27px;
             margin-bottom: 12px;
-            line-height: 1.4;
+            line-height: 1.35;
+            letter-spacing: 0.3px;
         }}
         .meta {{
             color: var(--text-dim);
@@ -1043,14 +1083,27 @@ def _render_episode_page(data):
             cursor: pointer;
         }}
         .transcript-body {{
+            font-family: var(--font-serif);
             color: #ccc;
-            font-size: 14.5px;
+            font-size: 15px;
             line-height: 1.9;
         }}
         .transcript-body p {{
             margin-bottom: 14px;
         }}
         .transcript-body p:first-child {{ text-indent: 0; }}
+        /* Буквица: manuscript-style drop cap on the opening paragraph
+           (only in clean reading mode — timestamps would break it) */
+        .transcript-body.mode-clean > p:first-child::first-letter,
+        .reader-content.mode-clean > p:first-child::first-letter {{
+            font-family: var(--font-display);
+            float: left;
+            font-size: 3.4em;
+            line-height: 0.82;
+            padding: 0.05em 0.1em 0 0;
+            color: var(--gold);
+            text-shadow: 0 0 26px rgba(200, 153, 76, 0.3);
+        }}
         .ts {{
             color: var(--accent2);
             text-decoration: none;
@@ -1103,6 +1156,7 @@ def _render_episode_page(data):
             padding: 32px 32px 80px;
             line-height: 2;
             color: #ddd;
+            font-family: var(--font-serif);
             font-size: 16px;
             background: linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 40%, rgba(200, 153, 76, 0.02) 100%);
             backdrop-filter: blur(12px) saturate(1.4);
@@ -1158,7 +1212,7 @@ def _render_episode_page(data):
             .container {{ padding: 14px; }}
             h1 {{ font-size: 18px; }}
             .transcript {{ padding: 16px; }}
-            .transcript-body {{ font-size: 13.5px; }}
+            .transcript-body {{ font-size: 14px; }}
             .transcript-header {{ flex-direction: column; align-items: flex-start; }}
             .sacred-bg .icon-theotokos {{ display: none; }}
             .sacred-bg .icon-george {{ display: none; }}
@@ -1231,8 +1285,8 @@ def _render_episode_page(data):
                 <button class="font-btn" onclick="changeFontSize(1)" title="По-голям шрифт">A+</button>
             </div>
             <select class="ctrl-select" onchange="changeFontFamily(this.value)" style="margin-left:6px">
+                <option value="serif" selected>Serif</option>
                 <option value="sans">Sans-serif</option>
-                <option value="serif">Serif</option>
                 <option value="mono">Monospace</option>
             </select>
         </div>
@@ -1279,6 +1333,7 @@ def _render_episode_page(data):
             html += '<p>' + chunk.join(' ') + '</p>';
         }}
         body.innerHTML = html;
+        body.classList.toggle('mode-clean', mode === 'clean');
     }}
 
     function getPlainText() {{
@@ -1325,10 +1380,10 @@ def _render_episode_page(data):
     }}
 
     var readerFontSize = 16;
-    var readerFontFamily = 'sans';
+    var readerFontFamily = 'serif';
     var fontFamilies = {{
         sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        serif: 'Georgia, "Times New Roman", serif',
+        serif: '"Literata", Georgia, "Times New Roman", serif',
         mono: '"SF Mono", Menlo, Consolas, monospace'
     }};
 
@@ -1342,6 +1397,7 @@ def _render_episode_page(data):
             srcHtml = document.getElementById('transcript-body').innerHTML;
         }}
         content.innerHTML = srcHtml;
+        content.classList.toggle('mode-clean', mode === 'clean');
         content.style.fontSize = readerFontSize + 'px';
         content.style.fontFamily = fontFamilies[readerFontFamily];
         overlay.classList.add('active');
@@ -1501,21 +1557,45 @@ def _render_about_page():
 # instead of being discoverable only through the JS search or the sitemap.
 
 _LISTING_CSS = """
-:root { --bg:#0a0a0e; --bg-card:#161218; --gold:#c8994c; --wine:#6b2038;
+@font-face { font-family:"Forum"; font-style:normal; font-weight:400; font-display:swap;
+             src:url(/static/fonts/forum-cyrillic.woff2) format("woff2");
+             unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family:"Forum"; font-style:normal; font-weight:400; font-display:swap;
+             src:url(/static/fonts/forum-latin.woff2) format("woff2");
+             unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family:"Literata"; font-style:normal; font-weight:400; font-display:swap;
+             src:url(/static/fonts/literata-cyrillic.woff2) format("woff2");
+             unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family:"Literata"; font-style:normal; font-weight:400; font-display:swap;
+             src:url(/static/fonts/literata-latin.woff2) format("woff2");
+             unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+:root { --font-display:"Forum",Georgia,serif; --font-serif:"Literata",Georgia,"Times New Roman",serif;
+        --bg:#0a0a0e; --bg-card:#161218; --gold:#c8994c; --wine:#6b2038;
         --text:#e8e4e0; --text-dim:#8a8078; --text-dimmer:#6a6060; --border:#2a2228; }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:var(--bg); color:var(--text); line-height:1.6;
        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+.sacred-bg { position:fixed; top:0; left:0; right:0; bottom:0; pointer-events:none; z-index:0; }
+.sacred-bg .icon-christ { position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:520px; height:auto; opacity:0.2;
+    filter:sepia(20%) brightness(1.1) saturate(0.5);
+    mask-image:radial-gradient(ellipse 85% 65% at 50% 35%, rgba(0,0,0,0.9) 0%, transparent 70%);
+    -webkit-mask-image:radial-gradient(ellipse 85% 65% at 50% 35%, rgba(0,0,0,0.9) 0%, transparent 70%); }
+.sacred-bg .glow { position:absolute; top:0; left:0; right:0; bottom:0;
+    background:radial-gradient(ellipse 600px 700px at 50% 30%, rgba(200,153,76,0.04) 0%, transparent 70%),
+               radial-gradient(ellipse 400px 500px at 5% 50%, rgba(107,32,56,0.05) 0%, transparent 70%); }
+.page-header, .container, .site-footer { position:relative; z-index:1; }
+@media (max-width:600px) { .sacred-bg .icon-christ { width:340px; opacity:0.22; } }
 .page-header { text-align:center; padding:28px 16px 6px; }
-.page-header .brand { font-size:22px; letter-spacing:0.5px; }
+.page-header .brand { font-family:var(--font-display); font-size:26px; letter-spacing:0.8px; }
 .page-header .brand a { color:var(--gold); text-decoration:none; }
 .page-header .sub { font-size:12.5px; color:var(--text-dimmer); margin-top:4px; }
 .container { max-width:860px; margin:0 auto; padding:24px 20px 60px; }
 .crumbs { font-size:13px; color:var(--text-dimmer); margin:6px 0 22px; }
 .crumbs a { color:var(--text-dim); text-decoration:none; }
 .crumbs a:hover { color:var(--gold); }
-h1 { font-size:24px; color:var(--gold); font-weight:600; margin-bottom:12px; }
-.intro { color:var(--text-dim); font-size:14.5px; margin-bottom:26px; max-width:720px; }
+h1 { font-family:var(--font-display); font-size:28px; color:var(--gold); font-weight:400; margin-bottom:12px; }
+.intro { font-family:var(--font-serif); color:var(--text-dim); font-size:14.5px; margin-bottom:26px; max-width:720px; }
 .intro a { color:var(--gold); }
 h2.year, h2.group { font-size:16px; margin:28px 0 10px; padding-bottom:6px;
                     border-bottom:1px solid var(--border); }
@@ -1582,10 +1662,16 @@ def _render_listing_page(page_title, meta_desc, path, h1, intro_html, body_html,
     <meta property="og:locale" content="bg_BG">
     <meta property="og:site_name" content="Светоглед Архив">
     <meta property="og:image" content="https://svetogled-arhiv.com/static/og-image.jpg">
+    <link rel="preload" href="/static/fonts/forum-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/literata-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
     <script type="application/ld+json">{crumbs_jsonld}</script>
     <style>{_LISTING_CSS}</style>
 </head>
 <body>
+    <div class="sacred-bg" aria-hidden="true">
+        <img class="icon-christ" src="/static/christ-pantocrator.webp" alt="" loading="lazy">
+        <div class="glow"></div>
+    </div>
     <header class="page-header">
         <div class="brand"><a href="/">Светоглед</a></div>
         <div class="sub">Архив на предаването с Георги Тодоров по Радио Зорана</div>
@@ -2013,6 +2099,7 @@ class SearchHandler(SimpleHTTPRequestHandler):
                     ".ico": "image/x-icon",
                     ".json": "application/json; charset=utf-8",
                     ".webmanifest": "application/manifest+json; charset=utf-8",
+                    ".woff2": "font/woff2",
                 }.get(ext, "application/octet-stream")
                 self.send_response(200)
                 self.send_header("Content-Type", ctype)
