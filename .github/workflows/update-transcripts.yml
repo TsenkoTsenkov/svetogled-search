@@ -142,7 +142,21 @@ jobs:
           COUNT=$(git diff --staged --name-only | wc -l)
           git commit -m "Add ${COUNT} new transcript(s) from weekly update"
           git push
-          # The push will trigger the deploy workflow automatically
+
+      # A push made with the default GITHUB_TOKEN does NOT trigger other
+      # workflows (GitHub's loop-prevention rule), so the deploy workflow does
+      # NOT fire on the bot's transcript commit — the episodes would sit in the
+      # repo but never reach the live EC2 server (exactly what happened with
+      # Беседи 288-291). Trigger the deploy explicitly.
+      # This step is only reached after the commit step actually committed new
+      # transcripts (it exit 1's otherwise), so a deploy is always warranted.
+      - name: Trigger deploy
+        if: steps.check.outputs.new_count > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering deploy so the new transcripts reach the live site."
+          gh workflow run deploy.yml
 
       # If Whisper capped this run (WHISPER_MAX_PER_RUN) and episodes still
       # remain, re-trigger this same workflow so the backlog drains over a few
