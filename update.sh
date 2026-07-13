@@ -1,16 +1,7 @@
 #!/bin/bash
-# Called by GitHub Actions to deploy new code/transcripts to the EC2 instance.
-# Flow: git pull → re-index Meilisearch → restart the app
-set -e
-
-cd /opt/svetogled-search
-echo "=== Pulling latest code ==="
-git pull
-
-echo "=== Re-indexing transcripts ==="
-python3 index_to_meili.py --fresh
-
-echo "=== Restarting app ==="
-systemctl restart svetogled
-
-echo "=== Deploy complete ==="
+# Manual deploy entry point on the on-prem Mac. CI does the same thing via
+# .github/workflows/deploy.yml (sync checkout → mac/deploy-mac.sh). The EC2
+# flow this replaced lived at /opt/svetogled-search and was driven over SSH.
+set -euo pipefail
+cd "$(dirname "$0")"
+git pull --ff-only && exec bash mac/deploy-mac.sh

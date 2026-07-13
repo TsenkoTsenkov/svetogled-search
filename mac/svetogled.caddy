@@ -1,0 +1,13 @@
+# svetogled-arhiv.com — served by the shared host Caddy on the on-prem Mac.
+# The cloudvideo-server Caddy instance owns :80/:443 on this machine and its
+# Caddyfile imports /Users/tsenko/caddy-tenants/*.caddy; mac/deploy-mac.sh
+# installs this file there and reloads Caddy when it changes.
+
+svetogled-arhiv.com {
+	encode gzip zstd
+	reverse_proxy localhost:4100
+}
+
+www.svetogled-arhiv.com {
+	redir https://svetogled-arhiv.com{uri} permanent
+}

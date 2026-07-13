@@ -1,7 +1,8 @@
-name: Deploy to EC2
+name: Deploy
 
-# Triggered when code or transcripts change on main.
-# SSHs into the EC2 instance and runs update.sh from the repo.
+# Triggered when code or transcripts change on main. The deploy runs on the
+# self-hosted runner that lives on the on-prem Mac which replaced EC2
+# i-0042126bb04806ca2 — a local script run, no SSH and no AWS credentials.
 
 on:
   push:
@@ -13,8 +14,14 @@ on:
       - 'themes.json'
       - 'static/**'
       - 'index_to_meili.py'
-      - 'update.sh'
+      - 'mac/**'
   workflow_dispatch:
+
+# Never run two deploys concurrently; queue instead of cancelling so a later
+# push still lands the newest version.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -31,13 +38,35 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, svetogled]
+    timeout-minutes: 20
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 10m
-          script: sudo /opt/svetogled-search/update.sh
+      - name: Sync server checkout to the pushed revision
+        run: |
+          git -C "$HOME/svetogled-server/app" fetch origin main
+          git -C "$HOME/svetogled-server/app" reset --hard "${{ github.sha }}"
+      - name: Deploy
+        run: bash "$HOME/svetogled-server/app/mac/deploy-mac.sh"
+
+  health:
+    needs: deploy
+    # Deliberately on a GitHub-hosted runner: probes the public endpoints from
+    # outside the home network, proving DNS + port forwarding + TLS, not just
+    # that the box can reach itself.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe public endpoints
+        run: |
+          set -euo pipefail
+          echo "Checking homepage..."
+          curl -sfI https://svetogled-arhiv.com/ > /dev/null
+          echo "Checking episodes API..."
+          curl -sf https://svetogled-arhiv.com/api/episodes > /dev/null
+          echo "Checking search (Meilisearch proxy)..."
+          curl -sf -X POST https://svetogled-arhiv.com/meili/indexes/segments/search \
+            -H 'Content-Type: application/json' -d '{"q":"история","limit":1}' \
+            | grep -q '"hits"'
+          echo "Checking www redirect..."
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://www.svetogled-arhiv.com/)" = "301"
+          echo "Health checks passed."
