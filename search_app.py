@@ -9,6 +9,7 @@ Usage:
 
 import gzip
 import json
+import math
 import os
 import re
 from collections import Counter
@@ -204,6 +205,120 @@ def _related_episodes(video_id, limit=6):
             if 0 <= j < len(EPISODE_ORDER) and EPISODE_ORDER[j] not in ranked:
                 ranked.append(EPISODE_ORDER[j])
     return [EPISODES[v] for v in ranked[:limit]]
+
+
+# ── Ad-hoc (user-defined) themes ─────────────────────────────────────────
+# A visitor can add their own theme from a phrase. We score it across the real
+# transcripts the same way scripts/generate_themes.py scores the curated themes
+# (match density per 10k words, log-normalized) and derive co-occurrence links
+# against the built-in themes — so a custom theme joins the graph on equal
+# footing: real frequency, real connections, fully interactive.
+_ADHOC_TEXTS = {"built": False, "eps": {}}
+ADHOC_MIN_HITS = 2          # a single phrase is narrower than a curated theme,
+ADHOC_MIN_PER10K = 2.0      # so use gentler thresholds than the generator
+ADHOC_EDGE_MIN_SHARED = 3
+ADHOC_EDGE_MIN_OVERLAP = 0.3
+ADHOC_MAX_LINKS = 6
+ADHOC_TITLE_WEIGHT = 0.9
+
+
+def _adhoc_texts():
+    """Lazily cache lowered transcript text + word counts for the unique
+    episodes (re-uploads excluded — the same set themes.json was built on)."""
+    if _ADHOC_TEXTS["built"]:
+        return _ADHOC_TEXTS["eps"]
+    eps = {}
+    for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        vid = data.get("video_id") or f.stem
+        if vid not in EPISODES:  # skip re-uploads / unindexed
+            continue
+        text = (data.get("full_text") or "").lower()
+        eps[vid] = {
+            "text": text,
+            "words": max(1, len(text.split())),
+            "title": (data.get("title") or "").lower(),
+        }
+    _ADHOC_TEXTS["eps"] = eps
+    _ADHOC_TEXTS["built"] = True
+    return eps
+
+
+def _adhoc_pattern(query):
+    """Morphology-tolerant matcher from a user phrase: each meaningful word
+    becomes a Cyrillic-safe prefix match (\\bword\\w*), so «икона» also catches
+    «иконата/икони». User input is escaped (treated as literal words, never
+    regex). Returns a compiled pattern or None."""
+    words = re.findall(r"\w+", (query or "").lower(), re.UNICODE)
+    kept = [w for w in words if len(w) >= 3 and w not in STOP_WORDS]
+    if not kept:
+        kept = [w for w in words if len(w) >= 2]
+    kept = kept[:8]
+    if not kept:
+        return None
+    alt = "|".join(re.escape(w) + r"\w*" for w in kept)
+    try:
+        return re.compile(r"\b(?:" + alt + r")", re.IGNORECASE)
+    except re.error:
+        return None
+
+
+def _adhoc_theme(query):
+    """Score a user phrase into a graph-ready theme: episodes with weights
+    (node size + sparkline) and co-occurrence links to the curated themes."""
+    rx = _adhoc_pattern(query)
+    if rx is None:
+        return {"episodes": [], "links": [], "count": 0}
+    eps = _adhoc_texts()
+    scored = []  # (vid, per10k, title_hit)
+    for vid, meta in eps.items():
+        hits = sum(1 for _ in rx.finditer(meta["text"]))
+        title_hit = bool(rx.search(meta["title"]))
+        per10k = hits * 10000.0 / meta["words"]
+        if title_hit or (hits >= ADHOC_MIN_HITS and per10k >= ADHOC_MIN_PER10K):
+            scored.append((vid, per10k, title_hit))
+    if not scored:
+        return {"episodes": [], "links": [], "count": 0}
+
+    max_per10k = max(p for _, p, _ in scored) or 1.0
+    denom = math.log1p(max_per10k) or 1.0
+    rows = []
+    for vid, per10k, title_hit in scored:
+        w = math.log1p(per10k) / denom
+        if title_hit:
+            w = max(w, ADHOC_TITLE_WEIGHT)
+        rows.append([vid, round(min(1.0, w), 3)])
+    rows.sort(key=lambda r: -r[1])
+
+    my_set = {vid for vid, _ in rows}
+    links = []
+    for tid, t in THEMES_BY_ID.items():
+        oset = {vid for vid, _ in t.get("episodes", [])}
+        if not oset:
+            continue
+        shared = len(my_set & oset)
+        if shared < ADHOC_EDGE_MIN_SHARED:
+            continue
+        overlap = shared / min(len(my_set), len(oset))
+        if overlap < ADHOC_EDGE_MIN_OVERLAP:
+            continue
+        links.append(
+            {
+                "target": tid,
+                "shared": shared,
+                "weight": round(overlap, 3),
+                "_score": overlap * math.sqrt(shared),
+            }
+        )
+    links.sort(key=lambda e: -e["_score"])
+    links = [
+        {k: v for k, v in e.items() if not k.startswith("_")}
+        for e in links[:ADHOC_MAX_LINKS]
+    ]
+    return {"episodes": rows, "links": links, "count": len(rows)}
 
 
 # Inject dynamic episode count + recent episode links, then minify.
@@ -2007,6 +2122,23 @@ class SearchHandler(SimpleHTTPRequestHandler):
                 {
                     "Access-Control-Allow-Origin": "*",
                     "Cache-Control": "public, max-age=3600",
+                },
+            )
+
+        elif parsed.path == "/api/theme-adhoc":
+            # Score a visitor's own phrase into a graph-ready theme (episodes,
+            # weights and links) so it can be added to the theme map live.
+            q = (params.get("q", [""])[0] or "").strip()
+            if len(q) < 2:
+                self.send_error(400, "Missing q")
+                return
+            result = _adhoc_theme(q[:80])
+            self._send_body(
+                json.dumps(result, ensure_ascii=False).encode("utf-8"),
+                "application/json; charset=utf-8",
+                {
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=600",
                 },
             )
 

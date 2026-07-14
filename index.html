@@ -2362,6 +2362,15 @@
                 align-items: center;
                 flex-wrap: wrap;
             }
+            .tm-remove-custom {
+                color: var(--text-dim);
+                border-color: var(--glass-border);
+            }
+            .tm-remove-custom:hover {
+                color: #e8a0a0;
+                border-color: rgba(192, 100, 120, 0.5);
+                background: rgba(192, 100, 120, 0.1);
+            }
             .tm-sort {
                 display: inline-flex;
                 gap: 4px;
@@ -4459,6 +4468,8 @@
                 istoria: "#7f9fc6",
                 kultura: "#9aab6d",
                 savremennost: "#8b9cb3",
+                // Visitor-defined themes — a distinct teal so they stand apart
+                custom: "#5fb6b0",
             };
             // Where each group gravitates on the map (degrees, -90 = top)
             var THEME_GROUP_ANGLES = {
@@ -4467,7 +4478,9 @@
                 savremennost: 54,
                 kultura: 126,
                 istoria: 198,
+                custom: 90,
             };
+            var CUSTOM_GROUP_LABEL = "Мои теми";
             var themesMaxN = 0;
             var tmSort = "weight";
 
@@ -4507,6 +4520,8 @@
                             document.getElementById("theme-map"),
                             data,
                         );
+                        // Fold any saved custom themes into the live graph
+                        loadCustomThemesIntoGraph();
                     })
                     .catch(function () {
                         document.getElementById("tm-loading").textContent =
@@ -5153,6 +5168,28 @@
                         "rgba(255,255,255," + 0.28 * n.op + ")";
                     ctx.lineWidth = 1 / v.k;
                     ctx.stroke();
+
+                    // Custom (visitor-added) themes wear a dashed ring so they
+                    // are recognisable at a glance among the curated ones.
+                    if (n.isCustom) {
+                        ctx.save();
+                        ctx.setLineDash([3.5 / v.k, 3 / v.k]);
+                        ctx.strokeStyle = tmRgba(
+                            tmShade(n.rgb, 0.45),
+                            0.85 * n.op,
+                        );
+                        ctx.lineWidth = 1.3 / v.k;
+                        ctx.beginPath();
+                        ctx.arc(
+                            n.x,
+                            n.y,
+                            r + 4.5 / v.k + 1.5,
+                            0,
+                            6.2832,
+                        );
+                        ctx.stroke();
+                        ctx.restore();
+                    }
 
                     // Selection halo: a crisp inner ring + a faint outer one
                     if (
@@ -5992,6 +6029,111 @@
                 }
             };
 
+            // ── Live-injected custom themes ──
+            // Add a visitor's own theme (scored by /api/theme-adhoc) as a real
+            // node with its co-occurrence links, then let the force layout ease
+            // it into place among the curated themes.
+            ThemeMap.prototype.addCustomTheme = function (theme, links) {
+                if (this.byId[theme.id]) this.removeCustomTheme(theme.id, true);
+                var self = this;
+                var rng = tmSeed(theme.id + ":" + theme.count);
+                var rgb = tmHexRgb(
+                    THEME_GROUP_COLORS[theme.group] || "#5fb6b0",
+                );
+                // Start near the centre of its connected neighbours so it
+                // glides in rather than flying from the edge of the world.
+                var nbr = [];
+                (links || []).forEach(function (l) {
+                    var b = self.byId[l.target];
+                    if (b) nbr.push(b);
+                });
+                var ax, ay;
+                if (nbr.length) {
+                    ax = 0;
+                    ay = 0;
+                    nbr.forEach(function (b) {
+                        ax += b.x;
+                        ay += b.y;
+                    });
+                    ax /= nbr.length;
+                    ay /= nbr.length;
+                } else {
+                    var anchor = this.anchors[theme.group] || {
+                        x: this.WORLD_W / 2,
+                        y: this.WORLD_H / 2,
+                    };
+                    ax = anchor.x;
+                    ay = anchor.y;
+                }
+                var node = {
+                    id: theme.id,
+                    theme: theme,
+                    group: theme.group,
+                    isCustom: true,
+                    x: ax + (rng() - 0.5) * 80,
+                    y: ay + (rng() - 0.5) * 80,
+                    vx: 0,
+                    vy: 0,
+                    fx: null,
+                    fy: null,
+                    r: 7 + Math.sqrt(theme.count) * 1.8,
+                    rgb: rgb,
+                    rgbLight: tmShade(rgb, 0.35),
+                    rgbDark: tmShade(rgb, -0.45),
+                    lines: tmWrapLabel(theme.label),
+                    phase: rng() * Math.PI * 2,
+                    op: 1,
+                    opT: 1,
+                    scale: 1,
+                };
+                this.nodes.push(node);
+                this.byId[theme.id] = node;
+                this.neighbors[theme.id] = {};
+                this.neighbors[theme.id][theme.id] = true;
+                (links || []).forEach(function (l, i) {
+                    var b = self.byId[l.target];
+                    if (!b) return;
+                    self.links.push({
+                        a: node,
+                        b: b,
+                        w: l.weight,
+                        shared: l.shared,
+                        bow: i % 2 === 0 ? 1 : -1,
+                    });
+                    self.neighbors[node.id][b.id] = true;
+                    self.neighbors[b.id][node.id] = true;
+                });
+                this._labelOrder = null;
+                this.alpha = Math.max(this.alpha, 0.4);
+                this._updateDim();
+                this.start();
+            };
+            ThemeMap.prototype.removeCustomTheme = function (id, quiet) {
+                var node = this.byId[id];
+                if (!node) return;
+                var self = this;
+                this.nodes = this.nodes.filter(function (n) {
+                    return n.id !== id;
+                });
+                this.links = this.links.filter(function (l) {
+                    return l.a.id !== id && l.b.id !== id;
+                });
+                delete this.byId[id];
+                delete this.neighbors[id];
+                Object.keys(this.neighbors).forEach(function (k) {
+                    if (self.neighbors[k]) delete self.neighbors[k][id];
+                });
+                if (this.selectedId === id) this.selectedId = null;
+                if (this.hoverId === id) this.hoverId = null;
+                if (this.previewId === id) this.previewId = null;
+                this._labelOrder = null;
+                if (!quiet) {
+                    this.alpha = Math.max(this.alpha, 0.3);
+                    this._updateDim();
+                    this.start();
+                }
+            };
+
             // ── Legend, chips, panel ──
             function buildThemeLegend(data) {
                 var el = document.getElementById("tm-legend");
@@ -6193,6 +6335,11 @@
                     "')\">" +
                     '<svg style="width:11px;height:11px;vertical-align:-1px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
                     "Търси в архива</button>" +
+                    (theme.isCustom
+                        ? '<button class="group-btn tm-remove-custom" onclick="removeCustomTopic(\'' +
+                          escapeAttr(theme.term || theme.label) +
+                          "')\" title=\"Премахни тази тема от картата\">&times; Премахни</button>"
+                        : "") +
                     "</div>" +
                     '<div class="tm-panel-body">' +
                     '<div class="tm-sec">' +
@@ -6411,40 +6558,160 @@
                 html += "</div></div>";
                 container.innerHTML = html;
 
-                // Fetch episode counts for custom topics (count unique episodes, not segments)
+                // Episode counts come from the same scorer that builds the
+                // graph node, so a chip's count always matches its map node.
                 customTopics.forEach(function (term) {
                     var chipId =
                         "custom-chip-" +
                         term.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_");
-                    fetch(MEILI_URL + "/indexes/" + INDEX + "/search", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: "Bearer " + MEILI_KEY,
-                        },
-                        body: JSON.stringify({
-                            q: term,
-                            attributesToRetrieve: ["video_id"],
-                            limit: 1000,
-                        }),
+                    ensureCustomTheme(term, function (result) {
+                        var countEl = document.getElementById(
+                            "count-" + chipId,
+                        );
+                        if (countEl)
+                            countEl.textContent =
+                                (result.count || 0) + " еп.";
+                    });
+                });
+            }
+
+            // ── Custom themes as live graph nodes ──
+            // A saved custom topic is scored by /api/theme-adhoc into episodes,
+            // weights and co-occurrence links, then injected into the theme map
+            // as a first-class, interactive node (its own "Мои теми" group).
+            var customThemeCache = {}; // term -> {episodes, links, count}
+            var customThemeInjected = {}; // theme id -> true
+
+            function customThemeId(term) {
+                return "custom:" + term;
+            }
+            function customThemeObject(term, result) {
+                return {
+                    id: customThemeId(term),
+                    label: term,
+                    group: "custom",
+                    isCustom: true,
+                    term: term,
+                    description:
+                        "Ваша тема — присъствието на „" +
+                        term +
+                        "“ в архива.",
+                    query: term,
+                    count: result.count,
+                    episodes: result.episodes || [],
+                };
+            }
+            function ensureCustomTheme(term, cb) {
+                if (customThemeCache[term]) {
+                    cb(customThemeCache[term]);
+                    return;
+                }
+                fetch(
+                    "/api/theme-adhoc?q=" + encodeURIComponent(term),
+                )
+                    .then(function (r) {
+                        return r.ok
+                            ? r.json()
+                            : { episodes: [], links: [], count: 0 };
                     })
-                        .then(function (r) {
-                            return r.json();
-                        })
-                        .then(function (data) {
-                            var countEl = document.getElementById(
-                                "count-" + chipId,
+                    .then(function (result) {
+                        customThemeCache[term] = result;
+                        cb(result);
+                    })
+                    .catch(function () {
+                        cb({ episodes: [], links: [], count: 0 });
+                    });
+            }
+            function injectCustomTheme(term, announce) {
+                var id = customThemeId(term);
+                if (!themeMap || !themesData) return;
+                if (customThemeInjected[id]) return;
+                ensureCustomTheme(term, function (result) {
+                    if (!themeMap || customThemeInjected[id]) return;
+                    if (!result || !result.count) {
+                        // Nothing to place — tell the visitor why on explicit add
+                        if (announce)
+                            showToast(
+                                "„" +
+                                    term +
+                                    "“ не се среща достатъчно в архива.",
                             );
-                            if (countEl) {
-                                var seen = {};
-                                (data.hits || []).forEach(function (h) {
-                                    seen[h.video_id] = true;
-                                });
-                                countEl.textContent =
-                                    Object.keys(seen).length + " еп.";
-                            }
-                        })
-                        .catch(function () {});
+                        return;
+                    }
+                    var theme = customThemeObject(term, result);
+                    themesData.themes.push(theme);
+                    (result.links || []).forEach(function (l) {
+                        themesData.links.push({
+                            source: id,
+                            target: l.target,
+                            shared: l.shared,
+                            weight: l.weight,
+                        });
+                    });
+                    themesData.groups.custom = CUSTOM_GROUP_LABEL;
+                    themeMap.addCustomTheme(theme, result.links);
+                    customThemeInjected[id] = true;
+                    buildThemeLegend(themesData); // reveal the "Мои теми" chip
+                    if (announce) {
+                        showToast(
+                            "„" +
+                                term +
+                                "“ е на картата — " +
+                                result.count +
+                                (result.count === 1
+                                    ? " беседа"
+                                    : " беседи") +
+                                ".",
+                        );
+                        // Bring the map into view and open the new theme
+                        var wrap =
+                            document.getElementById("tm-map-wrap");
+                        if (wrap && !themeMap.fs)
+                            wrap.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                            });
+                        themeMap.select(id, true);
+                    }
+                });
+            }
+            function removeCustomThemeFromGraph(term) {
+                var id = customThemeId(term);
+                if (themeMap) themeMap.removeCustomTheme(id);
+                if (themesData) {
+                    themesData.themes = themesData.themes.filter(
+                        function (t) {
+                            return t.id !== id;
+                        },
+                    );
+                    themesData.links = themesData.links.filter(
+                        function (l) {
+                            return (
+                                l.source !== id && l.target !== id
+                            );
+                        },
+                    );
+                    var stillCustom = themesData.themes.some(
+                        function (t) {
+                            return t.group === "custom";
+                        },
+                    );
+                    if (!stillCustom)
+                        delete themesData.groups.custom;
+                    if (themeMap) buildThemeLegend(themesData);
+                }
+                delete customThemeInjected[id];
+                delete customThemeCache[term];
+                var panel = document.getElementById("tm-panel");
+                if (
+                    panel &&
+                    panel.getAttribute("data-theme-id") === id
+                )
+                    closeThemePanel();
+            }
+            function loadCustomThemesIntoGraph() {
+                loadCustomTopics().forEach(function (term) {
+                    injectCustomTheme(term);
                 });
             }
 
@@ -6500,6 +6767,8 @@
                 }
                 input.value = "";
                 renderCustomTopics();
+                // Score the phrase and drop it into the graph as a live theme
+                injectCustomTheme(term, true);
             }
 
             function removeCustomTopic(term) {
@@ -6507,6 +6776,7 @@
                     return t !== term;
                 });
                 saveCustomTopics(topics);
+                removeCustomThemeFromGraph(term);
                 renderCustomTopics();
             }
 
