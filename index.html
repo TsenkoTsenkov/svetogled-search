@@ -239,6 +239,17 @@
                 bottom: 0;
                 pointer-events: none;
                 z-index: 0;
+                /* Promote to a stable, self-contained compositor layer.
+                   Without this, Chrome re-rasterises this fixed layer whenever a
+                   sibling with backdrop-filter repaints over the continuously
+                   animating theme-map canvas, which makes the background icons
+                   flicker on and off while interacting with the graph. Safari
+                   already keeps the layer cached, hence the browser-specific bug. */
+                transform: translateZ(0);
+                -webkit-transform: translateZ(0);
+                backface-visibility: hidden;
+                -webkit-backface-visibility: hidden;
+                will-change: transform;
             }
             .sacred-bg .icon-christ {
                 position: absolute;
@@ -1837,6 +1848,11 @@
                 position: relative;
                 border-radius: 20px;
                 overflow: hidden;
+                /* Own compositing context: keeps the map's backdrop-filter
+                   overlays (panel, legend, hint) blending only against the
+                   opaque map background instead of reaching down to the fixed
+                   sacred background — a second guard against the Chrome flicker. */
+                isolation: isolate;
                 border: 1px solid var(--glass-border-gold);
                 background:
                     radial-gradient(
@@ -1860,6 +1876,16 @@
                 touch-action: none;
                 -webkit-tap-highlight-color: transparent;
                 outline: none;
+                /* Keep the animating canvas on its own GPU layer so its
+                   per-frame repaints never invalidate neighbouring layers. */
+                transform: translateZ(0);
+                -webkit-transform: translateZ(0);
+                backface-visibility: hidden;
+                -webkit-backface-visibility: hidden;
+            }
+            #theme-map:focus-visible {
+                box-shadow: inset 0 0 0 2px rgba(200, 153, 76, 0.45);
+                border-radius: 20px;
             }
             #theme-map.tm-dragging {
                 cursor: grabbing;
@@ -2073,6 +2099,149 @@
                 z-index: 2;
                 color: var(--text-dimmer);
                 font-size: 13px;
+            }
+            .tm-controls button svg {
+                width: 15px;
+                height: 15px;
+                display: block;
+            }
+            .tm-ctrl-sep {
+                height: 1px;
+                margin: 0 6px;
+                background: rgba(255, 255, 255, 0.09);
+            }
+            /* In-map theme search (opened from the search control) */
+            .tm-search {
+                position: absolute;
+                top: 12px;
+                left: 50%;
+                transform: translate(-50%, -14px);
+                z-index: 6;
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                width: min(430px, calc(100% - 24px));
+                padding: 7px 8px 7px 14px;
+                border-radius: 16px;
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                border-top-color: rgba(255, 255, 255, 0.2);
+                background: rgba(12, 10, 16, 0.85);
+                backdrop-filter: blur(26px) saturate(1.5);
+                -webkit-backdrop-filter: blur(26px) saturate(1.5);
+                box-shadow:
+                    0 10px 34px rgba(0, 0, 0, 0.5),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+                opacity: 0;
+                pointer-events: none;
+                transition:
+                    opacity 0.22s,
+                    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+            }
+            .tm-search.open {
+                opacity: 1;
+                transform: translate(-50%, 0);
+                pointer-events: auto;
+            }
+            .tm-search svg {
+                width: 15px;
+                height: 15px;
+                color: var(--gold);
+                flex-shrink: 0;
+                opacity: 0.85;
+            }
+            .tm-search input {
+                flex: 1;
+                min-width: 0;
+                background: transparent;
+                border: none;
+                outline: none;
+                color: #fff;
+                font-family: inherit;
+                /* 16px keeps iOS Safari from zoom-jumping on focus */
+                font-size: 16px;
+            }
+            .tm-search input::placeholder {
+                color: var(--text-dimmer);
+            }
+            .tm-search-count {
+                color: var(--text-dimmer);
+                font-size: 11px;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            .tm-search-clear {
+                border: none;
+                background: transparent;
+                color: var(--text-dim);
+                cursor: pointer;
+                font-size: 17px;
+                line-height: 1;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .tm-search-clear:hover {
+                color: #fff;
+                background: rgba(255, 255, 255, 0.08);
+            }
+            .tm-map-wrap.tm-searching .tm-hint {
+                opacity: 0;
+            }
+            /* ── Fullscreen mode: the map fills the whole viewport ── */
+            .tm-map-wrap.tm-fs {
+                position: fixed;
+                inset: 0;
+                z-index: 1000;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                animation: tmFsIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            }
+            @keyframes tmFsIn {
+                from {
+                    opacity: 0.35;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+            .tm-map-wrap.tm-fs #theme-map {
+                height: 100%;
+            }
+            body.tm-fs-active {
+                overflow: hidden;
+            }
+            body.tm-fs-active .header,
+            body.tm-fs-active .cross-divider,
+            body.tm-fs-active .site-footer,
+            body.tm-fs-active .back-to-top {
+                visibility: hidden;
+            }
+            /* A fullscreen canvas has room for a wider, taller detail panel */
+            @media (min-width: 701px) {
+                .tm-map-wrap.tm-fs .tm-panel {
+                    width: 384px;
+                    top: 18px;
+                    right: 18px;
+                    bottom: 18px;
+                }
+                .tm-map-wrap.tm-fs .tm-legend {
+                    top: 18px;
+                    left: 20px;
+                }
+                .tm-map-wrap.tm-fs .tm-controls {
+                    left: 18px;
+                    bottom: 18px;
+                }
+                .tm-map-wrap.tm-fs .tm-search {
+                    top: 18px;
+                }
             }
             /* Theme detail panel */
             .tm-panel {
@@ -2758,6 +2927,12 @@
                 .group-btn-expand .arrow {
                     transition: none;
                 }
+                .tm-map-wrap.tm-fs {
+                    animation: none;
+                }
+                .tm-search {
+                    transition: opacity 0.001s;
+                }
             }
         </style>
     </head>
@@ -2996,7 +3171,8 @@
                         <canvas
                             id="theme-map"
                             role="application"
-                            aria-label="Интерактивна карта на темите. За достъп с клавиатура използвайте списъка с теми под картата."
+                            tabindex="0"
+                            aria-label="Интерактивна карта на темите. Стрелките местят изгледа, + и − мащабират, 0 центрира, F отваря на цял екран, наклонена черта търси. За списъчен достъп използвайте темите под картата."
                         ></canvas>
                         <div class="tm-loading" id="tm-loading">
                             Зареждане на картата...
@@ -3009,6 +3185,30 @@
                             aria-label="Управление на картата"
                             style="display: none"
                         >
+                            <button
+                                id="tm-search-btn"
+                                title="Търси тема"
+                                aria-label="Търси тема в картата"
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.4"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <circle cx="11" cy="11" r="7" />
+                                    <line
+                                        x1="21"
+                                        y1="21"
+                                        x2="16.65"
+                                        y2="16.65"
+                                    />
+                                </svg>
+                            </button>
+                            <div class="tm-ctrl-sep"></div>
                             <button
                                 id="tm-zoom-in"
                                 title="Приближи"
@@ -3029,6 +3229,80 @@
                                 aria-label="Центрирай картата"
                             >
                                 &#8982;
+                            </button>
+                            <div class="tm-ctrl-sep"></div>
+                            <button
+                                id="tm-fs-btn"
+                                title="Цял екран"
+                                aria-label="Отвори картата на цял екран"
+                                aria-pressed="false"
+                            >
+                                <svg
+                                    class="tm-fs-icon-open"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M4 9V4h5" />
+                                    <path d="M20 9V4h-5" />
+                                    <path d="M4 15v5h5" />
+                                    <path d="M20 15v5h-5" />
+                                </svg>
+                                <svg
+                                    class="tm-fs-icon-close"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                    style="display: none"
+                                >
+                                    <path d="M9 4v5H4" />
+                                    <path d="M15 4v5h5" />
+                                    <path d="M9 20v-5H4" />
+                                    <path d="M15 20v-5h5" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="tm-search" id="tm-search">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.4"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                            >
+                                <circle cx="11" cy="11" r="7" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                            <input
+                                type="text"
+                                id="tm-search-input"
+                                placeholder="Търсете тема..."
+                                autocomplete="off"
+                                autocorrect="off"
+                                spellcheck="false"
+                                aria-label="Търсете тема в картата"
+                            />
+                            <span
+                                class="tm-search-count"
+                                id="tm-search-count"
+                            ></span>
+                            <button
+                                class="tm-search-clear"
+                                id="tm-search-clear"
+                                title="Изчисти"
+                                aria-label="Изчисти търсенето"
+                            >
+                                &times;
                             </button>
                         </div>
                         <div class="tm-hint" id="tm-hint">
@@ -4679,6 +4953,13 @@
                         n.group !== self.focusGroup
                     )
                         op = Math.min(op, 0.13);
+                    // Text search overrides everything: matches stay lit,
+                    // the rest fade far back so the hits pop out.
+                    if (self.searchIds) {
+                        op = self.searchIds[n.id]
+                            ? 1
+                            : Math.min(op, 0.07);
+                    }
                     n.opT = op;
                 });
             };
@@ -5320,6 +5601,124 @@
                         if (self.previewId)
                             self.select(self.previewId, true);
                     });
+
+                // Fullscreen + search controls
+                var tmFsBtn = document.getElementById("tm-fs-btn");
+                if (tmFsBtn)
+                    tmFsBtn.addEventListener("click", function () {
+                        self.toggleFs();
+                    });
+                var tmSearchBtn =
+                    document.getElementById("tm-search-btn");
+                if (tmSearchBtn)
+                    tmSearchBtn.addEventListener("click", function () {
+                        self._fadeHint();
+                        if (self.searchOpen) self.closeSearch();
+                        else self.openSearch();
+                    });
+                var tmSearchInput = document.getElementById(
+                    "tm-search-input",
+                );
+                if (tmSearchInput) {
+                    tmSearchInput.addEventListener("input", function () {
+                        var c = self.applySearch(this.value);
+                        self._updateSearchCount(c);
+                    });
+                    tmSearchInput.addEventListener(
+                        "keydown",
+                        function (e) {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                var best = self.bestSearchMatch();
+                                self.closeSearch();
+                                if (best) self.select(best.id, true);
+                            } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                self.closeSearch();
+                            } else {
+                                // Keep typing local: don't let the global
+                                // shortcut handler hijack "/", arrows, etc.
+                                e.stopPropagation();
+                            }
+                        },
+                    );
+                }
+                var tmSearchClear = document.getElementById(
+                    "tm-search-clear",
+                );
+                if (tmSearchClear)
+                    tmSearchClear.addEventListener("click", function () {
+                        var input = document.getElementById(
+                            "tm-search-input",
+                        );
+                        if (input) {
+                            input.value = "";
+                            input.focus();
+                        }
+                        self.applySearch("");
+                        self._updateSearchCount(0);
+                    });
+
+                // Keyboard control when the canvas itself is focused.
+                // stopPropagation keeps these keys from also driving the
+                // page-level list navigation.
+                canvas.addEventListener("keydown", function (e) {
+                    var handled = true;
+                    var step = e.shiftKey ? 110 : 55;
+                    switch (e.key) {
+                        case "ArrowLeft":
+                            self.panBy(step, 0);
+                            break;
+                        case "ArrowRight":
+                            self.panBy(-step, 0);
+                            break;
+                        case "ArrowUp":
+                            self.panBy(0, step);
+                            break;
+                        case "ArrowDown":
+                            self.panBy(0, -step);
+                            break;
+                        case "+":
+                        case "=":
+                            self.zoomBy(1.3);
+                            break;
+                        case "-":
+                        case "_":
+                            self.zoomBy(1 / 1.3);
+                            break;
+                        case "0":
+                            self.resetView();
+                            break;
+                        case "f":
+                        case "F":
+                            self.toggleFs();
+                            break;
+                        case "/":
+                            self.openSearch();
+                            break;
+                        case "Enter":
+                            if (self.hoverId)
+                                self.select(self.hoverId, true);
+                            else handled = false;
+                            break;
+                        case "Escape":
+                            if (self.searchOpen) self.closeSearch();
+                            else if (self.selectedId)
+                                closeThemePanel();
+                            else if (self.fs) self.exitFs();
+                            else handled = false;
+                            break;
+                        default:
+                            handled = false;
+                    }
+                    if (handled) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        self._fadeHint();
+                    }
+                });
             };
 
             ThemeMap.prototype._fadeHint = function () {
@@ -5409,6 +5808,188 @@
                     y: cy - node.y * k,
                 };
                 this.start();
+            };
+
+            // Keyboard panning (arrow keys). Positive dx/dy shift the camera,
+            // revealing content toward that side.
+            ThemeMap.prototype.panBy = function (dx, dy) {
+                this.view.x += dx;
+                this.view.y += dy;
+                this.userMoved = true;
+                this.viewTarget = null;
+                this.start();
+                this._draw();
+            };
+
+            // ── Fullscreen ──
+            ThemeMap.prototype.toggleFs = function () {
+                if (this.fs) this.exitFs();
+                else this.enterFs();
+            };
+            ThemeMap.prototype.enterFs = function () {
+                if (this.fs) return;
+                this.fs = true;
+                document
+                    .getElementById("tm-map-wrap")
+                    .classList.add("tm-fs");
+                document.body.classList.add("tm-fs-active");
+                this._syncFsButton();
+                this._showFsHint();
+                var self = this;
+                requestAnimationFrame(function () {
+                    self.userMoved = false;
+                    self.resize();
+                    self.start();
+                    if (self.canvas)
+                        self.canvas.focus({ preventScroll: true });
+                });
+            };
+            ThemeMap.prototype.exitFs = function () {
+                if (!this.fs) return;
+                this.fs = false;
+                document
+                    .getElementById("tm-map-wrap")
+                    .classList.remove("tm-fs");
+                document.body.classList.remove("tm-fs-active");
+                this._syncFsButton();
+                this._restoreHint();
+                var self = this;
+                requestAnimationFrame(function () {
+                    self.userMoved = false;
+                    self.resize();
+                    self.start();
+                });
+            };
+            ThemeMap.prototype._syncFsButton = function () {
+                var btn = document.getElementById("tm-fs-btn");
+                if (!btn) return;
+                var openI = btn.querySelector(".tm-fs-icon-open");
+                var closeI = btn.querySelector(".tm-fs-icon-close");
+                if (openI)
+                    openI.style.display = this.fs ? "none" : "block";
+                if (closeI)
+                    closeI.style.display = this.fs ? "block" : "none";
+                btn.setAttribute(
+                    "aria-pressed",
+                    this.fs ? "true" : "false",
+                );
+                btn.setAttribute(
+                    "title",
+                    this.fs ? "Изход от цял екран" : "Цял екран",
+                );
+                btn.setAttribute(
+                    "aria-label",
+                    this.fs
+                        ? "Изход от цял екран"
+                        : "Отвори картата на цял екран",
+                );
+            };
+            ThemeMap.prototype._showFsHint = function () {
+                var hint = document.getElementById("tm-hint");
+                if (!hint) return;
+                if (this._origHint == null)
+                    this._origHint = hint.innerHTML;
+                hint.innerHTML =
+                    "Стрелки местят &middot; + / &minus; мащаб &middot; 0 центрира &middot; Esc изход";
+                hint.classList.remove("faded");
+                this.hintFaded = false;
+            };
+            ThemeMap.prototype._restoreHint = function () {
+                var hint = document.getElementById("tm-hint");
+                if (!hint) return;
+                if (this._origHint != null)
+                    hint.innerHTML = this._origHint;
+                hint.classList.add("faded");
+                this.hintFaded = true;
+            };
+
+            // ── In-map text search ──
+            ThemeMap.prototype.openSearch = function () {
+                this.searchOpen = true;
+                var el = document.getElementById("tm-search");
+                var input = document.getElementById("tm-search-input");
+                var wrap = document.getElementById("tm-map-wrap");
+                if (el) el.classList.add("open");
+                if (wrap) wrap.classList.add("tm-searching");
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            };
+            ThemeMap.prototype.closeSearch = function (keepQuery) {
+                this.searchOpen = false;
+                var el = document.getElementById("tm-search");
+                var input = document.getElementById("tm-search-input");
+                var wrap = document.getElementById("tm-map-wrap");
+                if (el) el.classList.remove("open");
+                if (wrap) wrap.classList.remove("tm-searching");
+                if (!keepQuery) {
+                    if (input) input.value = "";
+                    this.applySearch("");
+                    this._updateSearchCount(0);
+                }
+                if (this.canvas)
+                    this.canvas.focus({ preventScroll: true });
+            };
+            ThemeMap.prototype.applySearch = function (q) {
+                q = (q || "").trim().toLowerCase();
+                this.searchQuery = q;
+                var count = 0;
+                if (!q) {
+                    this.searchIds = null;
+                } else {
+                    var ids = {};
+                    this.nodes.forEach(function (n) {
+                        var label = (n.theme.label || "").toLowerCase();
+                        var desc = (
+                            n.theme.description || ""
+                        ).toLowerCase();
+                        if (
+                            label.indexOf(q) !== -1 ||
+                            desc.indexOf(q) !== -1
+                        ) {
+                            ids[n.id] = true;
+                            count++;
+                        }
+                    });
+                    this.searchIds = ids;
+                }
+                this._searchCount = count;
+                this._updateDim();
+                this.start();
+                return count;
+            };
+            ThemeMap.prototype.bestSearchMatch = function () {
+                if (!this.searchIds) return null;
+                var q = this.searchQuery;
+                var best = null;
+                var bestScore = -1;
+                this.nodes.forEach(function (n) {
+                    if (!this.searchIds[n.id]) return;
+                    var label = (n.theme.label || "").toLowerCase();
+                    // Prefer a label that starts with the query, then the
+                    // theme that spans the most episodes.
+                    var score = n.theme.count;
+                    if (label.indexOf(q) === 0) score += 1e6;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = n;
+                    }
+                }, this);
+                return best;
+            };
+            ThemeMap.prototype._updateSearchCount = function (count) {
+                var el = document.getElementById("tm-search-count");
+                if (!el) return;
+                if (count > 0) {
+                    el.textContent =
+                        count +
+                        (count === 1
+                            ? " съвпадение"
+                            : " съвпадения");
+                } else {
+                    el.textContent = this.searchQuery ? "няма" : "";
+                }
             };
 
             // ── Legend, chips, panel ──
@@ -6575,6 +7156,12 @@
                         e.target.blur();
                         return;
                     }
+                    // Theme map overlays step back first: search, then the
+                    // detail panel, then fullscreen.
+                    if (themeMap && themeMap.searchOpen) {
+                        themeMap.closeSearch();
+                        return;
+                    }
                     // Theme panel takes priority when open
                     var _tmPanel = document.getElementById("tm-panel");
                     if (
@@ -6582,6 +7169,10 @@
                         _tmPanel.classList.contains("open")
                     ) {
                         closeThemePanel();
+                        return;
+                    }
+                    if (themeMap && themeMap.fs) {
+                        themeMap.exitFs();
                         return;
                     }
                     // Check DOM state as well as navMode — button-triggered fullscreen
