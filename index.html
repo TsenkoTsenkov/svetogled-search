@@ -1865,6 +1865,11 @@
             .custom-chip.pending .count {
                 font-style: italic;
             }
+            .custom-chip.empty {
+                opacity: 0.6;
+                border-color: var(--glass-border);
+                color: var(--text-dim);
+            }
             .custom-chip.failed {
                 border-color: rgba(192, 100, 120, 0.6);
                 color: #d99aa8;
@@ -2424,6 +2429,15 @@
                 padding: 10px 18px 10px;
                 align-items: center;
                 flex-wrap: wrap;
+            }
+            .tm-remove-custom {
+                color: var(--text-dim);
+                border-color: var(--glass-border);
+            }
+            .tm-remove-custom:hover {
+                color: #e8a0a0;
+                border-color: rgba(192, 100, 120, 0.5);
+                background: rgba(192, 100, 120, 0.1);
             }
             .tm-sort {
                 display: inline-flex;
@@ -4770,6 +4784,7 @@
                         id: t.id,
                         theme: t,
                         group: t.group,
+                        isCustom: !!t.custom,
                         // Keep where a node already sits, so adding a theme
                         // nudges the constellation instead of reshuffling it.
                         x: old ? old.x : anchor.x + (rng() - 0.5) * 170,
@@ -5298,6 +5313,22 @@
                         "rgba(255,255,255," + 0.28 * n.op + ")";
                     ctx.lineWidth = 1 / v.k;
                     ctx.stroke();
+
+                    // A theme the visitor added wears a dashed ring, so it is
+                    // recognisable as one's own among the curated ones.
+                    if (n.isCustom) {
+                        ctx.save();
+                        ctx.setLineDash([3.5 / v.k, 3 / v.k]);
+                        ctx.strokeStyle = tmRgba(
+                            tmShade(n.rgb, 0.45),
+                            0.85 * n.op,
+                        );
+                        ctx.lineWidth = 1.3 / v.k;
+                        ctx.beginPath();
+                        ctx.arc(n.x, n.y, r + 4.5 / v.k + 1.5, 0, 6.2832);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
 
                     // Selection halo: a crisp inner ring + a faint outer one
                     if (
@@ -6339,6 +6370,11 @@
                     "')\">" +
                     '<svg style="width:11px;height:11px;vertical-align:-1px;margin-right:4px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
                     "Търси в архива</button>" +
+                    (theme.custom
+                        ? '<button class="group-btn tm-remove-custom" title="Премахни тази тема от картата" onclick="removeCustomTopic(\'' +
+                          escapeAttr(theme.label) +
+                          "')\">&times; Премахни</button>"
+                        : "") +
                     "</div>" +
                     '<div class="tm-panel-body">' +
                     '<div class="tm-sec">' +
@@ -6667,15 +6703,16 @@
                 var count = "...";
                 var dot = "";
                 if (state.status === "ready") {
-                    count =
-                        state.count +
-                        (state.count === 1 ? " еп." : " еп.");
+                    count = state.count + " еп.";
                     dot =
                         '<span class="tdot" style="background:' +
                         state.color +
                         ";color:" +
                         state.color +
                         '"></span>';
+                } else if (state.status === "empty") {
+                    cls += " empty";
+                    count = "не се среща";
                 } else if (state.status === "failed") {
                     cls += " failed";
                     count = "неуспешно";
@@ -6692,7 +6729,9 @@
                     escapeAttr(
                         state.status === "failed"
                             ? state.error || "Темата не можа да се изчисли"
-                            : entry.terms.join(", "),
+                            : state.status === "empty"
+                              ? "Не се среща достатъчно в архива, за да стане тема — щракнете, за да търсите"
+                              : entry.terms.join(", "),
                     ) +
                     '" onclick="openCustomTopic(\'' +
                     escapeAttr(entry.label) +
@@ -6829,6 +6868,42 @@
                 });
             }
 
+            // Fold a scored theme into themesData. A theme that matched no
+            // беседи is kept as a chip — it still searches — but never becomes
+            // a node: an empty circle floating off the constellation would say
+            // nothing. Returns true when the map actually changed.
+            function applyCustomPayload(entry, payload) {
+                if (!payload.theme.count) {
+                    var had =
+                        themesData &&
+                        themesData.themes.some(function (t) {
+                            return t.id === payload.theme.id;
+                        });
+                    if (had) dropCustomTheme(payload.theme.id);
+                    customState[entry.label] = { status: "empty", count: 0 };
+                    renderCustomTopics();
+                    return !!had;
+                }
+                mergeCustomTheme(payload);
+                customState[entry.label] = {
+                    status: "ready",
+                    id: payload.theme.id,
+                    count: payload.theme.count,
+                    color: payload.theme.color,
+                };
+                renderCustomTopics();
+                return true;
+            }
+
+            function scrollMapIntoView() {
+                var wrap = document.getElementById("tm-map-wrap");
+                if (wrap && themeMap && !themeMap.fs)
+                    wrap.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                    });
+            }
+
             // Ask the server to score this theme over the whole archive and
             // fold the result into the live map.
             function computeCustomTheme(entry, focus) {
@@ -6836,28 +6911,25 @@
                 renderCustomTopics();
                 return requestCustomTheme(entry)
                     .then(function (payload) {
-                        mergeCustomTheme(payload);
-                        customState[entry.label] = {
-                            status: "ready",
-                            id: payload.theme.id,
-                            count: payload.theme.count,
-                            color: payload.theme.color,
-                        };
-                        renderCustomTopics();
-                        refreshThemeSurfaces();
-                        if (themeMap)
-                            themeMap.setData(
-                                themesData,
-                                focus ? payload.theme.id : null,
-                            );
+                        var placed = payload.theme.count > 0;
+                        var changed = applyCustomPayload(entry, payload);
+                        if (changed) {
+                            refreshThemeSurfaces();
+                            if (themeMap)
+                                themeMap.setData(
+                                    themesData,
+                                    focus && placed ? payload.theme.id : null,
+                                );
+                        }
                         if (focus) {
-                            if (payload.theme.count === 0) {
+                            if (!placed) {
                                 showToast(
                                     "„" +
                                         entry.label +
-                                        "“ не се среща достатъчно в архива — темата е добавена, но е празна.",
+                                        "“ не се среща достатъчно в архива, за да стане тема.",
                                 );
                             } else {
+                                scrollMapIntoView();
                                 showToast(
                                     "„" +
                                         entry.label +
@@ -6964,14 +7036,7 @@
                     chain = chain.then(function () {
                         return requestCustomTheme(entry)
                             .then(function (payload) {
-                                mergeCustomTheme(payload);
-                                customState[entry.label] = {
-                                    status: "ready",
-                                    id: payload.theme.id,
-                                    count: payload.theme.count,
-                                    color: payload.theme.color,
-                                };
-                                renderCustomTopics();
+                                applyCustomPayload(entry, payload);
                             })
                             .catch(function (err) {
                                 customState[entry.label] = {
