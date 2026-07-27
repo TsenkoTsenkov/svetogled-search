@@ -11,6 +11,9 @@ WORKDIR /app
 
 # Copy application files
 COPY search_app.py .
+# Scoring math for "Мои теми" — search_app.py imports it at startup
+COPY theme_scoring.py .
+COPY themes.json .
 COPY index.html .
 COPY index_to_meili.py .
 COPY transcripts/ ./transcripts/

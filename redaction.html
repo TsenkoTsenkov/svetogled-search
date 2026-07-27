@@ -1,0 +1,1070 @@
+<!doctype html>
+<html lang="bg">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex, nofollow" />
+        <link rel="icon" href="/static/favicon.ico" />
+        <title>Светоглед — режим на редакция</title>
+        <style>
+            @font-face {
+                font-family: "Forum";
+                font-style: normal;
+                font-weight: 400;
+                font-display: swap;
+                src: url(/static/fonts/forum-cyrillic.woff2) format("woff2");
+            }
+            @font-face {
+                font-family: "Literata";
+                font-style: normal;
+                font-weight: 400;
+                font-display: swap;
+                src: url(/static/fonts/literata-cyrillic.woff2) format("woff2");
+            }
+            :root {
+                --font-display: "Forum", Georgia, serif;
+                --font-serif: "Literata", Georgia, serif;
+                --bg: #0a0a0e;
+                --bg-card: #161218;
+                --bg-header: #100c14;
+                --gold: #c8994c;
+                --gold-soft: rgba(200, 153, 76, 0.14);
+                --wine: #6b2038;
+                --text: #e8e4e0;
+                --text-dim: #b8b0a8;
+                --text-dimmer: #8a8078;
+                --line: rgba(255, 255, 255, 0.09);
+                --ok: #7fc7b8;
+                --warn: #e0955f;
+                --bad: #d99aa8;
+            }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family: var(--font-serif);
+                font-size: 15px;
+                line-height: 1.6;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            header {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 10px 18px;
+                background: var(--bg-header);
+                border-bottom: 1px solid var(--line);
+                flex: none;
+            }
+            header h1 {
+                font-family: var(--font-display);
+                font-size: 19px;
+                font-weight: 400;
+                color: var(--gold);
+                letter-spacing: 0.5px;
+            }
+            .repo {
+                font-size: 12px;
+                color: var(--text-dimmer);
+            }
+            .repo b {
+                color: var(--text-dim);
+                font-weight: 400;
+            }
+            .spacer {
+                flex: 1;
+            }
+            button {
+                font-family: var(--font-serif);
+                font-size: 13px;
+                padding: 7px 14px;
+                border-radius: 18px;
+                border: 1px solid var(--line);
+                background: rgba(255, 255, 255, 0.05);
+                color: var(--text);
+                cursor: pointer;
+                transition:
+                    background 0.15s,
+                    border-color 0.15s,
+                    opacity 0.15s;
+            }
+            button:hover:not(:disabled) {
+                background: rgba(255, 255, 255, 0.1);
+                border-color: rgba(200, 153, 76, 0.4);
+            }
+            button:disabled {
+                opacity: 0.4;
+                cursor: default;
+            }
+            button.primary {
+                background: linear-gradient(135deg, var(--wine), #4a1528);
+                border-color: rgba(200, 153, 76, 0.3);
+                color: var(--gold);
+            }
+            button.ghost {
+                background: transparent;
+            }
+            main {
+                flex: 1;
+                display: flex;
+                min-height: 0;
+            }
+            /* ── episode list ── */
+            aside {
+                width: 320px;
+                flex: none;
+                border-right: 1px solid var(--line);
+                display: flex;
+                flex-direction: column;
+                background: #0c0910;
+            }
+            .filter {
+                padding: 10px;
+                border-bottom: 1px solid var(--line);
+            }
+            .filter input {
+                width: 100%;
+                padding: 8px 12px;
+                border-radius: 16px;
+                border: 1px solid var(--line);
+                background: rgba(255, 255, 255, 0.05);
+                color: var(--text);
+                font-family: var(--font-serif);
+                font-size: 13px;
+                outline: none;
+            }
+            .filter input:focus {
+                border-color: rgba(200, 153, 76, 0.45);
+            }
+            .ep-list {
+                overflow-y: auto;
+                flex: 1;
+            }
+            .ep {
+                padding: 9px 14px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+                cursor: pointer;
+                display: flex;
+                gap: 8px;
+                align-items: baseline;
+            }
+            .ep:hover {
+                background: rgba(200, 153, 76, 0.07);
+            }
+            .ep.active {
+                background: var(--gold-soft);
+                border-left: 2px solid var(--gold);
+            }
+            .ep .num {
+                color: var(--gold);
+                font-size: 12px;
+                flex: none;
+                min-width: 34px;
+            }
+            .ep .t {
+                font-size: 13px;
+                line-height: 1.4;
+                color: var(--text-dim);
+            }
+            .ep.active .t {
+                color: var(--text);
+            }
+            .ep .badge {
+                font-size: 10px;
+                color: var(--warn);
+                border: 1px solid rgba(224, 149, 95, 0.5);
+                border-radius: 8px;
+                padding: 0 5px;
+                flex: none;
+            }
+            /* ── editor ── */
+            section.editor {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+            }
+            .ed-head {
+                padding: 12px 24px;
+                border-bottom: 1px solid var(--line);
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                flex: none;
+            }
+            .ed-head h2 {
+                font-family: var(--font-display);
+                font-size: 20px;
+                font-weight: 400;
+            }
+            .ed-head .meta {
+                font-size: 12px;
+                color: var(--text-dimmer);
+            }
+            .ed-head a {
+                color: var(--text-dimmer);
+                font-size: 12px;
+            }
+            .paras {
+                overflow-y: auto;
+                flex: 1;
+                padding: 24px 24px 120px;
+            }
+            .wrap {
+                max-width: 780px;
+                margin: 0 auto;
+            }
+            .para {
+                position: relative;
+                margin-bottom: 14px;
+                padding-left: 62px;
+            }
+            .para .stamp {
+                position: absolute;
+                left: 0;
+                top: 9px;
+                width: 52px;
+                text-align: right;
+                font-size: 11px;
+                color: var(--text-dimmer);
+                opacity: 0.55;
+                font-variant-numeric: tabular-nums;
+                user-select: none;
+            }
+            body.hide-stamps .para .stamp {
+                visibility: hidden;
+            }
+            .para textarea {
+                width: 100%;
+                background: transparent;
+                border: 1px solid transparent;
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: var(--text);
+                font-family: var(--font-serif);
+                font-size: 16px;
+                line-height: 1.75;
+                resize: none;
+                overflow: hidden;
+                outline: none;
+                transition:
+                    background 0.15s,
+                    border-color 0.15s;
+            }
+            .para textarea:hover {
+                background: rgba(255, 255, 255, 0.02);
+            }
+            .para textarea:focus {
+                background: rgba(255, 255, 255, 0.04);
+                border-color: rgba(200, 153, 76, 0.35);
+            }
+            .para.dirty textarea {
+                border-left: 2px solid var(--gold);
+                background: rgba(200, 153, 76, 0.05);
+            }
+            .para .revert {
+                position: absolute;
+                right: -4px;
+                top: 8px;
+                font-size: 11px;
+                color: var(--text-dimmer);
+                background: none;
+                border: none;
+                cursor: pointer;
+                display: none;
+                padding: 2px 6px;
+            }
+            .para.dirty .revert {
+                display: block;
+            }
+            .para .revert:hover {
+                color: var(--gold);
+                background: none;
+            }
+            /* ── status bar ── */
+            .status {
+                flex: none;
+                border-top: 1px solid var(--line);
+                background: var(--bg-header);
+                padding: 9px 18px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                font-size: 12px;
+                color: var(--text-dim);
+            }
+            .status .msg {
+                flex: 1;
+                color: var(--text-dimmer);
+            }
+            .status .msg.ok {
+                color: var(--ok);
+            }
+            .status .msg.bad {
+                color: var(--bad);
+            }
+            .empty {
+                margin: 80px auto;
+                max-width: 460px;
+                text-align: center;
+                color: var(--text-dimmer);
+            }
+            .empty h3 {
+                font-family: var(--font-display);
+                font-size: 22px;
+                font-weight: 400;
+                color: var(--text-dim);
+                margin-bottom: 10px;
+            }
+            /* ── modal ── */
+            .overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(6, 4, 8, 0.78);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                padding: 30px;
+                z-index: 50;
+            }
+            .overlay.open {
+                display: flex;
+            }
+            .modal {
+                background: var(--bg-card);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                width: min(860px, 100%);
+                max-height: 100%;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+            }
+            .modal h3 {
+                font-family: var(--font-display);
+                font-weight: 400;
+                font-size: 20px;
+                padding: 16px 20px;
+                border-bottom: 1px solid var(--line);
+                color: var(--gold);
+            }
+            .modal .body {
+                padding: 18px 20px;
+                overflow-y: auto;
+            }
+            .modal .foot {
+                padding: 14px 20px;
+                border-top: 1px solid var(--line);
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+            .stat-row {
+                display: flex;
+                gap: 18px;
+                flex-wrap: wrap;
+                font-size: 13px;
+                color: var(--text-dim);
+                margin-bottom: 16px;
+            }
+            .stat-row b {
+                color: var(--gold);
+                font-weight: 400;
+            }
+            .dpara {
+                border-left: 2px solid var(--line);
+                padding: 6px 0 6px 14px;
+                margin-bottom: 14px;
+            }
+            .dpara .dstamp {
+                font-size: 11px;
+                color: var(--text-dimmer);
+                margin-bottom: 4px;
+            }
+            ins {
+                background: rgba(127, 199, 184, 0.16);
+                color: #b7e6db;
+                text-decoration: none;
+                border-radius: 3px;
+                padding: 0 2px;
+            }
+            del {
+                background: rgba(192, 100, 120, 0.16);
+                color: #e2a9b5;
+                border-radius: 3px;
+                padding: 0 2px;
+            }
+            label.field {
+                display: block;
+                font-size: 12px;
+                color: var(--text-dimmer);
+                margin: 14px 0 6px;
+            }
+            .modal input[type="text"] {
+                width: 100%;
+                padding: 9px 12px;
+                border-radius: 8px;
+                border: 1px solid var(--line);
+                background: rgba(255, 255, 255, 0.05);
+                color: var(--text);
+                font-family: var(--font-serif);
+                font-size: 14px;
+                outline: none;
+            }
+            .choice {
+                display: flex;
+                gap: 10px;
+                align-items: flex-start;
+                padding: 10px 12px;
+                border: 1px solid var(--line);
+                border-radius: 10px;
+                margin-bottom: 8px;
+                cursor: pointer;
+            }
+            .choice.sel {
+                border-color: rgba(200, 153, 76, 0.5);
+                background: var(--gold-soft);
+            }
+            .choice .h {
+                font-size: 14px;
+            }
+            .choice .d {
+                font-size: 12px;
+                color: var(--text-dimmer);
+                line-height: 1.5;
+            }
+            .note {
+                font-size: 12px;
+                color: var(--text-dimmer);
+                line-height: 1.6;
+            }
+            .result a {
+                color: var(--gold);
+            }
+            .result code {
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                color: var(--text-dim);
+            }
+        </style>
+    </head>
+    <body class="hide-stamps">
+        <header>
+            <h1>Режим на редакция</h1>
+            <span class="repo" id="repo"></span>
+            <span class="spacer"></span>
+            <button class="ghost" id="btn-stamps" title="Показва времената само за ориентир">
+                Покажи времената
+            </button>
+            <button id="btn-save" disabled>Запази чернова</button>
+            <button id="btn-preview" disabled>Прегледай промените</button>
+            <button class="primary" id="btn-publish" disabled>Публикувай</button>
+        </header>
+
+        <main>
+            <aside>
+                <div class="filter">
+                    <input
+                        type="text"
+                        id="filter"
+                        placeholder="Търсете беседа по име или номер…"
+                    />
+                </div>
+                <div class="ep-list" id="ep-list"></div>
+            </aside>
+
+            <section class="editor">
+                <div class="ed-head" id="ed-head" style="display: none">
+                    <h2 id="ed-title"></h2>
+                    <span class="meta" id="ed-meta"></span>
+                    <span class="spacer"></span>
+                    <a id="ed-yt" target="_blank" rel="noopener">YouTube ↗</a>
+                    <a id="ed-site" target="_blank" rel="noopener">В сайта ↗</a>
+                </div>
+                <div class="paras" id="paras">
+                    <div class="empty">
+                        <h3>Изберете беседа</h3>
+                        <p>
+                            Текстът се редактира на абзаци — без времена. След
+                            одобрение промяната отива в GitHub и пайплайнът
+                            преизгражда и преиндексира епизода.
+                        </p>
+                    </div>
+                </div>
+                <div class="status">
+                    <span id="dirty-count">—</span>
+                    <span class="msg" id="msg"></span>
+                    <span id="autosave"></span>
+                </div>
+            </section>
+        </main>
+
+        <div class="overlay" id="overlay">
+            <div class="modal">
+                <h3 id="modal-title">Промени</h3>
+                <div class="body" id="modal-body"></div>
+                <div class="foot" id="modal-foot"></div>
+            </div>
+        </div>
+
+        <script>
+            var state = {
+                episodes: [],
+                current: null, // {video_id, paragraphs, ...}
+                original: {}, // index -> original text
+                edited: {}, // index -> edited text
+                saveTimer: null,
+                ping: null,
+            };
+
+            function el(id) {
+                return document.getElementById(id);
+            }
+            function esc(s) {
+                return String(s).replace(/[&<>"']/g, function (c) {
+                    return {
+                        "&": "&amp;",
+                        "<": "&lt;",
+                        ">": "&gt;",
+                        '"': "&quot;",
+                        "'": "&#39;",
+                    }[c];
+                });
+            }
+            function stamp(sec) {
+                var s = Math.floor(sec || 0);
+                var m = Math.floor(s / 60);
+                return (
+                    String(Math.floor(m / 60)) +
+                    ":" +
+                    String(m % 60).padStart(2, "0") +
+                    ":" +
+                    String(s % 60).padStart(2, "0")
+                );
+            }
+            function say(text, kind) {
+                var m = el("msg");
+                m.textContent = text || "";
+                m.className = "msg" + (kind ? " " + kind : "");
+            }
+
+            function api(path, payload) {
+                var opts = payload
+                    ? {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(payload),
+                      }
+                    : {};
+                return fetch(path, opts).then(function (r) {
+                    return r.json().then(function (body) {
+                        if (!r.ok || body.error)
+                            throw new Error(body.error || "HTTP " + r.status);
+                        return body;
+                    });
+                });
+            }
+
+            // ── episodes ──
+            function loadEpisodes() {
+                api("/api/episodes").then(function (data) {
+                    state.episodes = data.episodes;
+                    renderEpisodes();
+                });
+            }
+
+            function renderEpisodes() {
+                var q = el("filter").value.trim().toLowerCase();
+                var list = state.episodes.filter(function (e) {
+                    if (!q) return true;
+                    return (
+                        e.title.toLowerCase().indexOf(q) !== -1 ||
+                        String(e.episode_number).indexOf(q) !== -1 ||
+                        e.video_id.toLowerCase().indexOf(q) !== -1
+                    );
+                });
+                el("ep-list").innerHTML = list
+                    .map(function (e) {
+                        var active =
+                            state.current &&
+                            state.current.video_id === e.video_id;
+                        return (
+                            '<div class="ep' +
+                            (active ? " active" : "") +
+                            '" data-id="' +
+                            esc(e.video_id) +
+                            '"><span class="num">' +
+                            (e.episode_number || "—") +
+                            '</span><span class="t">' +
+                            esc(e.title) +
+                            "</span>" +
+                            (e.has_draft
+                                ? '<span class="badge">чернова</span>'
+                                : "") +
+                            "</div>"
+                        );
+                    })
+                    .join("");
+            }
+
+            el("filter").addEventListener("input", renderEpisodes);
+            el("ep-list").addEventListener("click", function (ev) {
+                var row = ev.target.closest(".ep");
+                if (row) openEpisode(row.getAttribute("data-id"));
+            });
+
+            // ── editor ──
+            function dirtyEdits() {
+                var out = [];
+                Object.keys(state.edited).forEach(function (i) {
+                    if (state.edited[i] !== state.original[i])
+                        out.push({ index: Number(i), text: state.edited[i] });
+                });
+                return out;
+            }
+
+            function refreshDirty() {
+                var n = dirtyEdits().length;
+                el("dirty-count").textContent = n
+                    ? n + (n === 1 ? " променен абзац" : " променени абзаца")
+                    : "няма промени";
+                el("btn-save").disabled = n === 0;
+                el("btn-preview").disabled = n === 0;
+                el("btn-publish").disabled = n === 0;
+            }
+
+            function openEpisode(id) {
+                if (dirtyEdits().length && state.current &&
+                    state.current.video_id !== id) {
+                    if (!confirm(
+                            "Имате незапазени промени в тази беседа. Да продължим ли?"))
+                        return;
+                }
+                api("/api/episode?id=" + encodeURIComponent(id)).then(
+                    function (data) {
+                        state.current = data;
+                        state.original = {};
+                        state.edited = {};
+                        data.paragraphs.forEach(function (p) {
+                            state.original[p.index] = p.text;
+                            state.edited[p.index] = p.text;
+                        });
+                        if (data.draft && data.draft.edits) {
+                            data.draft.edits.forEach(function (e) {
+                                if (state.original[e.index] !== undefined)
+                                    state.edited[e.index] = e.text;
+                            });
+                            say(
+                                "Заредена е чернова от " + data.draft.saved_at,
+                                "ok",
+                            );
+                        } else {
+                            say("");
+                        }
+                        location.hash = data.video_id;
+                        renderEditor();
+                        renderEpisodes();
+                    },
+                    function (err) {
+                        say(err.message, "bad");
+                    },
+                );
+            }
+
+            function renderEditor() {
+                var d = state.current;
+                el("ed-head").style.display = "flex";
+                el("ed-title").textContent = d.title;
+                el("ed-meta").textContent =
+                    d.paragraphs.length +
+                    " абзаца · " +
+                    d.segment_count +
+                    " сегмента" +
+                    (d.source ? " · " + d.source : "");
+                el("ed-yt").href = d.youtube_url;
+                el("ed-site").href = d.site_url;
+
+                el("paras").innerHTML =
+                    '<div class="wrap">' +
+                    d.paragraphs
+                        .map(function (p) {
+                            var text = state.edited[p.index];
+                            var dirty = text !== state.original[p.index];
+                            return (
+                                '<div class="para' +
+                                (dirty ? " dirty" : "") +
+                                '" data-index="' +
+                                p.index +
+                                '"><span class="stamp">' +
+                                stamp(p.start) +
+                                "</span>" +
+                                '<textarea rows="1" spellcheck="true">' +
+                                esc(text) +
+                                "</textarea>" +
+                                '<button class="revert" title="Върни оригинала">↺</button>' +
+                                "</div>"
+                            );
+                        })
+                        .join("") +
+                    "</div>";
+
+                el("paras")
+                    .querySelectorAll("textarea")
+                    .forEach(function (ta) {
+                        autosize(ta);
+                        ta.addEventListener("input", function () {
+                            var box = ta.closest(".para");
+                            var i = Number(box.getAttribute("data-index"));
+                            state.edited[i] = ta.value;
+                            box.classList.toggle(
+                                "dirty",
+                                ta.value !== state.original[i],
+                            );
+                            autosize(ta);
+                            refreshDirty();
+                            scheduleAutosave();
+                        });
+                    });
+                el("paras")
+                    .querySelectorAll(".revert")
+                    .forEach(function (b) {
+                        b.addEventListener("click", function () {
+                            var box = b.closest(".para");
+                            var i = Number(box.getAttribute("data-index"));
+                            var ta = box.querySelector("textarea");
+                            state.edited[i] = state.original[i];
+                            ta.value = state.original[i];
+                            box.classList.remove("dirty");
+                            autosize(ta);
+                            refreshDirty();
+                            scheduleAutosave();
+                        });
+                    });
+                refreshDirty();
+            }
+
+            function autosize(ta) {
+                ta.style.height = "auto";
+                ta.style.height = ta.scrollHeight + "px";
+            }
+
+            // ── drafts ──
+            function scheduleAutosave() {
+                clearTimeout(state.saveTimer);
+                el("autosave").textContent = "…";
+                state.saveTimer = setTimeout(function () {
+                    saveDraft(true);
+                }, 2500);
+            }
+
+            function saveDraft(quiet) {
+                if (!state.current) return Promise.resolve();
+                var edits = dirtyEdits();
+                if (!edits.length) {
+                    el("autosave").textContent = "";
+                    return api("/api/draft/discard", {
+                        id: state.current.video_id,
+                    }).catch(function () {});
+                }
+                return api("/api/draft", {
+                    id: state.current.video_id,
+                    edits: edits,
+                }).then(
+                    function (r) {
+                        el("autosave").textContent =
+                            "черновата е запазена " +
+                            r.draft.saved_at.slice(11, 16);
+                        if (!quiet) say("Черновата е запазена.", "ok");
+                        var ep = state.episodes.filter(function (e) {
+                            return e.video_id === state.current.video_id;
+                        })[0];
+                        if (ep && !ep.has_draft) {
+                            ep.has_draft = true;
+                            renderEpisodes();
+                        }
+                    },
+                    function (err) {
+                        el("autosave").textContent = "";
+                        say("Черновата не се запази: " + err.message, "bad");
+                    },
+                );
+            }
+
+            // ── preview ──
+            function openModal(title, body, foot) {
+                el("modal-title").textContent = title;
+                el("modal-body").innerHTML = body;
+                el("modal-foot").innerHTML = "";
+                (foot || []).forEach(function (b) {
+                    el("modal-foot").appendChild(b);
+                });
+                el("overlay").classList.add("open");
+            }
+            function closeModal() {
+                el("overlay").classList.remove("open");
+            }
+            el("overlay").addEventListener("click", function (e) {
+                if (e.target === el("overlay")) closeModal();
+            });
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") closeModal();
+                if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+                    e.preventDefault();
+                    saveDraft(false);
+                }
+            });
+
+            function mkButton(label, cls, fn) {
+                var b = document.createElement("button");
+                b.textContent = label;
+                if (cls) b.className = cls;
+                b.addEventListener("click", fn);
+                return b;
+            }
+
+            function diffHtml(diffs) {
+                return diffs
+                    .map(function (d) {
+                        var inner = d.diff
+                            .map(function (part) {
+                                var t = esc(part.text);
+                                if (part.op === "ins") return "<ins>" + t + "</ins>";
+                                if (part.op === "del") return "<del>" + t + "</del>";
+                                return t;
+                            })
+                            .join(" ");
+                        return (
+                            '<div class="dpara"><div class="dstamp">абзац ' +
+                            (d.index + 1) +
+                            " · " +
+                            stamp(d.start) +
+                            "</div>" +
+                            inner +
+                            "</div>"
+                        );
+                    })
+                    .join("");
+            }
+
+            function showPreview(then) {
+                var edits = dirtyEdits();
+                if (!edits.length) return;
+                say("Изчисляване на промените…");
+                api("/api/preview", {
+                    id: state.current.video_id,
+                    edits: edits,
+                }).then(
+                    function (r) {
+                        say("");
+                        var s = r.summary;
+                        var body =
+                            '<div class="stat-row">' +
+                            "<span><b>" +
+                            s.paragraphs_changed +
+                            "</b> " +
+                            (s.paragraphs_changed === 1
+                                ? "променен абзац"
+                                : "променени абзаца") +
+                            "</span>" +
+                            "<span>думи: <b>" +
+                            s.words_before +
+                            "</b> → <b>" +
+                            s.words_after +
+                            "</b></span>" +
+                            "<span>сегменти: <b>" +
+                            s.segments_before +
+                            "</b> → <b>" +
+                            s.segments_after +
+                            "</b></span>" +
+                            "</div>" +
+                            '<p class="note">Времената на сегментите остават същите — променя се само текстът в тях. Празните сегменти отпадат и времето им се слива със съседния.</p><br>' +
+                            diffHtml(r.diffs);
+                        openModal("Преглед на промените", body, [
+                            mkButton("Затвори", "ghost", closeModal),
+                            mkButton("Публикувай…", "primary", function () {
+                                closeModal();
+                                showPublish();
+                            }),
+                        ]);
+                        if (then) then(r);
+                    },
+                    function (err) {
+                        say(err.message, "bad");
+                    },
+                );
+            }
+
+            // ── publish ──
+            function showPublish() {
+                var edits = dirtyEdits();
+                if (!edits.length) return;
+                var branch = state.ping ? state.ping.publish_branch : "main";
+                var title = state.current.title;
+                var body =
+                    '<p class="note">Промяната се записва в <code>transcripts/' +
+                    esc(state.current.video_id) +
+                    ".json</code>, комитва се и се качва в GitHub.</p>" +
+                    '<label class="field">Съобщение на комита</label>' +
+                    '<input type="text" id="commit-msg" value="' +
+                    esc("Редакция на текста: " + title) +
+                    '">' +
+                    '<label class="field">Къде</label>' +
+                    '<div class="choice sel" data-mode="direct"><div><div class="h">Директно в ' +
+                    esc(branch) +
+                    '</div><div class="d">Пайплайнът тръгва веднага: deploy.yml преизгражда сайта и преиндексира Meilisearch, regenerate-themes.yml обновява темите.</div></div></div>' +
+                    '<div class="choice" data-mode="branch"><div><div class="h">В отделен клон + pull request</div><div class="d">Промяната изчаква преглед; пайплайнът тръгва след сливане.</div></div></div>';
+                openModal("Публикуване", body, [
+                    mkButton("Отказ", "ghost", closeModal),
+                    mkButton("Публикувай", "primary", doPublish),
+                ]);
+                el("modal-body")
+                    .querySelectorAll(".choice")
+                    .forEach(function (c) {
+                        c.addEventListener("click", function () {
+                            el("modal-body")
+                                .querySelectorAll(".choice")
+                                .forEach(function (o) {
+                                    o.classList.remove("sel");
+                                });
+                            c.classList.add("sel");
+                        });
+                    });
+            }
+
+            function doPublish() {
+                var sel = el("modal-body").querySelector(".choice.sel");
+                var mode = sel ? sel.getAttribute("data-mode") : "direct";
+                var message = el("commit-msg").value.trim();
+                var edits = dirtyEdits();
+                el("modal-foot")
+                    .querySelectorAll("button")
+                    .forEach(function (b) {
+                        b.disabled = true;
+                    });
+                say("Публикуване…");
+                api("/api/publish", {
+                    id: state.current.video_id,
+                    edits: edits,
+                    message: message,
+                    mode: mode,
+                    confirm: true,
+                }).then(
+                    function (r) {
+                        var lines = [];
+                        if (r.committed)
+                            lines.push(
+                                "Комит <code>" +
+                                    esc(r.commit || "") +
+                                    "</code> в <code>" +
+                                    esc(r.branch || "") +
+                                    "</code>.",
+                            );
+                        if (r.pushed) lines.push("Качено в GitHub.");
+                        if (r.pipeline) lines.push(esc(r.pipeline));
+                        if (r.pull_request_url)
+                            lines.push(
+                                '<a href="' +
+                                    r.pull_request_url +
+                                    '" target="_blank" rel="noopener">Отворете pull request ↗</a>',
+                            );
+                        if (r.actions_url)
+                            lines.push(
+                                '<a href="' +
+                                    r.actions_url +
+                                    '" target="_blank" rel="noopener">Проследете пайплайна ↗</a>',
+                            );
+                        if (r.error) lines.push("<b>" + esc(r.error) + "</b>");
+                        if (r.warning) lines.push(esc(r.warning));
+                        openModal(
+                            r.ok ? "Публикувано" : "Частично публикувано",
+                            '<div class="result note">' +
+                                lines.join("<br><br>") +
+                                "</div>",
+                            [mkButton("Готово", "primary", closeModal)],
+                        );
+                        say(
+                            r.ok
+                                ? "Публикувано."
+                                : "Публикувано частично — вижте съобщението.",
+                            r.ok ? "ok" : "bad",
+                        );
+                        if (r.committed) reloadAfterPublish();
+                    },
+                    function (err) {
+                        openModal(
+                            "Грешка при публикуване",
+                            '<div class="result note">' +
+                                esc(err.message) +
+                                "</div>",
+                            [mkButton("Затвори", "ghost", closeModal)],
+                        );
+                        say(err.message, "bad");
+                    },
+                );
+            }
+
+            function reloadAfterPublish() {
+                var id = state.current.video_id;
+                state.edited = {};
+                state.original = {};
+                api("/api/episodes").then(function (data) {
+                    state.episodes = data.episodes;
+                    renderEpisodes();
+                });
+                api("/api/episode?id=" + encodeURIComponent(id)).then(
+                    function (data) {
+                        state.current = data;
+                        data.paragraphs.forEach(function (p) {
+                            state.original[p.index] = p.text;
+                            state.edited[p.index] = p.text;
+                        });
+                        renderEditor();
+                    },
+                );
+            }
+
+            // ── wiring ──
+            el("btn-save").addEventListener("click", function () {
+                saveDraft(false);
+            });
+            el("btn-preview").addEventListener("click", function () {
+                showPreview();
+            });
+            el("btn-publish").addEventListener("click", showPublish);
+            el("btn-stamps").addEventListener("click", function () {
+                var hidden = document.body.classList.toggle("hide-stamps");
+                el("btn-stamps").textContent = hidden
+                    ? "Покажи времената"
+                    : "Скрий времената";
+            });
+            window.addEventListener("beforeunload", function (e) {
+                if (dirtyEdits().length) {
+                    e.preventDefault();
+                    e.returnValue = "";
+                }
+            });
+
+            api("/api/ping").then(function (p) {
+                state.ping = p;
+                el("repo").innerHTML =
+                    (p.repo ? "<b>" + esc(p.repo) + "</b>" : "локална папка") +
+                    " · клон <b>" +
+                    esc(p.branch || "—") +
+                    "</b> · публикува в <b>" +
+                    esc(p.publish_branch) +
+                    "</b>" +
+                    (p.git ? "" : " · без git");
+            });
+            loadEpisodes();
+            if (location.hash.length > 1)
+                openEpisode(decodeURIComponent(location.hash.slice(1)));
+        </script>
+    </body>
+</html>

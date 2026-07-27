@@ -10,6 +10,7 @@ on:
     paths:
       - 'transcripts/**'
       - 'search_app.py'
+      - 'theme_scoring.py'
       - 'index.html'
       - 'themes.json'
       - 'static/**'
