@@ -15,6 +15,7 @@ No server and no network needed:
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -285,6 +286,94 @@ def test_paragraphs_cover_every_segment():
         assert covered == len(data["snippets"]), (
             f"{fpath.name}: paragraphs cover {covered} of {len(data['snippets'])}"
         )
+
+
+# ── The editor page ──────────────────────────────────────────────────────
+# The keyboard layer lives in redaction.html. Its motions are tested on
+# their own (node test_vim_motions.js); what is checked here is the wiring
+# that node cannot see — that the page still has the elements the script
+# reaches for, and that the keys are the ones documented.
+
+EDITOR_HTML = Path(__file__).parent / "redaction.html"
+
+
+def _editor_page():
+    return EDITOR_HTML.read_text(encoding="utf-8")
+
+
+def _editor_script():
+    html = _editor_page()
+    return html[html.index("<script>") : html.rindex("</script>")]
+
+
+def test_editor_ids_all_exist():
+    """Every el("…") in the script must be an id in the markup."""
+    html = _editor_page()
+    script = _editor_script()
+    wanted = set(re.findall(r'\bel\("([\w-]+)"\)', script))
+    assert wanted, "no el(…) lookups found — did the script move?"
+    have = set(re.findall(r'id="([\w-]+)"', html))
+    missing = sorted(wanted - have)
+    assert not missing, f"script looks up ids the page does not have: {missing}"
+
+
+def test_vim_motion_block_is_marked_and_pure():
+    """test_vim_motions.js lifts this block out; keep it liftable."""
+    script = _editor_script()
+    start = script.find("// ── vim: pure text motions")
+    end = script.find("// ── end vim pure motions")
+    assert start > 0 and end > start, "the pure motion block lost its markers"
+    block = script[start:end]
+    for forbidden in ("document.", "window.", "el(", "vim."):
+        assert forbidden not in block, (
+            f"the motion block reached for {forbidden!r} — it must stay pure "
+            "so it can be tested without a browser"
+        )
+
+
+def test_vim_keys_are_the_documented_ones():
+    """jkl; is the user's layout: left, down, up, right — in that order."""
+    script = _editor_script()
+    layout = re.search(
+        r'"jkl;":\s*\{(.*?)\}', script, re.S
+    )
+    assert layout, "the jkl; layout is gone"
+    body = layout.group(1)
+    for field, key in (
+        ("left", "j"),
+        ("down", "k"),
+        ("up", "l"),
+        ("right", ";"),
+    ):
+        assert re.search(rf'{field}:\s*"{re.escape(key)}"', body), (
+            f"jkl; no longer maps {field} to {key}"
+        )
+    assert '"hjkl"' in script or "hjkl:" in script, "the hjkl fallback is gone"
+
+
+def test_editor_keeps_its_keyboard_wiring():
+    script = _editor_script()
+    for needed in (
+        "vimKeydown",  # the one keyboard entry point
+        "gotoPane",  # Ctrl+j / Ctrl+; between беседи and текст
+        "VimMirror",  # display-row measuring, for k/l on wrapped text
+        "noteParaChange",  # every write still marks the draft dirty
+        "scheduleAutosave",
+    ):
+        assert needed in script, f"{needed} disappeared from the editor"
+    # Normal mode must never let a keystroke reach the text.
+    assert 'addEventListener("beforeinput"' in script, "the typing guard is gone"
+
+
+def test_help_lists_the_keys_it_binds():
+    """Whatever g? claims, the dispatcher must actually answer to."""
+    script = _editor_script()
+    help_block = script[script.index("function vimHelp()") :]
+    help_block = help_block[: help_block.index("// ── vim: wiring")]
+    for claimed in ("gg / G", "n / N", "iw / aw", "v / V", "u / Ctrl+r"):
+        assert claimed in help_block, f"the key list no longer mentions {claimed}"
+    for key in ("Ctrl+s", "/", "esc"):
+        assert key in help_block, f"the key list no longer mentions {key}"
 
 
 def run_all_tests():

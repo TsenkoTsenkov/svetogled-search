@@ -69,6 +69,7 @@
                 font-weight: 400;
                 color: var(--gold);
                 letter-spacing: 0.5px;
+                white-space: nowrap;
             }
             .repo {
                 font-size: 12px;
@@ -86,6 +87,7 @@
                 font-size: 13px;
                 padding: 7px 14px;
                 border-radius: 18px;
+                white-space: nowrap;
                 border: 1px solid var(--line);
                 background: rgba(255, 255, 255, 0.05);
                 color: var(--text);
@@ -220,6 +222,7 @@
             .wrap {
                 max-width: 780px;
                 margin: 0 auto;
+                position: relative; /* the vim caret is laid out against it */
             }
             .para {
                 position: relative;
@@ -287,6 +290,158 @@
             .para .revert:hover {
                 color: var(--gold);
                 background: none;
+            }
+            /* ── vim ── */
+            .para {
+                z-index: 1; /* the block caret paints underneath the text */
+            }
+            .vim-caret {
+                position: absolute;
+                z-index: 0;
+                display: none;
+                border-radius: 2px;
+                background: rgba(200, 153, 76, 0.42);
+                pointer-events: none;
+                transition:
+                    left 0.06s ease-out,
+                    top 0.06s ease-out,
+                    width 0.06s ease-out;
+            }
+            .vim-caret.on {
+                display: block;
+            }
+            .vim-caret.nofade {
+                transition: none;
+            }
+            .vim-caret.thin {
+                background: rgba(200, 153, 76, 0.7);
+                width: 2px !important;
+            }
+            body.vim-block .para textarea {
+                caret-color: transparent;
+            }
+            .para textarea::selection {
+                background: rgba(200, 153, 76, 0.32);
+                color: var(--text);
+            }
+            .para.vis textarea {
+                background: rgba(200, 153, 76, 0.16);
+            }
+            .para.yanked textarea {
+                background: rgba(127, 199, 184, 0.18);
+            }
+            /* The measuring twin: same box, same font, no eyes on it. */
+            .vim-mirror {
+                position: absolute;
+                top: 0;
+                left: -9999px;
+                visibility: hidden;
+                white-space: pre-wrap;
+                overflow-wrap: break-word;
+                word-break: normal;
+                box-sizing: border-box;
+                border-style: solid;
+                border-color: transparent;
+                pointer-events: none;
+                z-index: -1;
+            }
+            .vmode {
+                flex: none;
+                font-size: 10px;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                padding: 2px 8px;
+                border-radius: 10px;
+                border: 1px solid var(--line);
+                color: var(--gold);
+                background: var(--gold-soft);
+                border-color: rgba(200, 153, 76, 0.4);
+            }
+            .vmode.insert {
+                color: var(--ok);
+                background: rgba(127, 199, 184, 0.12);
+                border-color: rgba(127, 199, 184, 0.45);
+            }
+            .vmode.visual {
+                color: var(--warn);
+                background: rgba(224, 149, 95, 0.12);
+                border-color: rgba(224, 149, 95, 0.45);
+            }
+            .keys {
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                color: var(--gold);
+                opacity: 0.75;
+                min-width: 34px;
+                text-align: right;
+            }
+            .seek {
+                display: none;
+                align-items: center;
+                gap: 6px;
+                flex: 2;
+            }
+            .seek.on {
+                display: flex;
+            }
+            .seek .sig {
+                font-family: ui-monospace, monospace;
+                color: var(--gold);
+            }
+            .seek input {
+                flex: 1;
+                background: transparent;
+                border: none;
+                outline: none;
+                color: var(--text);
+                font-family: var(--font-serif);
+                font-size: 13px;
+            }
+            button.act {
+                color: var(--gold);
+                border-color: rgba(200, 153, 76, 0.4);
+                background: var(--gold-soft);
+            }
+            .ep.cursor {
+                background: rgba(200, 153, 76, 0.1);
+                box-shadow: inset 0 0 0 1px rgba(200, 153, 76, 0.35);
+            }
+            aside.pane-on {
+                box-shadow: inset -2px 0 0 rgba(200, 153, 76, 0.55);
+            }
+            aside.pane-on .ep.cursor {
+                background: rgba(200, 153, 76, 0.18);
+                box-shadow: inset 0 0 0 1px rgba(200, 153, 76, 0.7);
+            }
+            #ep-list:focus {
+                outline: none;
+            }
+            .keys-grid {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                gap: 6px 14px;
+                align-items: baseline;
+                font-size: 13px;
+            }
+            .keys-grid kbd {
+                justify-self: start;
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                color: var(--gold);
+                background: rgba(200, 153, 76, 0.1);
+                border: 1px solid rgba(200, 153, 76, 0.28);
+                border-radius: 5px;
+                padding: 1px 6px;
+                white-space: nowrap;
+            }
+            .keys-sec {
+                grid-column: 1 / -1;
+                font-family: var(--font-display);
+                font-size: 15px;
+                color: var(--text-dim);
+                margin-top: 14px;
+                padding-bottom: 4px;
+                border-bottom: 1px solid var(--line);
             }
             /* ── status bar ── */
             .status {
@@ -460,6 +615,16 @@
             <h1>Режим на редакция</h1>
             <span class="repo" id="repo"></span>
             <span class="spacer"></span>
+            <button
+                class="ghost"
+                id="btn-vim"
+                title="Движение с клавиатурата — g? или F1 показва клавишите"
+            >
+                vim
+            </button>
+            <button class="ghost" id="btn-keys" title="Клавишите (g? или F1)">
+                клавиши
+            </button>
             <button class="ghost" id="btn-stamps" title="Показва времената само за ориентир">
                 Покажи времената
             </button>
@@ -477,7 +642,7 @@
                         placeholder="Търсете беседа по име или номер…"
                     />
                 </div>
-                <div class="ep-list" id="ep-list"></div>
+                <div class="ep-list" id="ep-list" tabindex="-1"></div>
             </aside>
 
             <section class="editor">
@@ -499,8 +664,19 @@
                     </div>
                 </div>
                 <div class="status">
+                    <span class="vmode" id="vim-mode" hidden></span>
                     <span id="dirty-count">—</span>
                     <span class="msg" id="msg"></span>
+                    <span class="seek" id="seek">
+                        <span class="sig" id="seek-sig">/</span>
+                        <input
+                            id="seek-input"
+                            spellcheck="false"
+                            autocomplete="off"
+                            aria-label="Търсене в беседата"
+                        />
+                    </span>
+                    <span class="keys" id="vim-keys"></span>
                     <span id="autosave"></span>
                 </div>
             </section>
@@ -590,14 +766,22 @@
                         e.video_id.toLowerCase().indexOf(q) !== -1
                     );
                 });
+                vim.listIds = list.map(function (e) {
+                    return e.video_id;
+                });
+                if (vim.listCursor >= list.length)
+                    vim.listCursor = Math.max(0, list.length - 1);
                 el("ep-list").innerHTML = list
-                    .map(function (e) {
+                    .map(function (e, i) {
                         var active =
                             state.current &&
                             state.current.video_id === e.video_id;
                         return (
                             '<div class="ep' +
                             (active ? " active" : "") +
+                            (i === vim.listCursor && vim.pane === "list"
+                                ? " cursor"
+                                : "") +
                             '" data-id="' +
                             esc(e.video_id) +
                             '"><span class="num">' +
@@ -614,7 +798,11 @@
                     .join("");
             }
 
-            el("filter").addEventListener("input", renderEpisodes);
+            el("filter").addEventListener("input", function () {
+                vim.listCursor = 0;
+                renderEpisodes();
+                listPaint(true);
+            });
             el("ep-list").addEventListener("click", function (ev) {
                 var row = ev.target.closest(".ep");
                 if (row) openEpisode(row.getAttribute("data-id"));
@@ -720,16 +908,12 @@
                     .forEach(function (ta) {
                         autosize(ta);
                         ta.addEventListener("input", function () {
-                            var box = ta.closest(".para");
-                            var i = Number(box.getAttribute("data-index"));
-                            state.edited[i] = ta.value;
-                            box.classList.toggle(
-                                "dirty",
-                                ta.value !== state.original[i],
+                            var i = Number(
+                                ta.closest(".para").getAttribute("data-index"),
                             );
-                            autosize(ta);
-                            refreshDirty();
-                            scheduleAutosave();
+                            noteParaChange(i);
+                            if (vim.mode === "insert")
+                                vim.off = ta.selectionStart;
                         });
                     });
                 el("paras")
@@ -738,16 +922,14 @@
                         b.addEventListener("click", function () {
                             var box = b.closest(".para");
                             var i = Number(box.getAttribute("data-index"));
-                            var ta = box.querySelector("textarea");
-                            state.edited[i] = state.original[i];
-                            ta.value = state.original[i];
-                            box.classList.remove("dirty");
-                            autosize(ta);
-                            refreshDirty();
-                            scheduleAutosave();
+                            beginEdit();
+                            setPara(i, state.original[i]);
+                            commitEdit();
+                            vimSync();
                         });
                     });
                 refreshDirty();
+                vimOnRender();
             }
 
             function autosize(ta) {
@@ -1030,6 +1212,2510 @@
                 );
             }
 
+            // ══ vim ═══════════════════════════════════════════════════════════════
+            //
+            // Keyboard-first редакция. Four things shape this code:
+            //
+            //   1. The motions live on the user's layout: j k l ; = left down up
+            //      right. Every other key follows the same permutation (J is vim's H,
+            //      K is vim's J…), so the muscle memory carries over whole.
+            //   2. A paragraph *is* a line. Transcripts collapse into one long line
+            //      per paragraph, so down/up walk display rows and step into the
+            //      neighbouring paragraph at the edge; with an operator (dk) they go
+            //      back to being linewise over whole paragraphs.
+            //   3. Commands read the physical key, not the character it produced.
+            //      Editing Bulgarian means the keyboard is on кирилица half the time,
+            //      and normal mode has to survive that.
+            //   4. Two panes: беседи | текст. Ctrl+j / Ctrl+; walk between them, and
+            //      the list answers to the same k/l as the text does.
+            //
+            // The engine below is the only thing allowed to write into a textarea
+            // outside of insert mode; everything it writes goes through setPara(),
+            // which is what keeps черновата, the dirty marks and undo in step.
+
+            // ── vim: pure text motions (unit-tested by test_vim_motions.js) ────────
+            var VimText = (function () {
+                var WORDCH = /[\p{L}\p{N}_]/u;
+                var BLANK = /\s/;
+                var SENT_END = /[.!?…]/;
+                var CLOSERS = ")]}\"'“”„»›";
+                var OPENERS = "([{<";
+                var CLOSING = ")]}>";
+                // Bulgarian prose quotes the typographic way; i" falls back to these.
+                var QUOTE_PAIRS = [
+                    ["„", "“"],
+                    ["«", "»"],
+                    ["“", "”"],
+                ];
+
+                /** 0 blank · 1 punctuation · 2 word. `big` folds 1 and 2 together. */
+                function klass(ch, big) {
+                    if (ch === undefined || ch === "") return 0;
+                    if (BLANK.test(ch)) return 0;
+                    if (big) return 1;
+                    return WORDCH.test(ch) ? 2 : 1;
+                }
+
+                function lineStart(t, p) {
+                    if (p <= 0) return 0;
+                    var i = t.lastIndexOf("\n", p - 1);
+                    return i < 0 ? 0 : i + 1;
+                }
+
+                function lineEnd(t, p) {
+                    var i = t.indexOf("\n", Math.max(0, p));
+                    return i < 0 ? t.length : i;
+                }
+
+                function firstNonBlank(t, p) {
+                    var s = lineStart(t, p);
+                    var e = lineEnd(t, p);
+                    while (s < e && BLANK.test(t.charAt(s))) s++;
+                    return s;
+                }
+
+                /** w / W — start of the next word. */
+                function wordFwd(t, p, big) {
+                    var n = t.length;
+                    if (p >= n) return n;
+                    var c = klass(t.charAt(p), big);
+                    while (p < n && c !== 0 && klass(t.charAt(p), big) === c) p++;
+                    while (p < n && klass(t.charAt(p), big) === 0) p++;
+                    return p;
+                }
+
+                /** b / B — start of the word before the cursor. */
+                function wordBack(t, p, big) {
+                    p--;
+                    while (p > 0 && klass(t.charAt(p), big) === 0) p--;
+                    if (p <= 0) return 0;
+                    var c = klass(t.charAt(p), big);
+                    while (p > 0 && klass(t.charAt(p - 1), big) === c) p--;
+                    return p;
+                }
+
+                /** e / E — last character of the word at or after the cursor. */
+                function wordEnd(t, p, big) {
+                    var n = t.length;
+                    if (n === 0) return 0;
+                    p++;
+                    while (p < n && klass(t.charAt(p), big) === 0) p++;
+                    if (p >= n) return n - 1;
+                    var c = klass(t.charAt(p), big);
+                    while (p + 1 < n && klass(t.charAt(p + 1), big) === c) p++;
+                    return p;
+                }
+
+                /** ge / gE — last character of the previous word. */
+                function wordEndBack(t, p, big) {
+                    for (var q = p - 1; q > 0; q--) {
+                        var a = klass(t.charAt(q), big);
+                        if (a !== 0 && a !== klass(t.charAt(q + 1), big)) return q;
+                    }
+                    return 0;
+                }
+
+                /**
+                 * f F t T. Returns -1 when the character is not on the line, so
+                 * the command can fail the vim way — without moving anything.
+                 *
+                 * t standing right in front of its target jumps to the next one
+                 * rather than refusing (vim's `cpo-=;`): otherwise repeating a
+                 * t with ' sticks in place forever.
+                 */
+                function findChar(t, p, ch, backward, till, count) {
+                    var ls = lineStart(t, p);
+                    var le = lineEnd(t, p);
+                    var i = p;
+                    for (var c = 0; c < count; c++) {
+                        var from = backward
+                            ? i - (till && c === 0 ? 2 : 1)
+                            : i + (till && c === 0 ? 2 : 1);
+                        if (from < ls || from > le) return -1;
+                        var k = backward
+                            ? t.lastIndexOf(ch, from)
+                            : t.indexOf(ch, from);
+                        if (k < 0 || k < ls || k >= le) return -1;
+                        i = k;
+                    }
+                    if (till) i = backward ? i + 1 : i - 1;
+                    return i === p ? -1 : i;
+                }
+
+                /** % — the bracket matching the first one at or after the cursor. */
+                function matchPair(t, p) {
+                    var n = t.length;
+                    var le = lineEnd(t, p);
+                    var i = p;
+                    while (
+                        i < le &&
+                        OPENERS.indexOf(t.charAt(i)) < 0 &&
+                        CLOSING.indexOf(t.charAt(i)) < 0
+                    )
+                        i++;
+                    if (i >= le) return -1;
+                    var ch = t.charAt(i);
+                    var oi = OPENERS.indexOf(ch);
+                    var depth = 0;
+                    var j;
+                    if (oi >= 0) {
+                        for (j = i; j < n; j++) {
+                            if (t.charAt(j) === ch) depth++;
+                            else if (t.charAt(j) === CLOSING.charAt(oi)) {
+                                depth--;
+                                if (depth === 0) return j;
+                            }
+                        }
+                        return -1;
+                    }
+                    var ci = CLOSING.indexOf(ch);
+                    for (j = i; j >= 0; j--) {
+                        if (t.charAt(j) === ch) depth++;
+                        else if (t.charAt(j) === OPENERS.charAt(ci)) {
+                            depth--;
+                            if (depth === 0) return j;
+                        }
+                    }
+                    return -1;
+                }
+
+                /**
+                 * Where every sentence in the text begins. A sentence ends on . ! ? …
+                 * plus any closing quotes, then whitespace — the rule vim uses, which
+                 * is also the rule Bulgarian prose follows.
+                 */
+                function sentenceStarts(t) {
+                    var out = [0];
+                    var n = t.length;
+                    for (var i = 0; i < n; i++) {
+                        if (!SENT_END.test(t.charAt(i))) continue;
+                        var j = i + 1;
+                        while (j < n && CLOSERS.indexOf(t.charAt(j)) >= 0) j++;
+                        if (j >= n || !BLANK.test(t.charAt(j))) continue;
+                        while (j < n && BLANK.test(t.charAt(j))) j++;
+                        if (j < n && j !== out[out.length - 1]) out.push(j);
+                        i = j - 1;
+                    }
+                    return out;
+                }
+
+                function sentenceFwd(t, p) {
+                    var starts = sentenceStarts(t);
+                    for (var i = 0; i < starts.length; i++)
+                        if (starts[i] > p) return starts[i];
+                    return t.length;
+                }
+
+                function sentenceBack(t, p) {
+                    var starts = sentenceStarts(t);
+                    var out = 0;
+                    for (var i = 0; i < starts.length; i++)
+                        if (starts[i] < p) out = starts[i];
+                    return out;
+                }
+
+                // ── text objects ──
+                // Each returns {start, end} as a half-open range, or null.
+
+                function wordObject(t, p, inner, big) {
+                    var n = t.length;
+                    if (!n) return null;
+                    if (p >= n) p = n - 1;
+                    var c = klass(t.charAt(p), big);
+                    var s = p;
+                    var e = p;
+                    while (s > 0 && klass(t.charAt(s - 1), big) === c) s--;
+                    while (e + 1 < n && klass(t.charAt(e + 1), big) === c) e++;
+                    if (inner) return { start: s, end: e + 1 };
+                    var e2 = e + 1;
+                    var s2 = s;
+                    var grew = false;
+                    while (e2 < n && klass(t.charAt(e2), big) === 0 && t.charAt(e2) !== "\n") {
+                        e2++;
+                        grew = true;
+                    }
+                    if (!grew)
+                        while (
+                            s2 > 0 &&
+                            klass(t.charAt(s2 - 1), big) === 0 &&
+                            t.charAt(s2 - 1) !== "\n"
+                        )
+                            s2--;
+                    return { start: s2, end: e2 };
+                }
+
+                function sentenceObject(t, p, inner) {
+                    var starts = sentenceStarts(t);
+                    var s = 0;
+                    var e = t.length;
+                    for (var i = 0; i < starts.length; i++) {
+                        if (starts[i] <= p) s = starts[i];
+                        if (starts[i] > p) {
+                            e = starts[i];
+                            break;
+                        }
+                    }
+                    if (inner) while (e > s && BLANK.test(t.charAt(e - 1))) e--;
+                    return { start: s, end: e };
+                }
+
+                function paragraphObject(t, inner) {
+                    var e = t.length;
+                    if (inner) while (e > 0 && BLANK.test(t.charAt(e - 1))) e--;
+                    return { start: 0, end: e };
+                }
+
+                function quoteObject(t, p, q, inner) {
+                    var ls = lineStart(t, p);
+                    var le = lineEnd(t, p);
+                    var idx = [];
+                    for (var i = ls; i < le; i++) if (t.charAt(i) === q) idx.push(i);
+                    for (var k = 0; k + 1 < idx.length; k += 2) {
+                        var a = idx[k];
+                        var b = idx[k + 1];
+                        if (p <= b)
+                            return inner
+                                ? { start: a + 1, end: b }
+                                : { start: a, end: b + 1 };
+                    }
+                    return null;
+                }
+
+                function pairObject(t, p, open, close, inner) {
+                    var n = t.length;
+                    var depth = 0;
+                    var s = -1;
+                    var i;
+                    for (i = p; i >= 0; i--) {
+                        var ch = t.charAt(i);
+                        if (ch === close && i < p) depth++;
+                        else if (ch === open) {
+                            if (depth === 0) {
+                                s = i;
+                                break;
+                            }
+                            depth--;
+                        }
+                    }
+                    if (s < 0) return null;
+                    depth = 0;
+                    for (i = s + 1; i < n; i++) {
+                        if (t.charAt(i) === open) depth++;
+                        else if (t.charAt(i) === close) {
+                            if (depth === 0)
+                                return inner
+                                    ? { start: s + 1, end: i }
+                                    : { start: s, end: i + 1 };
+                            depth--;
+                        }
+                    }
+                    return null;
+                }
+
+                var PAIRS = {
+                    "(": ["(", ")"],
+                    ")": ["(", ")"],
+                    b: ["(", ")"],
+                    "[": ["[", "]"],
+                    "]": ["[", "]"],
+                    "{": ["{", "}"],
+                    "}": ["{", "}"],
+                    B: ["{", "}"],
+                    "<": ["<", ">"],
+                    ">": ["<", ">"],
+                };
+
+                /** iw aw iW aW is as ip ap i" a" i( a( … — one entry point. */
+                function textObject(t, p, key, inner) {
+                    if (key === "w") return wordObject(t, p, inner, false);
+                    if (key === "W") return wordObject(t, p, inner, true);
+                    if (key === "s") return sentenceObject(t, p, inner);
+                    if (key === "p") return paragraphObject(t, inner);
+                    if (key === '"' || key === "'" || key === "`") {
+                        var got = quoteObject(t, p, key, inner);
+                        if (got || key !== '"') return got;
+                        for (var i = 0; i < QUOTE_PAIRS.length; i++) {
+                            got = pairObject(
+                                t,
+                                p,
+                                QUOTE_PAIRS[i][0],
+                                QUOTE_PAIRS[i][1],
+                                inner,
+                            );
+                            if (got) return got;
+                        }
+                        return null;
+                    }
+                    if (PAIRS[key])
+                        return pairObject(t, p, PAIRS[key][0], PAIRS[key][1], inner);
+                    return null;
+                }
+
+                /** Substring search with vim's smartcase: lower case matches anything. */
+                function ignoresCase(pat) {
+                    return pat === pat.toLowerCase();
+                }
+
+                function searchIn(t, pat, from, backward) {
+                    if (!pat) return -1;
+                    var hay = t;
+                    var needle = pat;
+                    if (ignoresCase(pat)) {
+                        hay = t.toLowerCase();
+                        needle = pat.toLowerCase();
+                    }
+                    if (backward) {
+                        if (from < 0) return -1;
+                        return hay.lastIndexOf(needle, from);
+                    }
+                    if (from > t.length) return -1;
+                    return hay.indexOf(needle, Math.max(0, from));
+                }
+
+                /** The word under the cursor — what * and # look for. */
+                function wordAt(t, p) {
+                    var n = t.length;
+                    if (!n) return "";
+                    if (p >= n) p = n - 1;
+                    while (p < n && klass(t.charAt(p), false) !== 2) p++;
+                    if (p >= n) return "";
+                    var o = wordObject(t, p, true, false);
+                    return o ? t.slice(o.start, o.end) : "";
+                }
+
+                function swapCase(s) {
+                    return s.replace(/\p{L}/gu, function (c) {
+                        var up = c.toUpperCase();
+                        return c === up ? c.toLowerCase() : up;
+                    });
+                }
+
+                return {
+                    klass: klass,
+                    lineStart: lineStart,
+                    lineEnd: lineEnd,
+                    firstNonBlank: firstNonBlank,
+                    wordFwd: wordFwd,
+                    wordBack: wordBack,
+                    wordEnd: wordEnd,
+                    wordEndBack: wordEndBack,
+                    findChar: findChar,
+                    matchPair: matchPair,
+                    sentenceStarts: sentenceStarts,
+                    sentenceFwd: sentenceFwd,
+                    sentenceBack: sentenceBack,
+                    textObject: textObject,
+                    wordObject: wordObject,
+                    sentenceObject: sentenceObject,
+                    quoteObject: quoteObject,
+                    pairObject: pairObject,
+                    searchIn: searchIn,
+                    ignoresCase: ignoresCase,
+                    wordAt: wordAt,
+                    swapCase: swapCase,
+                };
+            })();
+            // ── end vim pure motions ──────────────────────────────────────────────
+
+            // ── vim: layout, state ────────────────────────────────────────────────
+            // Both layouts are the same permutation applied to the same keys, so the
+            // help screen and every hint below can be written once and read right in
+            // either one.
+            var VIM_LAYOUTS = {
+                "jkl;": {
+                    left: "j",
+                    down: "k",
+                    up: "l",
+                    right: ";",
+                    high: "J",
+                    join: "K",
+                    low: ":",
+                    again: "'",
+                    back: ",",
+                    label: "j k l ;",
+                },
+                hjkl: {
+                    left: "h",
+                    down: "j",
+                    up: "k",
+                    right: "l",
+                    high: "H",
+                    join: "J",
+                    low: "L",
+                    again: ";",
+                    back: ",",
+                    label: "h j k l",
+                },
+            };
+
+            var vim = {
+                on: true,
+                layout: "jkl;",
+                mode: "normal", // normal · insert · visual · vline
+                para: 0,
+                off: 0,
+                goalX: null, // sticky column for down/up, in pixels
+                anchor: null, // the fixed end of a visual selection
+                count: "",
+                op: null, // pending operator: d c y gu gU g~
+                opCount: "",
+                await: null, // function(key) waiting for the next keystroke
+                awaitArg: false, // …and that key is a letter, not a command
+                listAwait: null, // the same, for the episode list
+                cmd: "", // what the status bar shows as typed so far
+                reg: { text: "", linewise: false },
+                find: null, // last f/F/t/T, for ' and ,
+                search: { pat: "", dir: 1, hist: [], from: null },
+                undo: [],
+                redo: [],
+                edit: null, // the change being assembled
+                insert: null, // {para, before} while in insert mode
+                change: null, // last change, replayed by .
+                changeOpen: false, // …and it is still collecting typed text
+                keys: [], // keys of the command being typed, for .
+                replaying: false,
+                jumps: [],
+                jumpAt: -1,
+                pane: "editor",
+                listCursor: 0,
+                listIds: [],
+                toEditorAfterOpen: false,
+                tas: [], // the textareas, by paragraph index
+                caret: null,
+                caretAt: null, // where the caret was last drawn
+            };
+
+            function LAY() {
+                return VIM_LAYOUTS[vim.layout] || VIM_LAYOUTS["jkl;"];
+            }
+
+            /**
+             * The key as a US keyboard would have produced it.
+             *
+             * Half of this work happens with the keyboard on кирилица, where "j" comes
+             * back as "о". Commands follow the physical key (e.code); only the
+             * arguments of f/t/r and of a search read the character itself.
+             */
+            var VIM_PUNCT = {
+                Semicolon: ";:",
+                Comma: ",<",
+                Period: ".>",
+                Slash: "/?",
+                Quote: "'\"",
+                BracketLeft: "[{",
+                BracketRight: "]}",
+                Backslash: "\\|",
+                Minus: "-_",
+                Equal: "=+",
+                Backquote: "`~",
+            };
+
+            var VIM_MODIFIERS = {
+                Shift: 1,
+                Control: 1,
+                Alt: 1,
+                Meta: 1,
+                CapsLock: 1,
+                Dead: 1,
+                AltGraph: 1,
+                ContextMenu: 1,
+            };
+
+            function physKey(e) {
+                var k = e.key;
+                if (k && k.length === 1) {
+                    var c = k.charCodeAt(0);
+                    if (c > 31 && c < 127) return k;
+                }
+                var code = e.code || "";
+                if (/^Key[A-Z]$/.test(code)) {
+                    var ch = code.charAt(3).toLowerCase();
+                    return e.shiftKey ? ch.toUpperCase() : ch;
+                }
+                if (/^Digit[0-9]$/.test(code)) {
+                    var d = code.charAt(5);
+                    return e.shiftKey ? ")!@#$%^&*(".charAt(Number(d)) : d;
+                }
+                if (VIM_PUNCT[code]) return VIM_PUNCT[code].charAt(e.shiftKey ? 1 : 0);
+                return k;
+            }
+
+            // ── vim: the mirror that knows where a character sits ─────────────────
+            // A textarea will not say where its caret is on screen, and a paragraph
+            // here is one long soft-wrapped line — so down/up have nothing to walk
+            // unless we measure. A hidden div with the same box and the same font
+            // wraps the same way; a Range over it hands back the geometry.
+            var VimMirror = (function () {
+                var host = null;
+                var node = null;
+                var key = "";
+                var lines = { key: "", starts: [0] };
+                var COPY = [
+                    "fontFamily",
+                    "fontSize",
+                    "fontWeight",
+                    "fontStyle",
+                    "lineHeight",
+                    "letterSpacing",
+                    "wordSpacing",
+                    "textIndent",
+                    "textTransform",
+                    "paddingTop",
+                    "paddingRight",
+                    "paddingBottom",
+                    "paddingLeft",
+                    "borderTopWidth",
+                    "borderRightWidth",
+                    "borderBottomWidth",
+                    "borderLeftWidth",
+                ];
+
+                function sync(ta) {
+                    if (!host) {
+                        host = document.createElement("div");
+                        host.className = "vim-mirror";
+                        document.body.appendChild(host);
+                    }
+                    var cs = window.getComputedStyle(ta);
+                    var k =
+                        ta.offsetWidth +
+                        "|" +
+                        cs.fontSize +
+                        "|" +
+                        cs.lineHeight +
+                        "|" +
+                        cs.paddingLeft +
+                        "|" +
+                        ta.value;
+                    if (k === key) return;
+                    key = k;
+                    for (var i = 0; i < COPY.length; i++) host.style[COPY[i]] = cs[COPY[i]];
+                    host.style.width = ta.offsetWidth + "px";
+                    // The zero-width space gives the position after the last character
+                    // something to measure.
+                    host.textContent = ta.value + "\u200b";
+                    node = host.firstChild;
+                }
+
+                /** Where character `i` is, relative to the textarea's own border box. */
+                function rectAt(ta, i) {
+                    sync(ta);
+                    var n = node.nodeValue.length;
+                    i = Math.max(0, Math.min(n - 1, i));
+                    var range = document.createRange();
+                    range.setStart(node, i);
+                    range.setEnd(node, i + 1);
+                    var rects = range.getClientRects();
+                    var b = rects.length ? rects[0] : range.getBoundingClientRect();
+                    var o = host.getBoundingClientRect();
+                    return {
+                        left: b.left - o.left,
+                        top: b.top - o.top,
+                        width: b.width,
+                        height: b.height,
+                    };
+                }
+
+                /** Where every display row of this textarea begins. */
+                function starts(ta) {
+                    sync(ta);
+                    if (lines.key === key) return lines.starts;
+                    var n = ta.value.length;
+                    var out = [0];
+                    var at = 0;
+                    var top = rectAt(ta, 0).top;
+                    while (at < n) {
+                        // Tops only ever grow with the index, so the first character of
+                        // the next row is one bisection away.
+                        var lo = at + 1;
+                        var hi = n;
+                        var found = -1;
+                        while (lo <= hi) {
+                            var mid = (lo + hi) >> 1;
+                            if (rectAt(ta, mid).top > top + 1) {
+                                found = mid;
+                                hi = mid - 1;
+                            } else lo = mid + 1;
+                        }
+                        if (found < 0) break;
+                        out.push(found);
+                        at = found;
+                        top = rectAt(ta, found).top;
+                    }
+                    lines = { key: key, starts: out };
+                    return out;
+                }
+
+                function drop() {
+                    key = "";
+                    lines = { key: "", starts: [0] };
+                }
+
+                return { rectAt: rectAt, starts: starts, drop: drop };
+            })();
+
+            // ── vim: paragraphs, cursor, caret ────────────────────────────────────
+
+            function paraCount() {
+                return vim.tas.length;
+            }
+
+            function paraText(i) {
+                var ta = vim.tas[i];
+                return ta ? ta.value : "";
+            }
+
+            function paraBox(i) {
+                var ta = vim.tas[i];
+                return ta ? ta.parentNode : null;
+            }
+
+            /** The rule for how far right the cursor may sit, per mode. */
+            function maxOff(i) {
+                var len = paraText(i).length;
+                return vim.mode === "insert" ? len : Math.max(0, len - 1);
+            }
+
+            function dispLine(ta, off) {
+                var s = VimMirror.starts(ta);
+                var i = 0;
+                while (i + 1 < s.length && s[i + 1] <= off) i++;
+                return i;
+            }
+
+            function lineRange(ta, row) {
+                var s = VimMirror.starts(ta);
+                return {
+                    start: s[row],
+                    end: row + 1 < s.length ? s[row + 1] : ta.value.length,
+                };
+            }
+
+            /** The offset on display row `row` closest to pixel column `x`. */
+            function offAtX(ta, row, x) {
+                var r = lineRange(ta, row);
+                var last = r.end;
+                if (last > r.start && last < ta.value.length) last--; // the wrapping space
+                var best = r.start;
+                var bestD = Infinity;
+                for (var i = r.start; i <= last; i++) {
+                    var d = Math.abs(VimMirror.rectAt(ta, i).left - x);
+                    if (d <= bestD) {
+                        bestD = d;
+                        best = i;
+                    } else break; // columns only grow along a row
+                }
+                return best;
+            }
+
+            function setCursor(p, o, keepGoal) {
+                if (!paraCount()) return;
+                p = Math.max(0, Math.min(paraCount() - 1, p));
+                vim.para = p;
+                vim.off = Math.max(0, Math.min(maxOff(p), o));
+                if (!keepGoal) vim.goalX = null;
+                focusPara(p);
+                vimSync();
+            }
+
+            function focusPara(p) {
+                var ta = vim.tas[p];
+                if (!ta || vim.pane !== "editor") return;
+                // While / is open the prompt holds the keyboard: the cursor
+                // walks the matches, the typing stays in the prompt.
+                if (el("seek").classList.contains("on")) return;
+                if (document.activeElement !== ta)
+                    ta.focus({ preventScroll: true });
+            }
+
+            /** Selection, block caret, mode badge, scroll — everything the eye reads. */
+            function vimSync() {
+                var ta = vim.tas[vim.para];
+                if (!ta) {
+                    vimBadge();
+                    return;
+                }
+                if (vim.mode === "visual" || vim.mode === "vline") {
+                    paintVisual();
+                } else if (vim.mode !== "insert" && document.activeElement === ta) {
+                    ta.setSelectionRange(vim.off, vim.off);
+                }
+                drawCaret();
+                ensureVisible();
+                vimBadge();
+            }
+
+            function drawCaret() {
+                var caret = vim.caret;
+                if (!caret) return;
+                var ta = vim.tas[vim.para];
+                if (
+                    !ta ||
+                    !vim.on ||
+                    vim.mode === "insert" ||
+                    vim.pane !== "editor"
+                ) {
+                    caret.classList.remove("on");
+                    vim.caretAt = null;
+                    return;
+                }
+                var box = paraBox(vim.para);
+                var r = VimMirror.rectAt(ta, vim.off);
+                var wide =
+                    r.width ||
+                    parseFloat(window.getComputedStyle(ta).fontSize) * 0.5;
+                var top = box.offsetTop + ta.offsetTop + r.top;
+                // The caret glides between neighbouring characters, but a jump
+                // across the беседа should simply be *there*.
+                var was = vim.caretAt;
+                caret.classList.toggle(
+                    "nofade",
+                    !was ||
+                        was.para !== vim.para ||
+                        Math.abs(top - was.pageTop) > 3 * (r.height || 20),
+                );
+                caret.style.left = box.offsetLeft + ta.offsetLeft + r.left + "px";
+                caret.style.top = top + "px";
+                caret.style.width = Math.max(3, wide) + "px";
+                caret.style.height = (r.height || 20) + "px";
+                caret.classList.add("on");
+                caret.classList.toggle(
+                    "thin",
+                    vim.mode === "visual" || vim.mode === "vline",
+                );
+                // Kept for ensureVisible: reading the caret's own rect mid
+                // transition would answer with where it used to be.
+                vim.caretAt = {
+                    para: vim.para,
+                    pageTop: top,
+                    inTextarea: r.top,
+                    height: r.height || 20,
+                };
+            }
+
+            /** Keep the cursor on screen; `where` centres it (zz) or pins it (zt/zb). */
+            function ensureVisible(where) {
+                var pane = el("paras");
+                var at = vim.caretAt;
+                var ta = at ? vim.tas[at.para] : null;
+                if (!pane || !at || !ta) return;
+                // Measured off the textarea, which never animates.
+                var box = ta.getBoundingClientRect();
+                var c = {
+                    top: box.top + at.inTextarea,
+                    bottom: box.top + at.inTextarea + at.height,
+                    height: at.height,
+                };
+                var p = pane.getBoundingClientRect();
+                var margin = c.height * 2.5;
+                if (where === "center") pane.scrollTop += c.top - p.top - (p.height - c.height) / 2;
+                else if (where === "top") pane.scrollTop += c.top - p.top - margin;
+                else if (where === "bottom") pane.scrollTop += c.bottom - p.bottom + margin;
+                else if (c.top < p.top + margin) pane.scrollTop += c.top - p.top - margin;
+                else if (c.bottom > p.bottom - margin)
+                    pane.scrollTop += c.bottom - p.bottom + margin;
+            }
+
+            function vimBadge() {
+                var badge = el("vim-mode");
+                var names = {
+                    normal: "нормален",
+                    insert: "вмъкване",
+                    visual: "визуален",
+                    vline: "визуален ред",
+                };
+                badge.hidden = !vim.on;
+                badge.textContent = vim.on ? names[vim.mode] : "";
+                badge.className = "vmode " + (vim.mode === "vline" ? "visual" : vim.mode);
+                el("vim-keys").textContent =
+                    vim.on && vim.mode !== "insert" ? vim.cmd : "";
+                document.body.classList.toggle(
+                    "vim-block",
+                    vim.on && vim.mode !== "insert",
+                );
+            }
+
+            // ── vim: the visual selection ─────────────────────────────────────────
+
+            /** Both ends of the selection, in reading order. */
+            function visualRange() {
+                var a = vim.anchor || { para: vim.para, off: vim.off };
+                var b = { para: vim.para, off: vim.off };
+                if (a.para > b.para || (a.para === b.para && a.off > b.off)) {
+                    var t = a;
+                    a = b;
+                    b = t;
+                }
+                if (vim.mode === "vline")
+                    return {
+                        from: { para: a.para, off: 0 },
+                        to: { para: b.para, off: paraText(b.para).length },
+                        kind: "line",
+                    };
+                return {
+                    from: a,
+                    to: { para: b.para, off: Math.min(paraText(b.para).length, b.off + 1) },
+                    kind: "excl",
+                };
+            }
+
+            function paintVisual() {
+                var r = visualRange();
+                for (var i = 0; i < vim.tas.length; i++) {
+                    var box = paraBox(i);
+                    var inside = i >= r.from.para && i <= r.to.para;
+                    box.classList.toggle(
+                        "vis",
+                        inside && (vim.mode === "vline" || i > r.from.para) && i < r.to.para,
+                    );
+                    if (!inside) continue;
+                    var s = i === r.from.para ? r.from.off : 0;
+                    var e = i === r.to.para ? r.to.off : paraText(i).length;
+                    try {
+                        vim.tas[i].setSelectionRange(s, e);
+                    } catch (err) {
+                        /* a textarea can refuse while it is being rebuilt */
+                    }
+                }
+            }
+
+            function clearVisual() {
+                for (var i = 0; i < vim.tas.length; i++) paraBox(i).classList.remove("vis");
+            }
+
+            // ── vim: writing into the text ────────────────────────────────────────
+
+            /** Everything the editor already does when a paragraph changes. */
+            function noteParaChange(i) {
+                var ta = vim.tas[i];
+                if (!ta) return;
+                var box = ta.parentNode;
+                state.edited[i] = ta.value;
+                box.classList.toggle("dirty", ta.value !== state.original[i]);
+                autosize(ta);
+                refreshDirty();
+                scheduleAutosave();
+            }
+
+            function setPara(i, text) {
+                var ta = vim.tas[i];
+                if (!ta || ta.value === text) return;
+                touch(i);
+                ta.value = text;
+                noteParaChange(i);
+                VimMirror.drop();
+            }
+
+            function beginEdit() {
+                if (!vim.edit)
+                    vim.edit = { before: {}, cursor: { para: vim.para, off: vim.off } };
+            }
+
+            function touch(i) {
+                if (vim.edit && !(i in vim.edit.before)) vim.edit.before[i] = paraText(i);
+            }
+
+            function commitEdit() {
+                if (!vim.edit) return;
+                var e = vim.edit;
+                vim.edit = null;
+                var changes = [];
+                Object.keys(e.before).forEach(function (k) {
+                    var i = Number(k);
+                    if (e.before[k] !== paraText(i))
+                        changes.push({ i: i, before: e.before[k], after: paraText(i) });
+                });
+                if (!changes.length) return;
+                vim.undo.push({
+                    changes: changes,
+                    // Undo puts the cursor on the change, the way vim does —
+                    // not back where the command happened to start.
+                    before: {
+                        para: changes[0].i,
+                        off: commonHead(changes[0].before, changes[0].after),
+                    },
+                    after: { para: vim.para, off: vim.off },
+                });
+                if (vim.undo.length > 300) vim.undo.shift();
+                vim.redo = [];
+            }
+
+            /** Where two versions of a paragraph first part ways. */
+            function commonHead(a, b) {
+                var i = 0;
+                while (i < a.length && i < b.length && a.charAt(i) === b.charAt(i))
+                    i++;
+                return i;
+            }
+
+            function undoStep(redo) {
+                var from = redo ? vim.redo : vim.undo;
+                var to = redo ? vim.undo : vim.redo;
+                var e = from.pop();
+                if (!e) {
+                    say(redo ? "Няма какво да се повтори." : "Няма какво да се върне.");
+                    return;
+                }
+                e.changes.forEach(function (c) {
+                    var ta = vim.tas[c.i];
+                    if (!ta) return;
+                    ta.value = redo ? c.after : c.before;
+                    noteParaChange(c.i);
+                });
+                VimMirror.drop();
+                to.push(e);
+                var at = redo ? e.after : e.before;
+                setCursor(at.para, at.off);
+                say(
+                    e.changes.length +
+                        (e.changes.length === 1 ? " абзац " : " абзаца ") +
+                        (redo ? "напред." : "назад."),
+                );
+            }
+
+            function yankTo(text, linewise) {
+                vim.reg = { text: text, linewise: !!linewise };
+                if (navigator.clipboard && text)
+                    try {
+                        navigator.clipboard.writeText(text);
+                    } catch (e) {
+                        /* the browser may refuse; the internal register still has it */
+                    }
+            }
+
+            function flashYank(slices) {
+                slices.forEach(function (s) {
+                    var box = paraBox(s.para);
+                    if (!box) return;
+                    box.classList.add("yanked");
+                    setTimeout(function () {
+                        box.classList.remove("yanked");
+                    }, 260);
+                });
+            }
+
+            /** Insert at the cursor and stay there (used by p, . and the repeat of i). */
+            function insertAt(i, off, text) {
+                var t = paraText(i);
+                setPara(i, t.slice(0, off) + text + t.slice(off));
+            }
+
+            // ── vim: motions over the whole беседа ────────────────────────────────
+            // A motion answers with {para, off, kind}. `kind` is what an operator
+            // needs to know: excl(usive), incl(usive) or line(wise).
+
+            function moveVert(dir, count) {
+                var p = vim.para;
+                var o = vim.off;
+                var ta = vim.tas[p];
+                if (!ta) return;
+                if (vim.goalX === null) vim.goalX = VimMirror.rectAt(ta, o).left;
+                var x = vim.goalX;
+                for (var c = 0; c < count; c++) {
+                    var row = dispLine(ta, o);
+                    var rows = VimMirror.starts(ta).length;
+                    if (dir > 0) {
+                        if (row + 1 < rows) o = offAtX(ta, row + 1, x);
+                        else if (p + 1 < paraCount()) {
+                            p++;
+                            ta = vim.tas[p];
+                            o = offAtX(ta, 0, x);
+                        } else {
+                            o = Math.max(0, ta.value.length - 1);
+                            break;
+                        }
+                    } else {
+                        if (row > 0) o = offAtX(ta, row - 1, x);
+                        else if (p > 0) {
+                            p--;
+                            ta = vim.tas[p];
+                            o = offAtX(ta, VimMirror.starts(ta).length - 1, x);
+                        } else {
+                            o = 0;
+                            break;
+                        }
+                    }
+                }
+                setCursor(p, o, true);
+            }
+
+            /** The paragraph whose text is at the top / middle / bottom of the view. */
+            function paraAtViewport(which) {
+                var pane = el("paras");
+                var p = pane.getBoundingClientRect();
+                var y =
+                    which === "high"
+                        ? p.top + 8
+                        : which === "low"
+                          ? p.bottom - 8
+                          : p.top + p.height / 2;
+                var best = vim.para;
+                for (var i = 0; i < vim.tas.length; i++) {
+                    var r = vim.tas[i].getBoundingClientRect();
+                    if (r.bottom >= y) {
+                        best = i;
+                        break;
+                    }
+                    best = i;
+                }
+                return best;
+            }
+
+            function motionFor(k, count, forOp, counted) {
+                var L = LAY();
+                var t = paraText(vim.para);
+                var p = vim.para;
+                var o = vim.off;
+                var n = t.length;
+                var big = k === "W" || k === "B" || k === "E";
+                var i;
+
+                switch (k) {
+                    case L.left:
+                    case "ArrowLeft":
+                    case "Backspace":
+                        return { para: p, off: Math.max(0, o - count), kind: "excl" };
+                    case L.right:
+                    case "ArrowRight":
+                    case " ":
+                        return { para: p, off: Math.min(n, o + count), kind: "excl" };
+                    case L.down:
+                    case "ArrowDown":
+                        return {
+                            para: Math.min(paraCount() - 1, p + count),
+                            off: 0,
+                            kind: "line",
+                        };
+                    case L.up:
+                    case "ArrowUp":
+                        return { para: Math.max(0, p - count), off: 0, kind: "line" };
+                    case "0":
+                        return { para: p, off: VimText.lineStart(t, o), kind: "excl" };
+                    case "^":
+                        return { para: p, off: VimText.firstNonBlank(t, o), kind: "excl" };
+                    case "$":
+                        for (i = 1; i < count; i++)
+                            o = Math.min(n, VimText.lineEnd(t, o) + 1);
+                        return { para: p, off: VimText.lineEnd(t, o), kind: "excl" };
+                    case "w":
+                    case "W":
+                        for (i = 0; i < count; i++) {
+                            var nx = VimText.wordFwd(t, o, big);
+                            if (nx >= t.length && !forOp && p + 1 < paraCount()) {
+                                p++;
+                                t = paraText(p);
+                                o = VimText.firstNonBlank(t, 0);
+                            } else o = nx;
+                        }
+                        return { para: p, off: o, kind: "excl" };
+                    case "b":
+                    case "B":
+                        for (i = 0; i < count; i++) {
+                            if (o === 0 && !forOp && p > 0) {
+                                p--;
+                                t = paraText(p);
+                                o = VimText.wordBack(t, t.length, big);
+                            } else o = VimText.wordBack(t, o, big);
+                        }
+                        return { para: p, off: o, kind: "excl" };
+                    case "e":
+                    case "E":
+                        for (i = 0; i < count; i++) {
+                            var ne = VimText.wordEnd(t, o, big);
+                            if (ne <= o && !forOp && p + 1 < paraCount()) {
+                                p++;
+                                t = paraText(p);
+                                o = VimText.wordEnd(t, -1, big);
+                            } else o = ne;
+                        }
+                        return { para: p, off: o, kind: "incl" };
+                    case "{":
+                        return {
+                            para: Math.max(0, p - count),
+                            off: 0,
+                            kind: "excl",
+                            jump: true,
+                        };
+                    case "}":
+                        return {
+                            para: Math.min(paraCount() - 1, p + count),
+                            off: 0,
+                            kind: "excl",
+                            jump: true,
+                        };
+                    case ")":
+                        for (i = 0; i < count; i++) {
+                            var sf = VimText.sentenceFwd(t, o);
+                            if (sf >= n && p + 1 < paraCount() && !forOp) {
+                                p++;
+                                t = paraText(p);
+                                o = 0;
+                            } else o = sf;
+                        }
+                        return { para: p, off: o, kind: "excl" };
+                    case "(":
+                        for (i = 0; i < count; i++) {
+                            if (o === 0 && p > 0 && !forOp) {
+                                p--;
+                                t = paraText(p);
+                                o = VimText.sentenceBack(t, t.length);
+                            } else o = VimText.sentenceBack(t, o);
+                        }
+                        return { para: p, off: o, kind: "excl" };
+                    case "%":
+                        i = VimText.matchPair(t, o);
+                        return i < 0 ? null : { para: p, off: i, kind: "incl", jump: true };
+                    case "G":
+                        return {
+                            para: counted
+                                ? Math.min(paraCount() - 1, count - 1)
+                                : paraCount() - 1,
+                            off: 0,
+                            kind: "line",
+                            jump: true,
+                        };
+                    case L.high:
+                        return { para: paraAtViewport("high"), off: 0, kind: "line", jump: true };
+                    case "M":
+                        return { para: paraAtViewport("mid"), off: 0, kind: "line", jump: true };
+                    case L.low:
+                        return { para: paraAtViewport("low"), off: 0, kind: "line", jump: true };
+                    case "Enter":
+                        return {
+                            para: Math.min(paraCount() - 1, p + count),
+                            off: 0,
+                            kind: "line",
+                        };
+                    default:
+                        return null;
+                }
+            }
+
+            /** f F t T and their repeats. */
+            function findMotion(ch, backward, till, count) {
+                var t = paraText(vim.para);
+                var i = VimText.findChar(t, vim.off, ch, backward, till, count);
+                if (i < 0) {
+                    say("Няма „" + ch + "“ в този абзац.", "bad");
+                    return null;
+                }
+                return { para: vim.para, off: i, kind: backward ? "excl" : "incl" };
+            }
+
+            // ── vim: operators ────────────────────────────────────────────────────
+
+            function sliceRange(from, to, linewise) {
+                var out = [];
+                var i;
+                if (linewise) {
+                    for (i = from.para; i <= to.para; i++)
+                        out.push({ para: i, start: 0, end: paraText(i).length });
+                    return out;
+                }
+                if (from.para === to.para)
+                    return [{ para: from.para, start: from.off, end: to.off }];
+                out.push({
+                    para: from.para,
+                    start: from.off,
+                    end: paraText(from.para).length,
+                });
+                for (i = from.para + 1; i < to.para; i++)
+                    out.push({ para: i, start: 0, end: paraText(i).length });
+                out.push({ para: to.para, start: 0, end: to.off });
+                return out;
+            }
+
+            function sliceText(slices) {
+                return slices
+                    .map(function (s) {
+                        return paraText(s.para).slice(s.start, s.end);
+                    })
+                    .join("\n");
+            }
+
+            function applyOp(op, a, b, kind) {
+                var from = a;
+                var to = b;
+                if (from.para > to.para || (from.para === to.para && from.off > to.off)) {
+                    from = b;
+                    to = a;
+                }
+                if (kind === "incl")
+                    to = {
+                        para: to.para,
+                        off: Math.min(paraText(to.para).length, to.off + 1),
+                    };
+                var linewise = kind === "line";
+                var slices = sliceRange(from, to, linewise);
+                var text = sliceText(slices);
+                vim.op = null;
+                vim.opCount = "";
+                leaveVisual();
+
+                if (op === "y") {
+                    yankTo(text, linewise);
+                    flashYank(slices);
+                    setCursor(from.para, linewise ? vim.off : from.off);
+                    say(
+                        linewise
+                            ? slices.length + (slices.length === 1 ? " абзац" : " абзаца") + " в паметта."
+                            : text.split(/\s+/).filter(Boolean).length + " думи в паметта.",
+                    );
+                    return true;
+                }
+                if (op === "gu" || op === "gU" || op === "g~") {
+                    markChange();
+                    beginEdit();
+                    slices.forEach(function (s) {
+                        var t = paraText(s.para);
+                        var mid = t.slice(s.start, s.end);
+                        mid =
+                            op === "gu"
+                                ? mid.toLowerCase()
+                                : op === "gU"
+                                  ? mid.toUpperCase()
+                                  : VimText.swapCase(mid);
+                        setPara(s.para, t.slice(0, s.start) + mid + t.slice(s.end));
+                    });
+                    commitEdit();
+                    setCursor(from.para, from.off);
+                    return true;
+                }
+                // d and c
+                markChange();
+                yankTo(text, linewise && op === "d");
+                beginEdit();
+                for (var j = slices.length - 1; j >= 0; j--) {
+                    var s = slices[j];
+                    var t0 = paraText(s.para);
+                    setPara(s.para, t0.slice(0, s.start) + t0.slice(s.end));
+                }
+                setCursor(from.para, linewise ? 0 : from.off);
+                // Insert may sit one past the last character; the normal-mode clamp in
+                // setCursor may not, so c re-places the cursor after switching modes.
+                if (op === "c") enterInsert(linewise ? 0 : from.off);
+                else commitEdit();
+                return true;
+            }
+
+            // ── vim: insert mode ──────────────────────────────────────────────────
+
+            function enterInsert(at) {
+                beginEdit();
+                touch(vim.para);
+                vim.mode = "insert";
+                if (at !== undefined)
+                    vim.off = Math.max(0, Math.min(paraText(vim.para).length, at));
+                vim.insert = { para: vim.para, before: paraText(vim.para) };
+                var ta = vim.tas[vim.para];
+                if (ta) {
+                    ta.focus({ preventScroll: true });
+                    ta.setSelectionRange(vim.off, vim.off);
+                }
+                clearVisual();
+                vimBadge();
+                drawCaret();
+            }
+
+            function leaveInsert() {
+                if (vim.mode !== "insert") return;
+                var ta = vim.tas[vim.para];
+                var off = ta ? ta.selectionStart : vim.off;
+                if (vim.insert && vim.changeOpen && vim.change) {
+                    var a = vim.insert.before;
+                    var b = paraText(vim.insert.para);
+                    var s = 0;
+                    while (s < a.length && s < b.length && a.charAt(s) === b.charAt(s)) s++;
+                    var t = 0;
+                    while (
+                        t < a.length - s &&
+                        t < b.length - s &&
+                        a.charAt(a.length - 1 - t) === b.charAt(b.length - 1 - t)
+                    )
+                        t++;
+                    vim.change.insert = b.slice(s, b.length - t);
+                }
+                vim.insert = null;
+                vim.changeOpen = false;
+                vim.mode = "normal";
+                commitEdit();
+                setCursor(vim.para, Math.max(0, off - 1));
+            }
+
+            function leaveVisual() {
+                if (vim.mode === "visual" || vim.mode === "vline") {
+                    vim.mode = "normal";
+                    vim.anchor = null;
+                    clearVisual();
+                }
+            }
+
+            // ── vim: the dot ──────────────────────────────────────────────────────
+
+            function markChange() {
+                if (vim.replaying) return;
+                vim.change = { keys: vim.keys.slice(), insert: null };
+                vim.changeOpen = true;
+            }
+
+            function repeatChange() {
+                var c = vim.change;
+                if (!c || !c.keys.length) {
+                    say("Няма какво да се повтори.");
+                    return;
+                }
+                vim.replaying = true;
+                try {
+                    for (var i = 0; i < c.keys.length; i++) dispatch(c.keys[i], null);
+                    if (vim.mode === "insert") {
+                        if (c.insert) {
+                            insertAt(vim.para, vim.off, c.insert);
+                            setCursor(vim.para, vim.off + c.insert.length);
+                        }
+                        leaveInsert();
+                    }
+                } finally {
+                    vim.replaying = false;
+                    vim.await = null;
+                    vim.op = null;
+                }
+            }
+
+            // ── vim: search ───────────────────────────────────────────────────────
+
+            function findMatch(pat, start, backward) {
+                var n = paraCount();
+                if (!n || !pat) return null;
+                var i, idx, from;
+                for (var step = 0; step <= n; step++) {
+                    if (!backward) {
+                        i = (start.para + step) % n;
+                        from = step === 0 ? start.off : 0;
+                        idx = VimText.searchIn(paraText(i), pat, from, false);
+                    } else {
+                        i = ((start.para - step) % n + n) % n;
+                        from = step === 0 ? start.off : paraText(i).length;
+                        idx = VimText.searchIn(paraText(i), pat, from, true);
+                    }
+                    if (idx >= 0)
+                        return {
+                            para: i,
+                            off: idx,
+                            wrapped: backward ? i > start.para : step > 0 && i <= start.para,
+                        };
+                }
+                return null;
+            }
+
+            function jumpToMatch(hit, pat, quiet) {
+                if (!hit) {
+                    if (!quiet) say("Няма „" + pat + "“ в тази беседа.", "bad");
+                    return false;
+                }
+                setCursor(hit.para, hit.off);
+                var ta = vim.tas[hit.para];
+                if (ta) ta.setSelectionRange(hit.off, hit.off + pat.length);
+                ensureVisible("center");
+                if (!quiet)
+                    say(
+                        hit.wrapped
+                            ? "…и продължава от другия край."
+                            : "абзац " + (hit.para + 1) + " от " + paraCount(),
+                    );
+                return true;
+            }
+
+            function seekOpen(dir) {
+                if (!paraCount()) return;
+                vim.search.dir = dir;
+                vim.search.from = { para: vim.para, off: vim.off };
+                vim.search.histAt = -1;
+                el("seek-sig").textContent = dir > 0 ? "/" : "?";
+                el("seek").classList.add("on");
+                var input = el("seek-input");
+                input.value = "";
+                input.focus();
+                vimBadge();
+            }
+
+            function seekClose(cancel) {
+                var pat = el("seek-input").value;
+                el("seek").classList.remove("on");
+                el("seek-input").blur();
+                if (cancel || !pat) {
+                    var f = vim.search.from;
+                    if (f) setCursor(f.para, f.off);
+                    say("");
+                } else {
+                    vim.search.pat = pat;
+                    if (vim.search.hist[vim.search.hist.length - 1] !== pat)
+                        vim.search.hist.push(pat);
+                    jumpToMatch(
+                        findMatch(pat, vim.search.from, vim.search.dir < 0),
+                        pat,
+                        false,
+                    );
+                }
+                focusPara(vim.para);
+                vimSync();
+            }
+
+            function seekLive() {
+                var pat = el("seek-input").value;
+                if (!pat) {
+                    var f = vim.search.from;
+                    if (f) setCursor(f.para, f.off);
+                    return;
+                }
+                var start = vim.search.from;
+                if (vim.search.dir > 0)
+                    start = { para: start.para, off: start.off + 1 };
+                else start = { para: start.para, off: Math.max(0, start.off - 1) };
+                jumpToMatch(findMatch(pat, start, vim.search.dir < 0), pat, true);
+            }
+
+            function seekNext(back) {
+                var pat = vim.search.pat;
+                if (!pat) {
+                    say("Още не е търсено нищо.");
+                    return;
+                }
+                var backward = back ? vim.search.dir > 0 : vim.search.dir < 0;
+                var start = backward
+                    ? { para: vim.para, off: vim.off - 1 }
+                    : { para: vim.para, off: vim.off + 1 };
+                jumpToMatch(findMatch(pat, start, backward), pat, false);
+            }
+
+            function seekWord(back) {
+                var w = VimText.wordAt(paraText(vim.para), vim.off);
+                if (!w) return;
+                vim.search.pat = w;
+                vim.search.dir = back ? -1 : 1;
+                seekNext(false);
+            }
+
+            // ── vim: the jump list ────────────────────────────────────────────────
+
+            function pushJump() {
+                vim.jumps = vim.jumps.slice(0, vim.jumpAt + 1);
+                vim.jumps.push({ para: vim.para, off: vim.off });
+                if (vim.jumps.length > 60) vim.jumps.shift();
+                vim.jumpAt = vim.jumps.length;
+            }
+
+            function jumpBack(forward) {
+                if (forward) {
+                    if (vim.jumpAt >= vim.jumps.length - 1) return;
+                    vim.jumpAt++;
+                } else {
+                    if (vim.jumpAt <= 0) return;
+                    if (vim.jumpAt >= vim.jumps.length) {
+                        vim.jumps.push({ para: vim.para, off: vim.off });
+                        vim.jumpAt = vim.jumps.length - 1;
+                    }
+                    vim.jumpAt--;
+                }
+                var at = vim.jumps[vim.jumpAt];
+                if (at) {
+                    setCursor(at.para, at.off);
+                    ensureVisible("center");
+                }
+            }
+
+            // ── vim: the commands ─────────────────────────────────────────────────
+
+            function vimEscape() {
+                if (vim.mode === "insert") return leaveInsert();
+                if (vim.mode === "visual" || vim.mode === "vline") {
+                    leaveVisual();
+                    vimSync();
+                    return;
+                }
+                vim.count = "";
+                vim.op = null;
+                vim.opCount = "";
+                vim.await = null;
+                vim.awaitArg = false;
+                vim.keys = [];
+                say("");
+                vimSync();
+            }
+
+            function awaitChar(fn) {
+                vim.await = fn;
+                vim.awaitArg = true;
+            }
+
+            function doPaste(after, count) {
+                if (!vim.reg.text) {
+                    say("Паметта е празна.");
+                    return true;
+                }
+                var text = "";
+                for (var i = 0; i < count; i++) text += vim.reg.text;
+                markChange();
+                beginEdit();
+                var t = paraText(vim.para);
+                if (vim.reg.linewise) {
+                    var at = after
+                        ? VimText.lineEnd(t, vim.off)
+                        : VimText.lineStart(t, vim.off);
+                    setPara(
+                        vim.para,
+                        t.slice(0, at) + (after ? "\n" + text : text + "\n") + t.slice(at),
+                    );
+                    setCursor(vim.para, at + (after ? 1 : 0));
+                } else {
+                    var at2 = after ? Math.min(t.length, vim.off + 1) : vim.off;
+                    setPara(vim.para, t.slice(0, at2) + text + t.slice(at2));
+                    setCursor(vim.para, at2 + text.length - 1);
+                }
+                commitEdit();
+                return true;
+            }
+
+            /**
+             * K — join. Inside a paragraph it joins its lines; at the end of one it
+             * pulls the next paragraph in. That second case moves words across a time
+             * boundary, so it says so.
+             */
+            function doJoin(count) {
+                markChange();
+                beginEdit();
+                for (var c = 0; c < Math.max(1, count - 1); c++) {
+                    var t = paraText(vim.para);
+                    var le = VimText.lineEnd(t, vim.off);
+                    if (le < t.length) {
+                        var rest = t.slice(le + 1).replace(/^\s+/, "");
+                        setPara(vim.para, t.slice(0, le) + " " + rest);
+                        setCursor(vim.para, le);
+                    } else if (vim.para + 1 < paraCount()) {
+                        var next = paraText(vim.para + 1).trim();
+                        var head = t.replace(/\s+$/, "");
+                        setPara(vim.para, next ? head + " " + next : head);
+                        setPara(vim.para + 1, "");
+                        setCursor(vim.para, Math.max(0, head.length));
+                        say("Следващият абзац е слят в този — времената му остават без думи.");
+                    } else break;
+                }
+                commitEdit();
+                return true;
+            }
+
+            /** U — the ↺ button: this paragraph as the transcript had it. */
+            function revertPara() {
+                var orig = state.original[vim.para];
+                if (orig === undefined || orig === paraText(vim.para)) {
+                    say("Абзацът е непроменен.");
+                    return true;
+                }
+                markChange();
+                beginEdit();
+                setPara(vim.para, orig);
+                commitEdit();
+                setCursor(vim.para, Math.min(vim.off, Math.max(0, orig.length - 1)));
+                say("Абзацът е върнат в оригинала.", "ok");
+                return true;
+            }
+
+            function scrollPage(frac, dir) {
+                var ta = vim.tas[vim.para];
+                if (!ta) return true;
+                var lh = VimMirror.rectAt(ta, 0).height || 24;
+                var rows = Math.max(1, Math.round((el("paras").clientHeight * frac) / lh));
+                moveVert(dir, rows);
+                ensureVisible("center");
+                return true;
+            }
+
+            function ctrlCommand(k) {
+                switch (k) {
+                    case "r":
+                        undoStep(true);
+                        return true;
+                    case "d":
+                        return scrollPage(0.5, 1);
+                    case "u":
+                        return scrollPage(0.5, -1);
+                    case "f":
+                        return scrollPage(0.9, 1);
+                    case "b":
+                        return scrollPage(0.9, -1);
+                    case "o":
+                        jumpBack(false);
+                        return true;
+                    case "i":
+                        jumpBack(true);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+
+            /** One keystroke of normal or visual mode. */
+            function dispatch(k, e) {
+                var L = LAY();
+                var ctrl = !!(e && e.ctrlKey && !e.metaKey && !e.altKey);
+                var vis = vim.mode === "visual" || vim.mode === "vline";
+                var i;
+
+                if (vim.await) {
+                    var fn = vim.await;
+                    var wantChar = vim.awaitArg;
+                    vim.await = null;
+                    vim.awaitArg = false;
+                    var arg = wantChar && e && e.key && e.key.length === 1 ? e.key : k;
+                    return fn(arg, e) !== false;
+                }
+                if (k === "Escape") {
+                    vimEscape();
+                    return true;
+                }
+                if (ctrl) {
+                    if (k === "[") {
+                        vimEscape();
+                        return true;
+                    }
+                    return ctrlCommand(k);
+                }
+                if (/[1-9]/.test(k) || (k === "0" && vim.count !== "")) {
+                    vim.count += k;
+                    return true;
+                }
+
+                var counted = vim.count !== "";
+                var count = counted ? Math.max(1, parseInt(vim.count, 10)) : 1;
+                vim.count = "";
+                if (vim.op && vim.opCount) count *= Number(vim.opCount);
+
+                // ── operators ──
+                if (k === "d" || k === "c" || k === "y") {
+                    if (vis) {
+                        var r = visualRange();
+                        return applyOp(k, r.from, r.to, r.kind);
+                    }
+                    if (vim.op === k) {
+                        var last = Math.min(paraCount() - 1, vim.para + count - 1);
+                        return applyOp(
+                            k,
+                            { para: vim.para, off: 0 },
+                            { para: last, off: 0 },
+                            "line",
+                        );
+                    }
+                    if (vim.op) {
+                        vim.op = null;
+                        vim.opCount = "";
+                        return true;
+                    }
+                    vim.op = k;
+                    vim.opCount = String(count);
+                    return true;
+                }
+                if ((k === "i" || k === "a") && (vim.op || vis)) {
+                    var inner = k === "i";
+                    vim.await = function (key) {
+                        var obj = VimText.textObject(
+                            paraText(vim.para),
+                            vim.off,
+                            key,
+                            inner,
+                        );
+                        if (!obj) {
+                            vim.op = null;
+                            say("Тук няма такъв обект.");
+                            return true;
+                        }
+                        if (vis) {
+                            vim.anchor = { para: vim.para, off: obj.start };
+                            setCursor(vim.para, Math.max(obj.start, obj.end - 1));
+                            return true;
+                        }
+                        return applyOp(
+                            vim.op,
+                            { para: vim.para, off: obj.start },
+                            { para: vim.para, off: obj.end },
+                            "excl",
+                        );
+                    };
+                    return true;
+                }
+
+                // ── entering insert ──
+                if (!vim.op && !vis) {
+                    if (k === "i" || k === "a" || k === "I" || k === "A") {
+                        var t0 = paraText(vim.para);
+                        var at =
+                            k === "i"
+                                ? vim.off
+                                : k === "a"
+                                  ? vim.off + (t0.length ? 1 : 0)
+                                  : k === "I"
+                                    ? VimText.firstNonBlank(t0, vim.off)
+                                    : VimText.lineEnd(t0, vim.off);
+                        markChange();
+                        enterInsert(at);
+                        return true;
+                    }
+                    if (k === "o" || k === "O") {
+                        var t1 = paraText(vim.para);
+                        var pos =
+                            k === "o"
+                                ? VimText.lineEnd(t1, vim.off)
+                                : VimText.lineStart(t1, vim.off);
+                        markChange();
+                        beginEdit();
+                        setPara(
+                            vim.para,
+                            t1.slice(0, pos) + "\n" + t1.slice(pos),
+                        );
+                        enterInsert(k === "o" ? pos + 1 : pos);
+                        return true;
+                    }
+                }
+
+                // ── small edits ──
+                if (k === "x" || k === "X" || k === "s") {
+                    if (vis) return applyOpVisual(k === "s" ? "c" : "d");
+                    var t2 = paraText(vim.para);
+                    var from =
+                        k === "X"
+                            ? { para: vim.para, off: Math.max(0, vim.off - count) }
+                            : { para: vim.para, off: vim.off };
+                    var to =
+                        k === "X"
+                            ? { para: vim.para, off: vim.off }
+                            : { para: vim.para, off: Math.min(t2.length, vim.off + count) };
+                    if (from.off === to.off) return true;
+                    applyOp(k === "s" ? "c" : "d", from, to, "excl");
+                    return true;
+                }
+                if (k === "S") {
+                    vim.op = "c";
+                    vim.opCount = String(count);
+                    return dispatch("c", e);
+                }
+                if (k === "D" || k === "C") {
+                    var t3 = paraText(vim.para);
+                    return applyOp(
+                        k === "D" ? "d" : "c",
+                        { para: vim.para, off: vim.off },
+                        { para: vim.para, off: VimText.lineEnd(t3, vim.off) },
+                        "excl",
+                    );
+                }
+                if (k === "Y") {
+                    return applyOp(
+                        "y",
+                        { para: vim.para, off: 0 },
+                        { para: Math.min(paraCount() - 1, vim.para + count - 1), off: 0 },
+                        "line",
+                    );
+                }
+                if (k === "p" || k === "P") {
+                    if (vis) {
+                        var rv = visualRange();
+                        var held = { text: vim.reg.text, linewise: vim.reg.linewise };
+                        applyOp("d", rv.from, rv.to, rv.kind);
+                        vim.reg = held;
+                        return doPaste(false, count);
+                    }
+                    return doPaste(k === "p", count);
+                }
+                if (k === "r") {
+                    awaitChar(function (ch) {
+                        if (!ch || ch.length !== 1) return true;
+                        markChange();
+                        beginEdit();
+                        if (vis) {
+                            var rr = visualRange();
+                            sliceRange(rr.from, rr.to, rr.kind === "line").forEach(
+                                function (s) {
+                                    var tt = paraText(s.para);
+                                    var mid = tt
+                                        .slice(s.start, s.end)
+                                        .replace(/[^\n]/g, ch);
+                                    setPara(
+                                        s.para,
+                                        tt.slice(0, s.start) + mid + tt.slice(s.end),
+                                    );
+                                },
+                            );
+                            leaveVisual();
+                            setCursor(rr.from.para, rr.from.off);
+                        } else {
+                            var t4 = paraText(vim.para);
+                            if (vim.off + count > t4.length) return true;
+                            var rep = new Array(count + 1).join(ch);
+                            setPara(
+                                vim.para,
+                                t4.slice(0, vim.off) + rep + t4.slice(vim.off + count),
+                            );
+                            setCursor(vim.para, vim.off + count - 1);
+                        }
+                        commitEdit();
+                        return true;
+                    });
+                    return true;
+                }
+                if (k === "~") {
+                    if (vis) return applyOpVisual("g~");
+                    var t5 = paraText(vim.para);
+                    var end = Math.min(t5.length, vim.off + count);
+                    markChange();
+                    beginEdit();
+                    setPara(
+                        vim.para,
+                        t5.slice(0, vim.off) +
+                            VimText.swapCase(t5.slice(vim.off, end)) +
+                            t5.slice(end),
+                    );
+                    commitEdit();
+                    setCursor(vim.para, end);
+                    return true;
+                }
+                if (vis && (k === "u" || k === "U")) return applyOpVisual(k === "u" ? "gu" : "gU");
+                if (k === "u") {
+                    undoStep(false);
+                    return true;
+                }
+                if (k === "U") return revertPara();
+                if (k === L.join) return doJoin(count);
+                if (k === ".") {
+                    repeatChange();
+                    return true;
+                }
+
+                // ── visual mode ──
+                if (k === "v" || k === "V") {
+                    var want = k === "v" ? "visual" : "vline";
+                    if (vim.mode === want) {
+                        leaveVisual();
+                        vimSync();
+                    } else {
+                        vim.anchor = vis ? vim.anchor : { para: vim.para, off: vim.off };
+                        vim.mode = want;
+                        vimSync();
+                    }
+                    return true;
+                }
+                if (vis && k === "o") {
+                    var a = vim.anchor;
+                    vim.anchor = { para: vim.para, off: vim.off };
+                    setCursor(a.para, a.off);
+                    return true;
+                }
+
+                // ── search ──
+                if (k === "/" || k === "?") {
+                    seekOpen(k === "/" ? 1 : -1);
+                    return true;
+                }
+                if (k === "n" || k === "N") {
+                    seekNext(k === "N");
+                    return true;
+                }
+                if (k === "*" || k === "#") {
+                    seekWord(k === "#");
+                    return true;
+                }
+
+                // ── f F t T and their repeats ──
+                if (k === "f" || k === "F" || k === "t" || k === "T") {
+                    var backward = k === "F" || k === "T";
+                    var till = k === "t" || k === "T";
+                    awaitChar(function (ch) {
+                        if (!ch || ch.length !== 1) return true;
+                        vim.find = { ch: ch, backward: backward, till: till };
+                        var m = findMotion(ch, backward, till, count);
+                        if (!m) {
+                            vim.op = null;
+                            return true;
+                        }
+                        return finishMotion(m);
+                    });
+                    return true;
+                }
+                if ((k === L.again || k === L.back) && vim.find) {
+                    var f = vim.find;
+                    var flip = k === L.back;
+                    var m2 = findMotion(
+                        f.ch,
+                        flip ? !f.backward : f.backward,
+                        f.till,
+                        count,
+                    );
+                    if (!m2) {
+                        vim.op = null;
+                        return true;
+                    }
+                    return finishMotion(m2);
+                }
+
+                // ── g… and z… ──
+                if (k === "g") {
+                    vim.await = function (key) {
+                        if (key === "g") {
+                            var target = counted
+                                ? Math.min(paraCount() - 1, count - 1)
+                                : 0;
+                            return finishMotion({
+                                para: target,
+                                off: 0,
+                                kind: "line",
+                                jump: true,
+                            });
+                        }
+                        if (key === "e" || key === "E") {
+                            var t6 = paraText(vim.para);
+                            var o6 = vim.off;
+                            for (i = 0; i < count; i++)
+                                o6 = VimText.wordEndBack(t6, o6, key === "E");
+                            return finishMotion({
+                                para: vim.para,
+                                off: o6,
+                                kind: "incl",
+                            });
+                        }
+                        if (key === "u" || key === "U" || key === "~") {
+                            var op = "g" + (key === "~" ? "~" : key);
+                            if (vis) return applyOpVisual(op);
+                            vim.op = op;
+                            vim.opCount = String(count);
+                            return true;
+                        }
+                        if (key === "?") {
+                            vimHelp();
+                            return true;
+                        }
+                        vim.op = null;
+                        return true;
+                    };
+                    return true;
+                }
+                if (k === "z") {
+                    vim.await = function (key) {
+                        if (key === "z") ensureVisible("center");
+                        else if (key === "t") ensureVisible("top");
+                        else if (key === "b") ensureVisible("bottom");
+                        return true;
+                    };
+                    return true;
+                }
+
+                // ── plain movement ──
+                if (!vim.op && (k === L.down || k === "ArrowDown")) {
+                    moveVert(1, count);
+                    return true;
+                }
+                if (!vim.op && (k === L.up || k === "ArrowUp")) {
+                    moveVert(-1, count);
+                    return true;
+                }
+                if (k === "G" && !counted) {
+                    return finishMotion({
+                        para: paraCount() - 1,
+                        off: 0,
+                        kind: "line",
+                        jump: true,
+                    });
+                }
+                // vim's one deliberate inconsistency: cw on a word changes
+                // the word, not the space after it — it behaves like ce.
+                var mk = k;
+                if (
+                    vim.op === "c" &&
+                    (k === "w" || k === "W") &&
+                    VimText.klass(
+                        paraText(vim.para).charAt(vim.off),
+                        k === "W",
+                    ) !== 0
+                )
+                    mk = k === "w" ? "e" : "E";
+                var m3 = motionFor(mk, count, !!vim.op, counted);
+                if (m3) return finishMotion(m3);
+                if (vim.op) {
+                    vim.op = null;
+                    vim.opCount = "";
+                }
+                return false;
+            }
+
+            function applyOpVisual(op) {
+                var r = visualRange();
+                return applyOp(op, r.from, r.to, r.kind);
+            }
+
+            /** A motion either moves the cursor or feeds the pending operator. */
+            function finishMotion(m) {
+                if (vim.op) return applyOp(vim.op, { para: vim.para, off: vim.off }, m, m.kind);
+                if (m.jump) pushJump();
+                setCursor(m.para, m.off);
+                return true;
+            }
+
+            function handleKey(k, e) {
+                if (!vim.replaying)
+                    vim.keys.push(
+                        vim.awaitArg && e && e.key && e.key.length === 1 ? e.key : k,
+                    );
+                var handled = dispatch(k, e);
+                if (
+                    !vim.await &&
+                    !vim.op &&
+                    vim.count === "" &&
+                    vim.mode !== "insert" &&
+                    !vim.replaying
+                )
+                    vim.keys = [];
+                vim.cmd = vim.keys.join("");
+                vimBadge();
+                return handled;
+            }
+
+            // ── vim: панели ───────────────────────────────────────────────────────
+
+            function paneClasses() {
+                document
+                    .querySelector("aside")
+                    .classList.toggle("pane-on", vim.pane === "list");
+                document
+                    .querySelector("section.editor")
+                    .classList.toggle("pane-on", vim.pane === "editor");
+            }
+
+            function gotoPane(which) {
+                if (el("seek").classList.contains("on")) seekClose(true);
+                vim.pane = which;
+                paneClasses();
+                if (which === "list") {
+                    if (vim.mode === "insert") leaveInsert();
+                    var ta = vim.tas[vim.para];
+                    if (ta) ta.blur();
+                    el("filter").blur();
+                    el("ep-list").focus({ preventScroll: true });
+                    listSyncToOpen();
+                    listPaint(true);
+                    drawCaret();
+                    say("беседи · " + LAY().down + "/" + LAY().up + " движение · enter отваря · / търси");
+                } else {
+                    listPaint(false);
+                    focusPara(vim.para);
+                    vimSync();
+                    say("");
+                }
+            }
+
+            function listSyncToOpen() {
+                if (!state.current) return;
+                var at = vim.listIds.indexOf(state.current.video_id);
+                if (at >= 0) vim.listCursor = at;
+            }
+
+            function listPaint(scroll) {
+                var list = el("ep-list");
+                var rows = list.querySelectorAll(".ep");
+                for (var i = 0; i < rows.length; i++)
+                    rows[i].classList.toggle(
+                        "cursor",
+                        i === vim.listCursor && vim.pane === "list",
+                    );
+                var row = rows[vim.listCursor];
+                if (row && scroll) {
+                    var box = list.getBoundingClientRect();
+                    var r = row.getBoundingClientRect();
+                    if (r.top < box.top) list.scrollTop += r.top - box.top - 8;
+                    else if (r.bottom > box.bottom)
+                        list.scrollTop += r.bottom - box.bottom + 8;
+                }
+            }
+
+            function listGo(i) {
+                if (!vim.listIds.length) return;
+                vim.listCursor = Math.max(0, Math.min(vim.listIds.length - 1, i));
+                listPaint(true);
+            }
+
+            function openCursorEpisode() {
+                var id = vim.listIds[vim.listCursor];
+                if (!id) return;
+                vim.toEditorAfterOpen = true;
+                if (state.current && state.current.video_id === id) {
+                    gotoPane("editor");
+                    vim.toEditorAfterOpen = false;
+                    return;
+                }
+                openEpisode(id);
+            }
+
+            function listKeys(e, k) {
+                var L = LAY();
+                var handled = true;
+                if (vim.listAwait) {
+                    var fn = vim.listAwait;
+                    vim.listAwait = null;
+                    fn(k);
+                } else if (k === L.down || e.key === "ArrowDown")
+                    listGo(vim.listCursor + (e.ctrlKey ? 8 : 1));
+                else if (k === L.up || e.key === "ArrowUp")
+                    listGo(vim.listCursor - (e.ctrlKey ? 8 : 1));
+                else if (e.ctrlKey && k === "d") listGo(vim.listCursor + 8);
+                else if (e.ctrlKey && k === "u") listGo(vim.listCursor - 8);
+                else if (k === "g")
+                    vim.listAwait = function (x) {
+                        if (x === "g") listGo(0);
+                    };
+                else if (k === "G") listGo(vim.listIds.length - 1);
+                else if (k === "/") {
+                    el("filter").focus();
+                    el("filter").select();
+                } else if (e.key === "Enter" || k === "o" || k === L.right)
+                    openCursorEpisode();
+                else if (e.key === "Escape") {
+                    if (el("filter").value) {
+                        el("filter").value = "";
+                        vim.listCursor = 0;
+                        renderEpisodes();
+                        listPaint(true);
+                    } else gotoPane("editor");
+                } else handled = false;
+                if (handled) e.preventDefault();
+            }
+
+            function filterKeys(e) {
+                if (e.key === "Escape") {
+                    e.preventDefault();
+                    gotoPane("list");
+                } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    openCursorEpisode();
+                } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    listGo(vim.listCursor + 1);
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    listGo(vim.listCursor - 1);
+                }
+            }
+
+            // ── vim: keyboard entry point ─────────────────────────────────────────
+
+            function vimKeydown(e) {
+                if (e.isComposing) return;
+                // Shift on its way to $ or V is not a keystroke of its own —
+                // letting it through would cancel every pending d, g or f.
+                if (VIM_MODIFIERS[e.key]) return;
+                var k = physKey(e);
+                var ctrl = e.ctrlKey && !e.metaKey && !e.altKey;
+                var L = LAY();
+
+                if (el("overlay").classList.contains("open")) return; // the modal owns it
+
+                // Panes answer from anywhere — insert mode, the filter, the list.
+                if (ctrl && (k === L.left || k === L.right)) {
+                    e.preventDefault();
+                    gotoPane(k === L.left ? "list" : "editor");
+                    return;
+                }
+                if ((e.metaKey || e.ctrlKey) && (k === "z" || k === "Z") && vim.on) {
+                    if (!paraCount()) return;
+                    e.preventDefault();
+                    undoStep(k === "Z" || e.shiftKey);
+                    return;
+                }
+                if (e.target === el("seek-input")) return; // has its own handlers
+                if (e.target === el("filter")) return filterKeys(e);
+                if (vim.pane === "list") return listKeys(e, k);
+                if (!vim.on || !paraCount()) return;
+                if (vim.mode === "insert") {
+                    if (e.key === "Escape" || (ctrl && k === "[")) {
+                        e.preventDefault();
+                        leaveInsert();
+                    }
+                    return;
+                }
+                if (e.metaKey || e.altKey) return; // ⌘/alt combos stay the browser's
+
+                var handled = handleKey(k, e);
+                if (
+                    handled ||
+                    (!ctrl && e.key && e.key.length === 1) ||
+                    e.key === "Enter" ||
+                    e.key === "Backspace" ||
+                    e.key === "Tab"
+                )
+                    e.preventDefault();
+            }
+
+            // ── vim: rendering hooks ──────────────────────────────────────────────
+
+            function vimOnRender() {
+                var wrap = el("paras").querySelector(".wrap");
+                vim.tas = [];
+                vim.caret = null;
+                if (wrap) {
+                    Array.prototype.forEach.call(
+                        wrap.querySelectorAll(".para"),
+                        function (box) {
+                            vim.tas[Number(box.getAttribute("data-index"))] =
+                                box.querySelector("textarea");
+                        },
+                    );
+                    var caret = document.createElement("div");
+                    caret.className = "vim-caret";
+                    wrap.appendChild(caret);
+                    vim.caret = caret;
+                }
+                vim.mode = "normal";
+                vim.op = null;
+                vim.opCount = "";
+                vim.await = null;
+                vim.awaitArg = false;
+                vim.count = "";
+                vim.keys = [];
+                vim.anchor = null;
+                vim.undo = [];
+                vim.redo = [];
+                vim.edit = null;
+                vim.insert = null;
+                vim.jumps = [];
+                vim.jumpAt = -1;
+                vim.para = 0;
+                vim.off = 0;
+                vim.goalX = null;
+                VimMirror.drop();
+                if (vim.toEditorAfterOpen) {
+                    vim.toEditorAfterOpen = false;
+                    gotoPane("editor");
+                } else if (vim.pane === "editor") {
+                    focusPara(0);
+                }
+                vimSync();
+            }
+
+            // ── vim: on / off, layout, help ───────────────────────────────────────
+
+            function vimStore(key, value) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (err) {
+                    /* private mode; the setting simply will not stick */
+                }
+            }
+
+            function setVim(on) {
+                vim.on = on;
+                vimStore("redakcia:vim", on ? "1" : "0");
+                el("btn-vim").textContent = on
+                    ? "vim · " + LAY().label.replace(/ /g, "")
+                    : "vim изключен";
+                el("btn-vim").classList.toggle("act", on);
+                if (!on) {
+                    leaveVisual();
+                    if (vim.mode === "insert") vim.mode = "normal";
+                }
+                vimBadge();
+                if (on && vim.pane === "editor") {
+                    focusPara(vim.para);
+                    vimSync();
+                } else drawCaret();
+            }
+
+            function setLayout(name) {
+                if (!VIM_LAYOUTS[name]) return;
+                vim.layout = name;
+                vimStore("redakcia:vim-layout", name);
+                setVim(vim.on);
+                say("Клавишите са " + LAY().label + ".", "ok");
+            }
+
+            function vimHelp() {
+                var L = LAY();
+                var other = vim.layout === "jkl;" ? "hjkl" : "jkl;";
+                var rows = [
+                    ["Панели", null],
+                    ["Ctrl+" + L.left, "към списъка с беседи"],
+                    ["Ctrl+" + L.right, "обратно към текста"],
+                    [L.down + " / " + L.up, "в списъка: надолу / нагоре"],
+                    ["enter", "отваря беседата и влиза в текста"],
+                    ["/", "в списъка: търсене на беседа"],
+
+                    ["Движение", null],
+                    [L.left + " " + L.down + " " + L.up + " " + L.right, "наляво, надолу, нагоре, надясно (по видими редове)"],
+                    ["w / b", "начало на следваща / предишна дума"],
+                    ["e / ge", "край на думата напред / назад"],
+                    ["W B E", "същото, но през пунктуацията"],
+                    ["0 / ^ / $", "начало на абзаца / първата буква / край"],
+                    ["{ / }", "предишен / следващ абзац"],
+                    ["( / )", "предишно / следващо изречение"],
+                    ["gg / G", "първи / последен абзац · 12G — абзац 12"],
+                    [L.high + " / M / " + L.low, "горе / в средата / долу на видимото"],
+                    ["f x / t x", "до буквата x напред · F T назад"],
+                    [L.again + " / " + L.back, "същото търсене на буква пак / обратно"],
+                    ["%", "скобата отсреща"],
+                    ["Ctrl+" + "d / u", "половин екран надолу / нагоре"],
+                    ["Ctrl+o / Ctrl+i", "назад / напред по скоковете"],
+                    ["zz / zt / zb", "центрира · горе · долу"],
+
+                    ["Търсене в беседата", null],
+                    ["/ дума", "напред · ? назад · пише се веднага"],
+                    ["n / N", "следващо / предишно съвпадение"],
+                    ["* / #", "думата под курсора напред / назад"],
+
+                    ["Писане", null],
+                    ["i / a", "вмъкване преди / след курсора"],
+                    ["I / A", "в началото / в края на абзаца"],
+                    ["o / O", "нов ред под / над курсора"],
+                    ["esc", "обратно в нормален режим"],
+
+                    ["Промяна", null],
+                    ["x / X", "трие буква напред / назад"],
+                    ["d{движение}", "трие · dw ди­ma, d$ до края, dd целия абзац"],
+                    ["c{движение}", "заменя и влиза в писане · cw, ci\", cc"],
+                    ["y{движение}", "запомня · yy абзац · p / P поставя"],
+                    ["r x", "заменя буквата с x"],
+                    ["~ / gu / gU", "обръща регистъра · малки / главни"],
+                    [L.join, "слива реда (или абзаца) със следващия"],
+                    ["u / Ctrl+r", "назад / напред по промените"],
+                    [".", "повтаря последната промяна"],
+                    ["U", "връща целия абзац в оригинала"],
+
+                    ["Обекти (след d, c, y или v)", null],
+                    ["iw / aw", "дума · с интервала след нея"],
+                    ["is / as", "изречение"],
+                    ["ip", "целият абзац"],
+                    ['i" / i( / i[', "вътре в кавичките / скобите · важи и за „…“"],
+
+                    ["Избор", null],
+                    ["v / V", "избор по букви / по абзаци"],
+                    ["o", "в избор: скача на другия край"],
+
+                    ["Редакторът", null],
+                    ["Ctrl+s", "запазва чернова"],
+                    ["g?", "този списък"],
+                ];
+                var html =
+                    '<p class="note">Командите следят физическия клавиш — работят и когато клавиатурата е на кирилица.</p><div class="keys-grid">' +
+                    rows
+                        .map(function (r) {
+                            return r[1] === null
+                                ? '<div class="keys-sec">' + esc(r[0]) + "</div>"
+                                : "<kbd>" + esc(r[0]) + "</kbd><div>" + esc(r[1]) + "</div>";
+                        })
+                        .join("") +
+                    "</div>";
+                openModal("Клавиши", html, [
+                    mkButton("Затвори", "ghost", closeModal),
+                    mkButton("Клавишите на " + other, "", function () {
+                        setLayout(other);
+                        closeModal();
+                        vimHelp();
+                    }),
+                    mkButton(vim.on ? "Изключи vim" : "Включи vim", "", function () {
+                        setVim(!vim.on);
+                        closeModal();
+                    }),
+                ]);
+            }
+
+            // ── vim: wiring ───────────────────────────────────────────────────────
+
+            function vimInit() {
+                try {
+                    var saved = localStorage.getItem("redakcia:vim");
+                    if (saved !== null) vim.on = saved === "1";
+                    var lay = localStorage.getItem("redakcia:vim-layout");
+                    if (lay && VIM_LAYOUTS[lay]) vim.layout = lay;
+                } catch (err) {
+                    /* no localStorage — defaults it is */
+                }
+
+                document.addEventListener("keydown", vimKeydown, true);
+
+                // Nothing types into a textarea unless insert mode says so.
+                el("paras").addEventListener("beforeinput", function (e) {
+                    if (vim.on && vim.mode !== "insert" && e.inputType !== "insertFromPaste")
+                        e.preventDefault();
+                });
+                // ⌘V is the one thing normal mode lets through, so it gets an
+                // undo step of its own. In insert mode the session already
+                // covers it.
+                el("paras").addEventListener("paste", function () {
+                    if (!vim.on || vim.mode === "insert") return;
+                    beginEdit();
+                    touch(vim.para);
+                    setTimeout(function () {
+                        var ta = vim.tas[vim.para];
+                        if (ta) vim.off = Math.max(0, ta.selectionStart - 1);
+                        commitEdit();
+                        VimMirror.drop();
+                        vimSync();
+                    }, 0);
+                });
+                el("paras").addEventListener("mouseup", function (e) {
+                    var ta = e.target && e.target.closest ? e.target.closest("textarea") : null;
+                    if (!ta) return;
+                    vim.pane = "editor";
+                    paneClasses();
+                    vim.para = Number(ta.parentNode.getAttribute("data-index"));
+                    vim.off = ta.selectionStart;
+                    vim.goalX = null;
+                    if (vim.mode === "visual" || vim.mode === "vline") leaveVisual();
+                    if (vim.mode !== "insert") vimSync();
+                });
+                el("ep-list").addEventListener("mousedown", function (e) {
+                    var row = e.target.closest ? e.target.closest(".ep") : null;
+                    if (!row) return;
+                    var rows = el("ep-list").querySelectorAll(".ep");
+                    for (var i = 0; i < rows.length; i++)
+                        if (rows[i] === row) vim.listCursor = i;
+                });
+                el("seek-input").addEventListener("input", seekLive);
+                el("seek-input").addEventListener("keydown", function (e) {
+                    if (e.key === "Escape") {
+                        e.preventDefault();
+                        seekClose(true);
+                    } else if (e.key === "Enter") {
+                        e.preventDefault();
+                        seekClose(false);
+                    } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                        e.preventDefault();
+                        var h = vim.search.hist;
+                        if (!h.length) return;
+                        if (vim.search.histAt === undefined || vim.search.histAt < 0)
+                            vim.search.histAt = h.length;
+                        vim.search.histAt += e.key === "ArrowUp" ? -1 : 1;
+                        vim.search.histAt = Math.max(
+                            0,
+                            Math.min(h.length - 1, vim.search.histAt),
+                        );
+                        el("seek-input").value = h[vim.search.histAt];
+                        seekLive();
+                    } else if (e.ctrlKey && (e.key === "[" || e.key === "c")) {
+                        e.preventDefault();
+                        seekClose(true);
+                    }
+                });
+                window.addEventListener("resize", function () {
+                    VimMirror.drop();
+                    if (vim.mode !== "insert") vimSync();
+                });
+                el("btn-vim").addEventListener("click", function () {
+                    setVim(!vim.on);
+                });
+                el("btn-keys").addEventListener("click", vimHelp);
+                document.addEventListener("keydown", function (e) {
+                    if (e.key === "F1") {
+                        e.preventDefault();
+                        vimHelp();
+                    }
+                });
+
+                setVim(vim.on);
+                paneClasses();
+            }
+
             // ── wiring ──
             el("btn-save").addEventListener("click", function () {
                 saveDraft(false);
@@ -1062,6 +3748,7 @@
                     "</b>" +
                     (p.git ? "" : " · без git");
             });
+            vimInit();
             loadEpisodes();
             if (location.hash.length > 1)
                 openEpisode(decodeURIComponent(location.hash.slice(1)));

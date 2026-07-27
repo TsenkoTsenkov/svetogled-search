@@ -22,6 +22,7 @@ on:
       - 'redaction.html'
       - 'test_search.py'
       - 'test_redaction.py'
+      - 'test_vim_motions.js'
   pull_request:
     paths:
       - 'search_app.py'
@@ -36,6 +37,7 @@ on:
       - 'redaction.html'
       - 'test_search.py'
       - 'test_redaction.py'
+      - 'test_vim_motions.js'
   workflow_dispatch:
 
 jobs:
@@ -56,3 +58,8 @@ jobs:
 
       - name: Run редакция + theme scoring tests
         run: python test_redaction.py
+
+      # The vim motions of the editor are plain functions over strings, so
+      # they run under node — no browser needed.
+      - name: Run vim motion tests
+        run: node test_vim_motions.js
