@@ -1419,6 +1419,40 @@
                 color: var(--text-dimmer);
                 font-size: 12px;
             }
+            /* Режим на редакция — only rendered when the mode is switched on */
+            .ft-edit {
+                font-size: 12px;
+                color: var(--gold);
+                border: 1px solid rgba(200, 153, 76, 0.35);
+                border-radius: 14px;
+                padding: 3px 10px;
+                margin-left: 10px;
+                text-decoration: none;
+                white-space: nowrap;
+            }
+            .ft-edit:hover {
+                background: rgba(200, 153, 76, 0.12);
+            }
+            .ft-edit.offline {
+                color: var(--text-dimmer);
+                border-color: var(--border);
+            }
+            .redakcia-badge {
+                display: inline-block;
+                margin-left: 10px;
+                font-size: 11px;
+                letter-spacing: 0.5px;
+                color: var(--gold);
+                border: 1px solid rgba(200, 153, 76, 0.35);
+                border-radius: 12px;
+                padding: 2px 9px;
+                text-decoration: none;
+                vertical-align: 2px;
+            }
+            .redakcia-badge.offline {
+                color: var(--text-dimmer);
+                border-color: var(--border);
+            }
             .ft-body {
                 font-family: var(--font-serif);
                 color: #ccc;
@@ -1816,6 +1850,35 @@
             }
             .custom-chip .remove-chip:hover {
                 opacity: 1;
+            }
+            /* A custom theme wears its own map colour once it is scored in */
+            .custom-chip .tdot {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                box-shadow: 0 0 7px currentColor;
+                flex: none;
+            }
+            .custom-chip.pending {
+                opacity: 0.75;
+            }
+            .custom-chip.pending .count {
+                font-style: italic;
+            }
+            .custom-chip.failed {
+                border-color: rgba(192, 100, 120, 0.6);
+                color: #d99aa8;
+                background: rgba(192, 100, 120, 0.1);
+            }
+            .custom-hint {
+                color: var(--text-dimmer);
+                font-size: 11px;
+                line-height: 1.5;
+                margin: -2px 0 10px;
+            }
+            .custom-hint code {
+                font-family: inherit;
+                color: var(--gold);
             }
             .topic-chip .episode-count {
                 color: var(--text-dimmer);
@@ -3409,6 +3472,22 @@
             let episodesData = null;
             let themesData = null;
             let themeMap = null;
+            // Scoring state of each "Моя тема" (label -> {status,id,count,color}).
+            // Declared up here because a deep link to #topics renders the
+            // chips while the rest of the script is still being evaluated.
+            var customState = {};
+
+            // ── Режим на редакция ────────────────────────────────────────
+            // The transcripts are edited in a local editor (redaction_app.py),
+            // never on the public site: that process commits and pushes to
+            // GitHub, so it stays on the editor's own machine. What the site
+            // does is *launch* it — with ?redakcia=1 the transcript view grows
+            // an "Редактирай" link straight to the episode in the local
+            // editor. (Editing on the live site itself is the piece that
+            // would need real accounts and auth.)
+            var REDACTION_URL = "http://127.0.0.1:8090";
+            var redactionMode = false;
+            var redactionOnline = false;
             let exactMode = false;
             var scrollObserver = null;
             var searchGeneration = 0;
@@ -3748,6 +3827,9 @@
                         renderEpisodes();
                 }
             })();
+
+            // Show the link to the local transcript editor when the mode is on
+            initRedaction();
 
             // ── Search ──
             searchInput.addEventListener("input", function () {
@@ -4134,7 +4216,9 @@
                                 "</span>" +
                                 '<span class="ft-meta">' +
                                 data.segment_count +
-                                " сегмента</span>" +
+                                " сегмента" +
+                                redactionLink(videoId) +
+                                "</span>" +
                                 '</div><div class="ft-body">' +
                                 formatted +
                                 "</div>";
@@ -4383,7 +4467,9 @@
                                 "</span>" +
                                 '<span class="ft-meta">' +
                                 data.segment_count +
-                                " сегмента</span></div>";
+                                " сегмента" +
+                                redactionLink(videoId) +
+                                "</span></div>";
 
                             // Action buttons
                             html +=
@@ -4459,7 +4545,23 @@
                 istoria: "#7f9fc6",
                 kultura: "#9aab6d",
                 savremennost: "#8b9cb3",
+                // "Мои теми" — themes the visitor added; each node carries its
+                // own colour, this one is the group's badge in the legend.
+                moi: "#7fc7b8",
             };
+            var CUSTOM_GROUP = "moi";
+            var CUSTOM_GROUP_LABEL = "Мои теми";
+
+            // A custom theme brings its own colour; curated ones inherit the
+            // group's. Everything that paints a theme goes through here.
+            function tmThemeColor(theme) {
+                if (!theme) return "#d9ab56";
+                return (
+                    theme.color ||
+                    THEME_GROUP_COLORS[theme.group] ||
+                    "#d9ab56"
+                );
+            }
             // Where each group gravitates on the map (degrees, -90 = top)
             var THEME_GROUP_ANGLES = {
                 vyara: -90,
@@ -4507,6 +4609,9 @@
                             document.getElementById("theme-map"),
                             data,
                         );
+                        // Saved "Мои теми" are scored back into the map, so
+                        // the constellation looks the same on every visit.
+                        restoreCustomThemes();
                     })
                     .catch(function () {
                         document.getElementById("tm-loading").textContent =
@@ -4605,71 +4710,7 @@
                     "(prefers-reduced-motion: reduce)",
                 ).matches;
 
-                // Build nodes
-                this.nodes = [];
-                this.byId = {};
-                var cx = this.WORLD_W / 2;
-                var cy = this.WORLD_H / 2;
-                var anchorR = Math.min(this.WORLD_W, this.WORLD_H) * 0.34;
-                this.anchors = {};
-                Object.keys(THEME_GROUP_ANGLES).forEach(function (g) {
-                    var a = (THEME_GROUP_ANGLES[g] * Math.PI) / 180;
-                    self.anchors[g] = {
-                        x: cx + anchorR * Math.cos(a),
-                        y: cy + anchorR * Math.sin(a) * 0.82,
-                    };
-                });
-                data.themes.forEach(function (t) {
-                    var rng = tmSeed(t.id);
-                    var anchor = self.anchors[t.group] || { x: cx, y: cy };
-                    var rgb = tmHexRgb(
-                        THEME_GROUP_COLORS[t.group] || "#d9ab56",
-                    );
-                    var node = {
-                        id: t.id,
-                        theme: t,
-                        group: t.group,
-                        x: anchor.x + (rng() - 0.5) * 170,
-                        y: anchor.y + (rng() - 0.5) * 150,
-                        vx: 0,
-                        vy: 0,
-                        fx: null,
-                        fy: null,
-                        r: 7 + Math.sqrt(t.count) * 1.8,
-                        rgb: rgb,
-                        rgbLight: tmShade(rgb, 0.35),
-                        rgbDark: tmShade(rgb, -0.45),
-                        lines: tmWrapLabel(t.label),
-                        phase: rng() * Math.PI * 2,
-                        op: 1,
-                        opT: 1,
-                        scale: 1,
-                    };
-                    self.nodes.push(node);
-                    self.byId[t.id] = node;
-                });
-
-                // Build links + neighbor sets
-                this.links = [];
-                this.neighbors = {};
-                this.nodes.forEach(function (n) {
-                    self.neighbors[n.id] = {};
-                    self.neighbors[n.id][n.id] = true;
-                });
-                data.links.forEach(function (l, i) {
-                    var a = self.byId[l.source];
-                    var b = self.byId[l.target];
-                    if (!a || !b) return;
-                    self.links.push({
-                        a: a,
-                        b: b,
-                        w: l.weight,
-                        shared: l.shared,
-                        bow: i % 2 === 0 ? 1 : -1,
-                    });
-                    self.neighbors[a.id][b.id] = true;
-                    self.neighbors[b.id][a.id] = true;
-                });
+                this._buildGraph(data);
 
                 // Starfield (world space, slight parallax)
                 var srng = tmSeed("svetogled-stars");
@@ -4697,6 +4738,110 @@
                 this._draw();
                 this._observe();
             }
+
+            // Nodes, links and neighbour sets from a themes payload. Split
+            // out of the constructor so a theme can be added to a live map
+            // (setData) without tearing down the canvas and its listeners.
+            ThemeMap.prototype._buildGraph = function (data) {
+                var self = this;
+                var previous = this.byId || {};
+                this.data = data;
+                this.nodes = [];
+                this.byId = {};
+                var cx = this.WORLD_W / 2;
+                var cy = this.WORLD_H / 2;
+                var anchorR = Math.min(this.WORLD_W, this.WORLD_H) * 0.34;
+                this.anchors = {};
+                Object.keys(THEME_GROUP_ANGLES).forEach(function (g) {
+                    var a = (THEME_GROUP_ANGLES[g] * Math.PI) / 180;
+                    self.anchors[g] = {
+                        x: cx + anchorR * Math.cos(a),
+                        y: cy + anchorR * Math.sin(a) * 0.82,
+                    };
+                });
+                data.themes.forEach(function (t) {
+                    var rng = tmSeed(t.id);
+                    // Custom themes have no group anchor: they start at the
+                    // centre and are pulled into place by their own links.
+                    var anchor = self.anchors[t.group] || { x: cx, y: cy };
+                    var rgb = tmHexRgb(tmThemeColor(t));
+                    var old = previous[t.id];
+                    var node = {
+                        id: t.id,
+                        theme: t,
+                        group: t.group,
+                        // Keep where a node already sits, so adding a theme
+                        // nudges the constellation instead of reshuffling it.
+                        x: old ? old.x : anchor.x + (rng() - 0.5) * 170,
+                        y: old ? old.y : anchor.y + (rng() - 0.5) * 150,
+                        vx: 0,
+                        vy: 0,
+                        fx: null,
+                        fy: null,
+                        r: 7 + Math.sqrt(t.count) * 1.8,
+                        rgb: rgb,
+                        rgbLight: tmShade(rgb, 0.35),
+                        rgbDark: tmShade(rgb, -0.45),
+                        lines: tmWrapLabel(t.label),
+                        phase: old ? old.phase : rng() * Math.PI * 2,
+                        op: old ? old.op : 1,
+                        opT: 1,
+                        scale: old ? old.scale : 1,
+                    };
+                    self.nodes.push(node);
+                    self.byId[t.id] = node;
+                });
+
+                // Build links + neighbor sets
+                this.links = [];
+                this.neighbors = {};
+                this.nodes.forEach(function (n) {
+                    self.neighbors[n.id] = {};
+                    self.neighbors[n.id][n.id] = true;
+                });
+                (data.links || []).forEach(function (l, i) {
+                    var a = self.byId[l.source];
+                    var b = self.byId[l.target];
+                    if (!a || !b) return;
+                    self.links.push({
+                        a: a,
+                        b: b,
+                        w: l.weight,
+                        shared: l.shared,
+                        bow: i % 2 === 0 ? 1 : -1,
+                    });
+                    self.neighbors[a.id][b.id] = true;
+                    self.neighbors[b.id][a.id] = true;
+                });
+            };
+
+            // Re-form the constellation around a changed theme set (a theme
+            // was added or removed). The camera, the listeners and every node
+            // that survived keep their state.
+            ThemeMap.prototype.setData = function (data, focusId) {
+                this._buildGraph(data);
+                if (this.selectedId && !this.byId[this.selectedId]) {
+                    this.selectedId = null;
+                    closeThemePanel();
+                }
+                if (this.hoverId && !this.byId[this.hoverId])
+                    this.hoverId = null;
+                if (this.previewId && !this.byId[this.previewId]) {
+                    this.previewId = null;
+                    hideThemePreviewCard();
+                }
+                // Let the physics re-settle around the new node before it is
+                // shown, so nothing visibly springs across the map; the small
+                // residual alpha lets it keep easing once it is on screen.
+                this.alpha = 1;
+                for (var k = 0; k < 220; k++) this._tick();
+                this.alpha = Math.max(this.alpha, 0.18);
+                if (!this.userMoved) this.view = this.fitView();
+                this._updateDim();
+                this._draw();
+                this.start();
+                if (focusId && this.byId[focusId]) this.select(focusId, true);
+            };
 
             ThemeMap.prototype.resize = function (initial) {
                 var rect = this.canvas.getBoundingClientRect();
@@ -6057,13 +6202,14 @@
                         escapeHtml(data.groups[g]) +
                         '</h3><div class="topic-grid">';
                     byGroup[g].forEach(function (t) {
+                        var tc = tmThemeColor(t);
                         html +=
                             '<button class="topic-chip" style="font-family:inherit;text-align:left" onclick="selectThemeFromChip(\'' +
                             t.id +
                             '\')"><span class="tdot" style="background:' +
-                            THEME_GROUP_COLORS[g] +
+                            tc +
                             ";color:" +
-                            THEME_GROUP_COLORS[g] +
+                            tc +
                             '"></span>' +
                             escapeHtml(t.label) +
                             '<span class="count">' +
@@ -6119,7 +6265,7 @@
             function showThemePreviewCard(theme) {
                 var el = document.getElementById("tm-preview");
                 if (!el || !themesData) return;
-                var color = THEME_GROUP_COLORS[theme.group] || "#d9ab56";
+                var color = tmThemeColor(theme);
                 var groupName = themesData.groups[theme.group] || "";
                 el.innerHTML =
                     '<div class="tm-preview-top"><span class="dot" style="background:' +
@@ -6151,7 +6297,7 @@
 
             function renderThemePanel(theme) {
                 var panel = document.getElementById("tm-panel");
-                var color = THEME_GROUP_COLORS[theme.group];
+                var color = tmThemeColor(theme);
                 var groupName = themesData.groups[theme.group] || "";
                 var related = themeRelated(theme.id);
                 var html =
@@ -6210,9 +6356,7 @@
                         '<div class="tm-sec-hint">Теми, които често вървят заедно с тази в едни и същи беседи.</div>' +
                         '<div class="tm-rel">';
                     related.slice(0, 6).forEach(function (r) {
-                        var c =
-                            THEME_GROUP_COLORS[r.theme.group] ||
-                            "#d9ab56";
+                        var c = tmThemeColor(r.theme);
                         html +=
                             '<button class="tm-rel-chip" title="' +
                             r.shared +
@@ -6347,7 +6491,7 @@
                 ctx.lineTo(cssW, cssH - 0.5);
                 ctx.stroke();
                 var bw = cssW / buckets;
-                var color = THEME_GROUP_COLORS[theme.group] || "#d4a853";
+                var color = tmThemeColor(theme);
                 var rgb = tmHexRgb(color);
                 for (i = 0; i < buckets; i++) {
                     if (vals[i] <= 0) continue;
@@ -6382,7 +6526,108 @@
                 }
             }
 
-            // ── Мои теми (custom topics, preserved) ──
+            // ── Режим на редакция: откриване на локалния редактор ────────
+            function initRedaction() {
+                try {
+                    var params = new URLSearchParams(location.search);
+                    if (params.has("redakcia")) {
+                        redactionMode = params.get("redakcia") !== "0";
+                        localStorage.setItem(
+                            "svetogled_redakcia",
+                            redactionMode ? "1" : "0",
+                        );
+                    } else {
+                        redactionMode =
+                            localStorage.getItem("svetogled_redakcia") === "1";
+                    }
+                } catch (e) {
+                    return;
+                }
+                if (!redactionMode) return;
+                renderRedactionBadge();
+                // Is the editor running? A page served over https can only
+                // reach http://127.0.0.1 in some browsers, so a failed probe
+                // means "unknown", not "not running" — the link still works.
+                fetch(REDACTION_URL + "/api/ping", { mode: "cors" })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (p) {
+                        redactionOnline = !!p.ok;
+                        renderRedactionBadge();
+                        document
+                            .querySelectorAll(".ft-edit")
+                            .forEach(function (a) {
+                                a.classList.remove("offline");
+                            });
+                    })
+                    .catch(function () {
+                        redactionOnline = false;
+                    });
+            }
+
+            function renderRedactionBadge() {
+                var nav = document.querySelector(".nav");
+                if (!nav) return;
+                var existing = document.getElementById("redakcia-badge");
+                if (existing) {
+                    existing.classList.toggle("offline", !redactionOnline);
+                    return;
+                }
+                var a = document.createElement("a");
+                a.id = "redakcia-badge";
+                a.className =
+                    "redakcia-badge" + (redactionOnline ? "" : " offline");
+                a.href = REDACTION_URL + "/";
+                a.target = "_blank";
+                a.rel = "noopener";
+                a.textContent = "режим на редакция";
+                a.title =
+                    "Локалният редактор на транскрипции. Стартира се с: python3 redaction_app.py";
+                nav.appendChild(a);
+            }
+
+            // The "Редактирай" affordance shown above a transcript.
+            function redactionLink(videoId) {
+                if (!redactionMode) return "";
+                return (
+                    '<a class="ft-edit' +
+                    (redactionOnline ? "" : " offline") +
+                    '" href="' +
+                    REDACTION_URL +
+                    "/#" +
+                    encodeURIComponent(videoId) +
+                    '" target="_blank" rel="noopener" ' +
+                    'onclick="return redactionOpen(event)" ' +
+                    'title="Редактира текста без времена; промяната минава през GitHub и пайплайна">' +
+                    "&#9998; Редактирай</a>"
+                );
+            }
+
+            function redactionOpen(ev) {
+                if (redactionOnline) return true;
+                // Unknown or down: tell the user how to start it, and still
+                // let the click through — the editor may simply be unreachable
+                // from this page's origin.
+                showToast(
+                    "Ако редакторът не се отвори, стартирайте го локално: python3 redaction_app.py",
+                );
+                return true;
+            }
+
+            // ── Мои теми ────────────────────────────────────────────────
+            // A theme added here is not just a saved search: the server
+            // scores it against every transcript (POST /api/themes/custom)
+            // with the same math that built the curated map, then it joins
+            // the constellation as a real node — episodes, weights, edges to
+            // the themes it shares beседи with, and its own colour.
+            // The definitions live in localStorage; the scoring is recomputed
+            // on load (the server caches it, so that is near-instant).
+
+            function customKey(label) {
+                return label.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_");
+            }
+
             function renderCustomTopics() {
                 var container = document.getElementById("tm-custom");
                 if (!container) return;
@@ -6398,11 +6643,14 @@
                 html +=
                     '<input type="text" class="add-topic-input" id="custom-topic-input" placeholder="Добави тема или име..." onkeydown="if(event.key===\'Enter\')addCustomTopic()">';
                 html +=
-                    '<button class="add-topic-btn" onclick="addCustomTopic()">Добави</button>';
+                    '<button class="add-topic-btn" id="custom-topic-btn" onclick="addCustomTopic()">Добави</button>';
                 html += "</div>";
+                html +=
+                    '<div class="custom-hint">Темата се пресмята върху целия архив и влиза в картата горе — със своите беседи, връзки и цвят. ' +
+                    "Няколко думи се разделят със запетая, а <code>звездичка*</code> хваща всички производни форми.</div>";
                 html += '<div id="custom-chips">';
-                customTopics.forEach(function (term) {
-                    html += buildCustomChip(term);
+                customTopics.forEach(function (entry) {
+                    html += buildCustomChip(entry);
                 });
                 if (customTopics.length === 0) {
                     html +=
@@ -6410,73 +6658,103 @@
                 }
                 html += "</div></div>";
                 container.innerHTML = html;
-
-                // Fetch episode counts for custom topics (count unique episodes, not segments)
-                customTopics.forEach(function (term) {
-                    var chipId =
-                        "custom-chip-" +
-                        term.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_");
-                    fetch(MEILI_URL + "/indexes/" + INDEX + "/search", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: "Bearer " + MEILI_KEY,
-                        },
-                        body: JSON.stringify({
-                            q: term,
-                            attributesToRetrieve: ["video_id"],
-                            limit: 1000,
-                        }),
-                    })
-                        .then(function (r) {
-                            return r.json();
-                        })
-                        .then(function (data) {
-                            var countEl = document.getElementById(
-                                "count-" + chipId,
-                            );
-                            if (countEl) {
-                                var seen = {};
-                                (data.hits || []).forEach(function (h) {
-                                    seen[h.video_id] = true;
-                                });
-                                countEl.textContent =
-                                    Object.keys(seen).length + " еп.";
-                            }
-                        })
-                        .catch(function () {});
-                });
             }
 
-            function buildCustomChip(term) {
-                var chipId =
-                    "custom-chip-" + term.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_");
+            function buildCustomChip(entry) {
+                var chipId = "custom-chip-" + customKey(entry.label);
+                var state = customState[entry.label] || { status: "pending" };
+                var cls = "custom-chip";
+                var count = "...";
+                var dot = "";
+                if (state.status === "ready") {
+                    count =
+                        state.count +
+                        (state.count === 1 ? " еп." : " еп.");
+                    dot =
+                        '<span class="tdot" style="background:' +
+                        state.color +
+                        ";color:" +
+                        state.color +
+                        '"></span>';
+                } else if (state.status === "failed") {
+                    cls += " failed";
+                    count = "неуспешно";
+                } else {
+                    cls += " pending";
+                    count = "смята се…";
+                }
                 return (
-                    '<span class="custom-chip" id="' +
+                    '<span class="' +
+                    cls +
+                    '" id="' +
                     chipId +
-                    '" onclick="searchTopic(\'' +
-                    escapeAttr(term) +
+                    '" title="' +
+                    escapeAttr(
+                        state.status === "failed"
+                            ? state.error || "Темата не можа да се изчисли"
+                            : entry.terms.join(", "),
+                    ) +
+                    '" onclick="openCustomTopic(\'' +
+                    escapeAttr(entry.label) +
                     "')\">" +
-                    escapeHtml(term) +
+                    dot +
+                    escapeHtml(entry.label) +
                     '<span class="count" id="count-' +
                     chipId +
-                    '">...</span>' +
+                    '">' +
+                    count +
+                    "</span>" +
                     '<span class="remove-chip" onclick="event.stopPropagation();removeCustomTopic(\'' +
-                    escapeAttr(term) +
+                    escapeAttr(entry.label) +
                     "')\">&times;</span>" +
                     "</span>"
                 );
             }
 
+            // Stored shape is [{label, terms:[…]}]; early versions stored
+            // plain strings, so those are migrated on read.
             function loadCustomTopics() {
+                var raw;
                 try {
                     var stored = localStorage.getItem(
                         "svetogled_custom_topics",
                     );
-                    return stored ? JSON.parse(stored) : [];
+                    raw = stored ? JSON.parse(stored) : [];
                 } catch (e) {
                     return [];
                 }
+                if (!Array.isArray(raw)) return [];
+                var out = [];
+                raw.forEach(function (item) {
+                    if (typeof item === "string") {
+                        var e = parseCustomInput(item);
+                        if (e) out.push(e);
+                    } else if (item && item.label) {
+                        out.push({
+                            label: String(item.label),
+                            terms:
+                                Array.isArray(item.terms) && item.terms.length
+                                    ? item.terms.map(String)
+                                    : [String(item.label)],
+                        });
+                    }
+                });
+                return out;
+            }
+
+            // "старец, старчеств*, духовен отец" → label "старец", three terms
+            function parseCustomInput(text) {
+                var terms = String(text || "")
+                    .split(",")
+                    .map(function (t) {
+                        return t.trim();
+                    })
+                    .filter(function (t) {
+                        return t.length > 0;
+                    })
+                    .slice(0, 12);
+                if (!terms.length) return null;
+                return { label: terms[0], terms: terms };
             }
 
             function saveCustomTopics(topics) {
@@ -6492,22 +6770,222 @@
                 var input = document.getElementById("custom-topic-input");
                 var term = input.value.trim();
                 if (!term) return;
+                var entry = parseCustomInput(term);
+                if (!entry) return;
 
                 var topics = loadCustomTopics();
-                if (topics.indexOf(term) === -1) {
-                    topics.push(term);
-                    saveCustomTopics(topics);
-                }
+                var exists = topics.some(function (t) {
+                    return t.label === entry.label;
+                });
+                if (!exists) topics.push(entry);
+                saveCustomTopics(topics);
                 input.value = "";
+                customState[entry.label] = { status: "pending" };
                 renderCustomTopics();
+                computeCustomTheme(entry, true);
             }
 
-            function removeCustomTopic(term) {
+            function removeCustomTopic(label) {
                 var topics = loadCustomTopics().filter(function (t) {
-                    return t !== term;
+                    return t.label !== label;
                 });
                 saveCustomTopics(topics);
+                var state = customState[label];
+                delete customState[label];
                 renderCustomTopics();
+                if (state && state.id && themesData) {
+                    dropCustomTheme(state.id);
+                    refreshThemeSurfaces();
+                    if (themeMap) themeMap.setData(themesData);
+                }
+            }
+
+            // Chip click: jump to the theme on the map once it is scored in,
+            // otherwise fall back to a plain archive search.
+            function openCustomTopic(label) {
+                var state = customState[label];
+                if (state && state.status === "ready" && themeMap) {
+                    selectThemeFromChip(state.id);
+                    return;
+                }
+                searchTopic(label);
+            }
+
+            // One scoring request; resolves with the payload or throws.
+            function requestCustomTheme(entry) {
+                return fetch("/api/themes/custom", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        label: entry.label,
+                        terms: entry.terms,
+                    }),
+                }).then(function (r) {
+                    return r.json().then(function (body) {
+                        if (!r.ok)
+                            throw new Error(body.error || "HTTP " + r.status);
+                        return body;
+                    });
+                });
+            }
+
+            // Ask the server to score this theme over the whole archive and
+            // fold the result into the live map.
+            function computeCustomTheme(entry, focus) {
+                customState[entry.label] = { status: "pending" };
+                renderCustomTopics();
+                return requestCustomTheme(entry)
+                    .then(function (payload) {
+                        mergeCustomTheme(payload);
+                        customState[entry.label] = {
+                            status: "ready",
+                            id: payload.theme.id,
+                            count: payload.theme.count,
+                            color: payload.theme.color,
+                        };
+                        renderCustomTopics();
+                        refreshThemeSurfaces();
+                        if (themeMap)
+                            themeMap.setData(
+                                themesData,
+                                focus ? payload.theme.id : null,
+                            );
+                        if (focus) {
+                            if (payload.theme.count === 0) {
+                                showToast(
+                                    "„" +
+                                        entry.label +
+                                        "“ не се среща достатъчно в архива — темата е добавена, но е празна.",
+                                );
+                            } else {
+                                showToast(
+                                    "„" +
+                                        entry.label +
+                                        "“ е в картата: " +
+                                        payload.theme.count +
+                                        " беседи, " +
+                                        payload.links.length +
+                                        " връзки.",
+                                );
+                            }
+                        }
+                        return payload;
+                    })
+                    .catch(function (err) {
+                        customState[entry.label] = {
+                            status: "failed",
+                            error: err.message,
+                        };
+                        renderCustomTopics();
+                        if (focus)
+                            showToast(
+                                "Темата не можа да се изчисли: " + err.message,
+                            );
+                        return null;
+                    });
+            }
+
+            // Replace any earlier version of this theme, then add the node,
+            // its edges and any episode metadata the curated map lacks.
+            function mergeCustomTheme(payload) {
+                if (!themesData) return;
+                var theme = payload.theme;
+                dropCustomTheme(theme.id);
+                if (payload.group && !themesData.groups[payload.group.id]) {
+                    themesData.groups[payload.group.id] = payload.group.label;
+                }
+                themesData.themes.push(theme);
+                var known = {};
+                themesData.themes.forEach(function (t) {
+                    known[t.id] = true;
+                });
+                (payload.links || []).forEach(function (l) {
+                    if (known[l.source] && known[l.target])
+                        themesData.links.push(l);
+                });
+                Object.keys(payload.episodes_meta || {}).forEach(function (v) {
+                    if (!themesData.episodes[v])
+                        themesData.episodes[v] = payload.episodes_meta[v];
+                });
+                theme.episodes.forEach(function (row) {
+                    var meta = themesData.episodes[row[0]];
+                    if (meta) {
+                        if (!meta.themes) meta.themes = [];
+                        if (meta.themes.indexOf(theme.id) === -1)
+                            meta.themes.push(theme.id);
+                        if ((meta.n || 0) > themesMaxN) themesMaxN = meta.n;
+                    }
+                });
+            }
+
+            function dropCustomTheme(id) {
+                if (!themesData) return;
+                themesData.themes = themesData.themes.filter(function (t) {
+                    return t.id !== id;
+                });
+                themesData.links = themesData.links.filter(function (l) {
+                    return l.source !== id && l.target !== id;
+                });
+                Object.keys(themesData.episodes).forEach(function (v) {
+                    var meta = themesData.episodes[v];
+                    if (!meta.themes) return;
+                    var i = meta.themes.indexOf(id);
+                    if (i !== -1) meta.themes.splice(i, 1);
+                });
+                var stillCustom = themesData.themes.some(function (t) {
+                    return t.group === CUSTOM_GROUP;
+                });
+                if (!stillCustom) delete themesData.groups[CUSTOM_GROUP];
+            }
+
+            // Legend, chip list and subtitle all read from themesData
+            function refreshThemeSurfaces() {
+                if (!themesData) return;
+                buildThemeLegend(themesData);
+                buildAllThemeChips(themesData);
+                var sub = document.getElementById("tm-sub");
+                if (sub)
+                    sub.textContent =
+                        themesData.themes.length +
+                        " теми в " +
+                        Object.keys(themesData.episodes).length +
+                        " беседи — изберете тема, за да видите епизодите и пътя ѝ през архива.";
+            }
+
+            // On page load: re-score every saved theme, one after the other
+            // (the server scores one at a time), then re-form the map once —
+            // not after each theme.
+            function restoreCustomThemes() {
+                var topics = loadCustomTopics();
+                if (!topics.length) return;
+                renderCustomTopics();
+                var chain = Promise.resolve();
+                topics.forEach(function (entry) {
+                    chain = chain.then(function () {
+                        return requestCustomTheme(entry)
+                            .then(function (payload) {
+                                mergeCustomTheme(payload);
+                                customState[entry.label] = {
+                                    status: "ready",
+                                    id: payload.theme.id,
+                                    count: payload.theme.count,
+                                    color: payload.theme.color,
+                                };
+                                renderCustomTopics();
+                            })
+                            .catch(function (err) {
+                                customState[entry.label] = {
+                                    status: "failed",
+                                    error: err.message,
+                                };
+                                renderCustomTopics();
+                            });
+                    });
+                });
+                chain.then(function () {
+                    refreshThemeSurfaces();
+                    if (themeMap) themeMap.setData(themesData);
+                });
             }
 
             function searchTopic(term) {

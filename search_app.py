@@ -11,11 +11,15 @@ import gzip
 import json
 import os
 import re
-from collections import Counter
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+import threading
+import time
+from collections import Counter, OrderedDict
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
+
+import theme_scoring as ts
 
 PORT = int(os.environ.get("PORT", 8080))
 TRANSCRIPTS_DIR = Path(__file__).parent / "transcripts"
@@ -166,11 +170,11 @@ def _build_theme_maps():
     """Theme lookup tables from themes.json: id → theme and video → its themes."""
     raw = _load_themes()
     if not raw:
-        return {}, {}, {}
+        return {}, {}, {}, {}
     try:
         data = json.loads(raw.decode("utf-8"))
     except ValueError:
-        return {}, {}, {}
+        return {}, {}, {}, {}
     groups = data.get("groups", {})
     themes = {}
     video_themes = {}
@@ -183,10 +187,207 @@ def _build_theme_maps():
             video_themes.setdefault(vid, []).append((tid, score))
     for lst in video_themes.values():
         lst.sort(key=lambda x: -x[1])
-    return groups, themes, video_themes
+    return groups, themes, video_themes, data.get("episodes", {})
 
 
-THEME_GROUPS, THEMES_BY_ID, VIDEO_THEMES = _build_theme_maps()
+THEME_GROUPS, THEMES_BY_ID, VIDEO_THEMES, THEME_EP_META = _build_theme_maps()
+
+
+# ── Мои теми: scoring a user's theme into the constellation ──────────────
+# themes.json is the curated map, generated offline. When a visitor adds a
+# theme of their own we score it against the whole archive right here, with
+# the same math (theme_scoring), so it arrives on the map as a real node —
+# episodes, weights, edges to the curated themes — instead of a chip that
+# links nowhere.
+#
+# Cost: one regex sweep over every transcript. The corpus is lowercased once
+# and kept in memory (~11 MB, ~0.8 s) so each sweep is ~0.2 s; the cold start
+# is paid on first use, never at boot. Results are cached, one computation
+# runs at a time, and each client gets a small budget of new computations.
+CUSTOM_MAX_TERMS = 12
+CUSTOM_CACHE_MAX = 64
+CUSTOM_COMPUTE_TIMEOUT = 20     # seconds a request will wait for its turn
+CUSTOM_RATE_WINDOW = 60         # seconds
+CUSTOM_RATE_MAX = 12            # uncached computations per client per window
+
+_corpus_cache = {"signature": None, "corpus": None}
+_corpus_lock = threading.Lock()
+_compute_lock = threading.Lock()
+_custom_cache = OrderedDict()
+_custom_cache_lock = threading.Lock()
+_rate_hits = {}
+_rate_lock = threading.Lock()
+
+
+def _transcripts_signature():
+    """Cheap fingerprint of the transcript directory (count + newest mtime)."""
+    count = 0
+    newest = 0.0
+    try:
+        with os.scandir(TRANSCRIPTS_DIR) as entries:
+            for e in entries:
+                if e.name.endswith(".json"):
+                    count += 1
+                    newest = max(newest, e.stat().st_mtime)
+    except OSError:
+        return None
+    return (count, newest)
+
+
+def _get_corpus():
+    """Lowercased transcripts, rebuilt only when the directory changes."""
+    signature = _transcripts_signature()
+    with _corpus_lock:
+        if _corpus_cache["corpus"] is None or _corpus_cache["signature"] != signature:
+            _corpus_cache["corpus"] = ts.prepare_corpus(
+                ts.load_episodes(TRANSCRIPTS_DIR)
+            )
+            _corpus_cache["signature"] = signature
+        return _corpus_cache["corpus"]
+
+
+def _rate_ok(client):
+    """Small per-client budget so a loop of new themes cannot pin the CPU."""
+    now = time.monotonic()
+    with _rate_lock:
+        hits = [t for t in _rate_hits.get(client, []) if now - t < CUSTOM_RATE_WINDOW]
+        if len(hits) >= CUSTOM_RATE_MAX:
+            _rate_hits[client] = hits
+            return False
+        hits.append(now)
+        _rate_hits[client] = hits
+        if len(_rate_hits) > 512:  # bound the table on a busy day
+            for k in [k for k, v in _rate_hits.items()
+                      if not v or now - v[-1] > CUSTOM_RATE_WINDOW]:
+                _rate_hits.pop(k, None)
+        return True
+
+
+def _parse_terms(payload):
+    """Accept {"terms": [...]} or a comma/newline-separated string."""
+    raw = payload.get("terms")
+    if raw is None:
+        raw = payload.get("label", "")
+    if isinstance(raw, str):
+        raw = re.split(r"[,\n;]+", raw)
+    if not isinstance(raw, list):
+        raise ValueError("Очаква се списък от думи.")
+    terms = [str(t).strip() for t in raw if str(t).strip()]
+    if not terms:
+        raise ValueError("Задайте поне една дума за темата.")
+    if len(terms) > CUSTOM_MAX_TERMS:
+        raise ValueError(f"Максимум {CUSTOM_MAX_TERMS} думи на тема.")
+    return terms
+
+
+def build_custom_theme(payload):
+    """Score a user-defined theme and link it into the existing map.
+
+    Returns the payload the map merges in: the node, its edges, and any
+    episode metadata themes.json does not carry yet (a transcript added
+    after the last regeneration).
+    """
+    label = str(payload.get("label", "")).strip()
+    if not label:
+        raise ValueError("Темата няма име.")
+    if len(label) > 60:
+        raise ValueError("Името на темата е твърде дълго.")
+    terms = _parse_terms(payload)
+
+    pattern = ts.terms_to_pattern(terms)
+    theme_id = "moi_" + ts.slugify(label)
+
+    started = time.monotonic()
+    corpus = _get_corpus()
+    regex = ts.compile_pattern(pattern)
+    rows = ts.score_theme(
+        regex, corpus, ts.CUSTOM_MIN_HITS, ts.CUSTOM_MIN_PER10K
+    )
+    episodes = ts.normalize_weights(rows)[: ts.CUSTOM_MAX_EPISODES]
+    vids = {vid for vid, _ in episodes}
+
+    other_sets = {
+        tid: {vid for vid, _ in t.get("episodes", [])}
+        for tid, t in THEMES_BY_ID.items()
+    }
+    links = ts.link_theme(theme_id, vids, other_sets)
+
+    # Episodes the curated map has not seen yet (transcripts added since the
+    # last themes.json regeneration) still need a title to render.
+    missing = {}
+    for vid in vids:
+        if vid not in THEME_EP_META and vid in EPISODES:
+            missing[vid] = {
+                "n": EPISODES[vid]["episode_number"],
+                "title": EPISODES[vid]["title"],
+                "themes": [],
+            }
+
+    return {
+        "theme": {
+            "id": theme_id,
+            "label": label,
+            "group": ts.CUSTOM_GROUP,
+            "color": ts.custom_color(theme_id),
+            "description": "Ваша тема — " + ", ".join(terms) + ".",
+            "query": " ".join(t.rstrip("*") for t in terms),
+            "count": len(episodes),
+            "episodes": episodes,
+            "custom": True,
+            "terms": terms,
+        },
+        "links": links,
+        "group": {"id": ts.CUSTOM_GROUP, "label": ts.CUSTOM_GROUP_LABEL},
+        "episodes_meta": missing,
+        "stats": {
+            "scanned": len(corpus),
+            "ms": int((time.monotonic() - started) * 1000),
+        },
+    }
+
+
+def custom_theme_response(payload, client):
+    """(status, body) for POST /api/themes/custom."""
+    try:
+        label = str(payload.get("label", "")).strip()
+        terms = _parse_terms(payload)
+        key = (label.lower(), tuple(t.lower() for t in terms))
+    except ValueError as e:
+        return 400, {"error": str(e)}
+
+    with _custom_cache_lock:
+        cached = _custom_cache.get(key)
+        if cached is not None:
+            _custom_cache.move_to_end(key)
+            return 200, cached
+
+    if not _rate_ok(client):
+        return 429, {"error": "Твърде много нови теми наведнъж. Опитайте пак след минута."}
+
+    # One sweep at a time: the work is CPU-bound, and queueing keeps a burst
+    # of tabs from turning into a burst of full-archive scans.
+    if not _compute_lock.acquire(timeout=CUSTOM_COMPUTE_TIMEOUT):
+        return 503, {"error": "Картата се преизчислява в момента. Опитайте пак."}
+    try:
+        with _custom_cache_lock:
+            cached = _custom_cache.get(key)
+            if cached is not None:
+                _custom_cache.move_to_end(key)
+                return 200, cached
+        result = build_custom_theme(payload)
+    except ValueError as e:
+        return 400, {"error": str(e)}
+    except Exception as e:  # noqa: BLE001 — never 500 the map over one theme
+        return 500, {"error": f"Темата не можа да бъде изчислена: {e}"}
+    finally:
+        _compute_lock.release()
+
+    with _custom_cache_lock:
+        _custom_cache[key] = result
+        _custom_cache.move_to_end(key)
+        while len(_custom_cache) > CUSTOM_CACHE_MAX:
+            _custom_cache.popitem(last=False)
+    return 200, result
 
 
 def _related_episodes(video_id, limit=6):
@@ -2117,8 +2318,42 @@ class SearchHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path.startswith("/meili/"):
             self._proxy_meili("POST")
+        elif parsed.path == "/api/themes/custom":
+            self._handle_custom_theme()
         else:
             self.send_error(404)
+
+    def _handle_custom_theme(self):
+        """Score a visitor's own theme into the map (see build_custom_theme)."""
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            length = 0
+        if length <= 0 or length > 8192:
+            self._serve_json_status(400, {"error": "Невалидна заявка."})
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError
+        except (ValueError, UnicodeDecodeError):
+            self._serve_json_status(400, {"error": "Невалиден JSON."})
+            return
+        status, body = custom_theme_response(payload, self._client_key())
+        self._serve_json_status(status, body)
+
+    def _client_key(self):
+        """Who to bill the rate limit to.
+
+        Live, every request arrives from Caddy on 127.0.0.1, so the socket
+        address would make the budget global; X-Forwarded-For separates real
+        visitors again. It is spoofable, which only costs fairness — the
+        single compute lock is what actually caps the load.
+        """
+        forwarded = self.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()[:64]
+        return self.client_address[0] if self.client_address else "-"
 
     def _proxy_meili(self, method):
         meili_path = self.path[len("/meili") :]
@@ -2188,6 +2423,16 @@ class SearchHandler(SimpleHTTPRequestHandler):
             },
         )
 
+    def _serve_json_status(self, status, data):
+        """JSON with an explicit status — errors must not read as success."""
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
     def log_message(self, format, *args):
         pass
 
@@ -2214,7 +2459,10 @@ def _update_meili_pagination():
 
 if __name__ == "__main__":
     _update_meili_pagination()
-    server = HTTPServer(("0.0.0.0", PORT), SearchHandler)
+    # Threaded: scoring a custom theme takes a moment of CPU, and on a
+    # single-threaded server that moment would stall every other request.
+    ThreadingHTTPServer.daemon_threads = True
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), SearchHandler)
     print(f"Светоглед Search running at http://localhost:{PORT}")
     print("Press Ctrl+C to stop")
     try:

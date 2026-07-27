@@ -2,8 +2,9 @@ name: Tests
 
 # Runs on every push/PR that touches the app or its markup. These tests do NOT
 # need Meilisearch running — they validate the served HTML contract (favicon
-# tags, no cache-busters, minifier sanity) and that referenced static assets
-# exist. Server/index-dependent tests self-SKIP when Meili isn't up.
+# tags, no cache-busters, minifier sanity), that referenced static assets
+# exist, and that the редакция editor puts edited words back on their original
+# timestamps. Server/index-dependent tests self-SKIP when Meili isn't up.
 
 on:
   push:
@@ -14,7 +15,13 @@ on:
       - 'static/**'
       - 'index_to_meili.py'
       - 'scripts/generate_favicons.py'
+      - 'scripts/generate_themes.py'
+      - 'theme_scoring.py'
+      - 'redaction_align.py'
+      - 'redaction_app.py'
+      - 'redaction.html'
       - 'test_search.py'
+      - 'test_redaction.py'
   pull_request:
     paths:
       - 'search_app.py'
@@ -22,7 +29,13 @@ on:
       - 'static/**'
       - 'index_to_meili.py'
       - 'scripts/generate_favicons.py'
+      - 'scripts/generate_themes.py'
+      - 'theme_scoring.py'
+      - 'redaction_align.py'
+      - 'redaction_app.py'
+      - 'redaction.html'
       - 'test_search.py'
+      - 'test_redaction.py'
   workflow_dispatch:
 
 jobs:
@@ -40,3 +53,6 @@ jobs:
 
       - name: Run tests
         run: python test_search.py
+
+      - name: Run редакция + theme scoring tests
+        run: python test_redaction.py

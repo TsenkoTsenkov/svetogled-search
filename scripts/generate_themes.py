@@ -17,13 +17,17 @@ Deterministic, stdlib-only, no network access.
 """
 
 import json
-import math
-import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TRANSCRIPTS_DIR = ROOT / "transcripts"
 OUTPUT = ROOT / "themes.json"
+
+# The scoring math lives at the repo root so search_app.py can score a
+# user-added theme on demand with the exact same weights and edge rules.
+sys.path.insert(0, str(ROOT))
+import theme_scoring as ts  # noqa: E402
 
 # ── Taxonomy ─────────────────────────────────────────────────────────────
 # Each theme: id, label, group, description, patterns (regex alternation,
@@ -455,60 +459,15 @@ QUERIES = {
     "konspiracii": "конспирацията задкулисието",
 }
 
-# ── Scoring defaults ─────────────────────────────────────────────────────
-DEFAULT_MIN_HITS = 5       # minimum raw pattern hits in an episode
-DEFAULT_MIN_PER10K = 4.5   # minimum hits per 10 000 words
-TITLE_WEIGHT = 0.9         # weight floor when the title names the theme
-MAX_THEMES_PER_EPISODE = 6
-
-# Edges: keep pairs sharing enough episodes, then prune to the strongest
-EDGE_MIN_SHARED = 4
-EDGE_MIN_OVERLAP = 0.3
-EDGE_TOP_PER_NODE = 4
-
-
-def _get_duration(data):
-    snippets = data.get("snippets") or data.get("segments", [])
-    return snippets[-1].get("start", 0) if snippets else 0
-
-
-def _is_reupload(dur_a, dur_b):
-    if dur_a == 0 or dur_b == 0:
-        return False
-    return abs(dur_a - dur_b) / max(dur_a, dur_b) < 0.05
+# ── Scoring defaults (shared with search_app.py via theme_scoring) ───────
+DEFAULT_MIN_HITS = ts.DEFAULT_MIN_HITS
+DEFAULT_MIN_PER10K = ts.DEFAULT_MIN_PER10K
+MAX_THEMES_PER_EPISODE = ts.MAX_THEMES_PER_EPISODE
 
 
 def load_episodes():
-    """Load transcripts, deduplicating re-uploads (same number, ~same length).
-    Prefers the version whose title carries the (Беседа N) label."""
-    episodes = []
-    for f in sorted(TRANSCRIPTS_DIR.glob("*.json")):
-        data = json.loads(f.read_text(encoding="utf-8"))
-        episodes.append(
-            {
-                "video_id": data["video_id"],
-                "title": data.get("title", ""),
-                "episode_number": data.get("episode_number", 0),
-                "text": data.get("full_text", ""),
-                "_duration": _get_duration(data),
-            }
-        )
-
-    seen = {}
-    unique = []
-    for ep in episodes:
-        n = ep["episode_number"]
-        if n in seen and _is_reupload(seen[n]["_duration"], ep["_duration"]):
-            prev = seen[n]
-            has_label = f"(Беседа {n})" in ep["title"]
-            prev_has = f"(Беседа {n})" in prev["title"]
-            if has_label and not prev_has:
-                unique[unique.index(prev)] = ep
-                seen[n] = ep
-            continue
-        unique.append(ep)
-        seen[n] = ep
-    return unique
+    """Transcripts, deduplicated (see theme_scoring.load_episodes)."""
+    return ts.load_episodes(TRANSCRIPTS_DIR)
 
 
 def main():
@@ -517,31 +476,28 @@ def main():
         themes.append(
             {
                 **t,
-                "regex": re.compile(r"\b(?:" + t["patterns"] + r")", re.IGNORECASE),
+                "regex": ts.compile_pattern(t["patterns"]),
                 "min_hits": t.get("min_hits", DEFAULT_MIN_HITS),
                 "min_per10k": t.get("min_per10k", DEFAULT_MIN_PER10K),
                 "episodes": [],  # [video_id, per10k, title_hit]
             }
         )
 
-    episodes = load_episodes()
+    corpus = ts.prepare_corpus(load_episodes())
     ep_meta = {}
 
-    for ep in episodes:
-        text = ep["text"].lower()
-        title = ep["title"].lower()
-        words = max(1, len(text.split()))
+    for ep in corpus:
         ep_meta[ep["video_id"]] = {
-            "n": ep["episode_number"],
+            "n": ep["n"],
             "title": ep["title"],
             "themes": [],
         }
 
         candidates = []
         for t in themes:
-            hits = sum(1 for _ in t["regex"].finditer(text))
-            per10k = hits * 10000.0 / words
-            title_hit = bool(t["regex"].search(title))
+            hits = sum(1 for _ in t["regex"].finditer(ep["text_lc"]))
+            per10k = hits * 10000.0 / ep["words"]
+            title_hit = bool(t["regex"].search(ep["title_lc"]))
             if title_hit or (hits >= t["min_hits"] and per10k >= t["min_per10k"]):
                 candidates.append((t, per10k, title_hit))
 
@@ -555,15 +511,9 @@ def main():
     for t in themes:
         if not t["episodes"]:
             continue
-        max_per10k = max(p for _, p, _ in t["episodes"]) or 1.0
-        rows = []
-        for vid, per10k, title_hit in t["episodes"]:
-            w = math.log1p(per10k) / math.log1p(max_per10k)
-            if title_hit:
-                w = max(w, TITLE_WEIGHT)
-            rows.append((vid, round(min(1.0, w), 3)))
+        rows = ts.normalize_weights(t["episodes"])
+        for vid, _, _ in t["episodes"]:
             ep_meta[vid]["themes"].append(t["id"])
-        rows.sort(key=lambda r: -r[1])
         out_themes.append(
             {
                 "id": t["id"],
@@ -576,71 +526,9 @@ def main():
             }
         )
 
-    # Co-occurrence edges
+    # Co-occurrence edges, pruned to the strongest per node
     sets = {t["id"]: {vid for vid, _ in t["episodes"]} for t in out_themes}
-    raw_edges = []
-    ids = [t["id"] for t in out_themes]
-    for i in range(len(ids)):
-        for j in range(i + 1, len(ids)):
-            a, b = ids[i], ids[j]
-            shared = len(sets[a] & sets[b])
-            if shared < EDGE_MIN_SHARED:
-                continue
-            overlap = shared / min(len(sets[a]), len(sets[b]))
-            if overlap < EDGE_MIN_OVERLAP:
-                continue
-            raw_edges.append(
-                {
-                    "source": a,
-                    "target": b,
-                    "shared": shared,
-                    "weight": round(overlap, 3),
-                    "_score": overlap * math.sqrt(shared),
-                }
-            )
-
-    # Prune to each node's strongest edges (union), keeping the map legible
-    by_node = {}
-    for e in raw_edges:
-        by_node.setdefault(e["source"], []).append(e)
-        by_node.setdefault(e["target"], []).append(e)
-    kept = set()
-    for node, edges in by_node.items():
-        edges.sort(key=lambda e: -e["_score"])
-        for e in edges[:EDGE_TOP_PER_NODE]:
-            kept.add(id(e))
-    edges = [
-        {k: v for k, v in e.items() if not k.startswith("_")}
-        for e in raw_edges
-        if id(e) in kept
-    ]
-
-    # Ensure no theme node floats disconnected if it has any relation at all
-    connected = {e["source"] for e in edges} | {e["target"] for e in edges}
-    for t in out_themes:
-        if t["id"] in connected:
-            continue
-        best, best_score = None, 0.0
-        for other in out_themes:
-            if other["id"] == t["id"]:
-                continue
-            shared = len(sets[t["id"]] & sets[other["id"]])
-            if shared < 2:
-                continue
-            overlap = shared / min(len(sets[t["id"]]), len(sets[other["id"]]))
-            score = overlap * math.sqrt(shared)
-            if score > best_score:
-                best, best_score = other, score
-        if best:
-            shared = len(sets[t["id"]] & sets[best["id"]])
-            edges.append(
-                {
-                    "source": t["id"],
-                    "target": best["id"],
-                    "shared": shared,
-                    "weight": round(shared / min(len(sets[t["id"]]), len(sets[best["id"]])), 3),
-                }
-            )
+    edges = ts.build_links(sets)
 
     result = {
         "version": 1,
@@ -655,7 +543,7 @@ def main():
     )
 
     # ── Console report for review ──
-    print(f"Episodes analyzed: {len(episodes)}")
+    print(f"Episodes analyzed: {len(corpus)}")
     print(f"Themes with episodes: {len(out_themes)} / {len(THEMES)}")
     print(f"Edges: {len(edges)}")
     print(f"Output: {OUTPUT} ({OUTPUT.stat().st_size // 1024} KB)\n")
