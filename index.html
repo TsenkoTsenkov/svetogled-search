@@ -4828,6 +4828,13 @@
                     self.neighbors[a.id][b.id] = true;
                     self.neighbors[b.id][a.id] = true;
                 });
+
+                // The label pass caches its own draw order (see _draw). That
+                // cache holds node objects, and every node here is a fresh
+                // one, so a stale cache would label the map that *was*: the
+                // theme just added would have a disc and no name, and every
+                // other name would sit frozen where its disc used to be.
+                this._labelOrder = null;
             };
 
             // Re-form the constellation around a changed theme set (a theme
@@ -5366,7 +5373,10 @@
 
                 // Nodes — pass 2: labels, largest node first, with greedy
                 // collision culling: a label that would overlap an already
-                // placed one is skipped (it reappears on hover or zoom-in)
+                // placed one is skipped (it reappears on hover or zoom-in).
+                // A theme the visitor added goes first whatever its size: it
+                // is the one node they are looking for, so it never loses its
+                // name to a curated neighbour.
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
                 ctx.lineJoin = "round";
@@ -5374,6 +5384,8 @@
                     this._labelOrder = this.nodes
                         .slice()
                         .sort(function (a, b) {
+                            if (!a.isCustom !== !b.isCustom)
+                                return a.isCustom ? -1 : 1;
                             return b.r - a.r;
                         });
                 }
