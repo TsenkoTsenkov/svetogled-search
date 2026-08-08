@@ -79,6 +79,9 @@
                 color: var(--text-dim);
                 font-weight: 400;
             }
+            .repo b.warn {
+                color: var(--warn);
+            }
             .spacer {
                 flex: 1;
             }
@@ -741,8 +744,17 @@
                     : {};
                 return fetch(path, opts).then(function (r) {
                     return r.json().then(function (body) {
-                        if (!r.ok || body.error)
-                            throw new Error(body.error || "HTTP " + r.status);
+                        if (!r.ok || body.error) {
+                            var err = new Error(
+                                body.error || "HTTP " + r.status,
+                            );
+                            // A publish can half-succeed — commit made, push
+                            // failed. The body carries what did happen, so
+                            // the caller can act on it instead of only
+                            // showing the message.
+                            err.body = body;
+                            throw err;
+                        }
                         return body;
                     });
                 });
@@ -818,14 +830,24 @@
                 return out;
             }
 
+            /** Commits made here that GitHub has not seen yet. */
+            function unpushed() {
+                return (state.ping && state.ping.unpushed) || 0;
+            }
+
             function refreshDirty() {
                 var n = dirtyEdits().length;
                 el("dirty-count").textContent = n
                     ? n + (n === 1 ? " променен абзац" : " променени абзаца")
-                    : "няма промени";
+                    : unpushed()
+                      ? "няма промени · чака качване"
+                      : "няма промени";
                 el("btn-save").disabled = n === 0;
                 el("btn-preview").disabled = n === 0;
-                el("btn-publish").disabled = n === 0;
+                // With nothing edited there is still something to publish
+                // when an earlier push failed: the commit it left behind.
+                el("btn-publish").disabled =
+                    n === 0 && !(unpushed() && state.current);
             }
 
             function openEpisode(id) {
@@ -1085,23 +1107,33 @@
 
             // ── publish ──
             function showPublish() {
+                if (!state.current) return;
                 var edits = dirtyEdits();
-                if (!edits.length) return;
+                if (!edits.length && !unpushed()) return;
                 var branch = state.ping ? state.ping.publish_branch : "main";
                 var title = state.current.title;
                 var body =
-                    '<p class="note">Промяната се записва в <code>transcripts/' +
-                    esc(state.current.video_id) +
-                    ".json</code>, комитва се и се качва в GitHub.</p>" +
-                    '<label class="field">Съобщение на комита</label>' +
-                    '<input type="text" id="commit-msg" value="' +
-                    esc("Редакция на текста: " + title) +
-                    '">' +
-                    '<label class="field">Къде</label>' +
-                    '<div class="choice sel" data-mode="direct"><div><div class="h">Директно в ' +
-                    esc(branch) +
-                    '</div><div class="d">Пайплайнът тръгва веднага: deploy.yml преизгражда сайта и преиндексира Meilisearch, regenerate-themes.yml обновява темите.</div></div></div>' +
-                    '<div class="choice" data-mode="branch"><div><div class="h">В отделен клон + pull request</div><div class="d">Промяната изчаква преглед; пайплайнът тръгва след сливане.</div></div></div>';
+                    '<p class="note">' +
+                    (edits.length
+                        ? "Промяната се записва в <code>transcripts/" +
+                          esc(state.current.video_id) +
+                          ".json</code>, комитва се и се качва в GitHub."
+                        : "Няма нови промени в текста — остава да се качи " +
+                          "комитът от предишното публикуване.") +
+                    "</p>" +
+                    // Nothing new to commit: the message and the choice of
+                    // where would both be about a commit that already exists.
+                    (edits.length
+                        ? '<label class="field">Съобщение на комита</label>' +
+                          '<input type="text" id="commit-msg" value="' +
+                          esc("Редакция на текста: " + title) +
+                          '">' +
+                          '<label class="field">Къде</label>' +
+                          '<div class="choice sel" data-mode="direct"><div><div class="h">Директно в ' +
+                          esc(branch) +
+                          '</div><div class="d">Пайплайнът тръгва веднага: deploy.yml преизгражда сайта и преиндексира Meilisearch, regenerate-themes.yml обновява темите.</div></div></div>' +
+                          '<div class="choice" data-mode="branch"><div><div class="h">В отделен клон + pull request</div><div class="d">Промяната изчаква преглед; пайплайнът тръгва след сливане.</div></div></div>'
+                        : "");
                 openModal("Публикуване", body, [
                     mkButton("Отказ", "ghost", closeModal),
                     mkButton("Публикувай", "primary", doPublish),
@@ -1123,7 +1155,8 @@
             function doPublish() {
                 var sel = el("modal-body").querySelector(".choice.sel");
                 var mode = sel ? sel.getAttribute("data-mode") : "direct";
-                var message = el("commit-msg").value.trim();
+                var msg = el("commit-msg");
+                var message = msg ? msg.value.trim() : "";
                 var edits = dirtyEdits();
                 el("modal-foot")
                     .querySelectorAll("button")
@@ -1137,63 +1170,86 @@
                     message: message,
                     mode: mode,
                     confirm: true,
-                }).then(
-                    function (r) {
-                        var lines = [];
-                        if (r.committed)
-                            lines.push(
-                                "Комит <code>" +
-                                    esc(r.commit || "") +
-                                    "</code> в <code>" +
-                                    esc(r.branch || "") +
-                                    "</code>.",
-                            );
-                        if (r.pushed) lines.push("Качено в GitHub.");
-                        if (r.pipeline) lines.push(esc(r.pipeline));
-                        if (r.pull_request_url)
-                            lines.push(
-                                '<a href="' +
-                                    r.pull_request_url +
-                                    '" target="_blank" rel="noopener">Отворете pull request ↗</a>',
-                            );
-                        if (r.actions_url)
-                            lines.push(
-                                '<a href="' +
-                                    r.actions_url +
-                                    '" target="_blank" rel="noopener">Проследете пайплайна ↗</a>',
-                            );
-                        if (r.error) lines.push("<b>" + esc(r.error) + "</b>");
-                        if (r.warning) lines.push(esc(r.warning));
-                        openModal(
-                            r.ok ? "Публикувано" : "Частично публикувано",
-                            '<div class="result note">' +
-                                lines.join("<br><br>") +
-                                "</div>",
-                            [mkButton("Готово", "primary", closeModal)],
-                        );
-                        say(
-                            r.ok
-                                ? "Публикувано."
-                                : "Публикувано частично — вижте съобщението.",
-                            r.ok ? "ok" : "bad",
-                        );
-                        if (r.committed) reloadAfterPublish();
-                    },
-                    function (err) {
-                        openModal(
-                            "Грешка при публикуване",
-                            '<div class="result note">' +
-                                esc(err.message) +
-                                "</div>",
-                            [mkButton("Затвори", "ghost", closeModal)],
-                        );
-                        say(err.message, "bad");
-                    },
+                }).then(showPublishResult, function (err) {
+                    // A push that fails after the commit comes back as an
+                    // error, but the commit is real: show what happened and
+                    // re-read the transcript, or the editor would keep
+                    // offering changes it has already made.
+                    if (err.body && err.body.steps)
+                        return showPublishResult(err.body);
+                    openModal(
+                        "Грешка при публикуване",
+                        '<div class="result note">' + esc(err.message) + "</div>",
+                        [mkButton("Затвори", "ghost", closeModal)],
+                    );
+                    say(err.message, "bad");
+                });
+            }
+
+            function showPublishResult(r) {
+                var lines = [];
+                if (r.note) lines.push(esc(r.note));
+                if (r.committed)
+                    lines.push(
+                        "Комит <code>" +
+                            esc(r.commit || "") +
+                            "</code> в <code>" +
+                            esc(r.branch || "") +
+                            "</code>.",
+                    );
+                else if (r.already && !r.nothing_to_do && r.commit)
+                    lines.push(
+                        "Текстът вече е комитнат (<code>" +
+                            esc(r.commit) +
+                            "</code>).",
+                    );
+                if (r.pushed && !r.up_to_date) lines.push("Качено в GitHub.");
+                if (r.pipeline) lines.push(esc(r.pipeline));
+                if (r.pull_request_url)
+                    lines.push(
+                        '<a href="' +
+                            r.pull_request_url +
+                            '" target="_blank" rel="noopener">Отворете pull request ↗</a>',
+                    );
+                if (r.actions_url)
+                    lines.push(
+                        '<a href="' +
+                            r.actions_url +
+                            '" target="_blank" rel="noopener">Проследете пайплайна ↗</a>',
+                    );
+                if (r.error) lines.push("<b>" + esc(r.error) + "</b>");
+                if (r.warning) lines.push(esc(r.warning));
+                var title = !r.ok
+                    ? "Частично публикувано"
+                    : r.nothing_to_do
+                      ? "Няма нищо ново"
+                      : "Публикувано";
+                openModal(
+                    title,
+                    '<div class="result note">' + lines.join("<br><br>") + "</div>",
+                    [mkButton("Готово", "primary", closeModal)],
                 );
+                say(
+                    r.ok
+                        ? r.nothing_to_do
+                            ? "Няма нищо ново за публикуване."
+                            : "Публикувано."
+                        : "Публикувано частично — вижте съобщението.",
+                    r.ok ? "ok" : "bad",
+                );
+                refreshPing();
+                // The transcript on disk now holds these edits — re-read it,
+                // so „променени абзаци“ counts what is really still unsaved.
+                if (r.committed || r.already) reloadAfterPublish();
             }
 
             function reloadAfterPublish() {
                 var id = state.current.video_id;
+                // Publishing deletes the чернова on the server. An autosave
+                // still on the clock would write it straight back, from a
+                // baseline that is now one publish out of date.
+                clearTimeout(state.saveTimer);
+                el("autosave").textContent = "";
                 state.edited = {};
                 state.original = {};
                 api("/api/episodes").then(function (data) {
@@ -1208,6 +1264,16 @@
                             state.edited[p.index] = p.text;
                         });
                         renderEditor();
+                    },
+                    function (err) {
+                        // Leaving the editor with an empty baseline would
+                        // make every later publish look like "no changes".
+                        say(
+                            "Беседата не се презареди: " +
+                                err.message +
+                                " — отворете я отново.",
+                            "bad",
+                        );
                     },
                 );
             }
@@ -3737,17 +3803,33 @@
                 }
             });
 
-            api("/api/ping").then(function (p) {
-                state.ping = p;
-                el("repo").innerHTML =
-                    (p.repo ? "<b>" + esc(p.repo) + "</b>" : "локална папка") +
-                    " · клон <b>" +
-                    esc(p.branch || "—") +
-                    "</b> · публикува в <b>" +
-                    esc(p.publish_branch) +
-                    "</b>" +
-                    (p.git ? "" : " · без git");
-            });
+            function refreshPing() {
+                return api("/api/ping").then(function (p) {
+                    state.ping = p;
+                    el("repo").innerHTML =
+                        (p.repo
+                            ? "<b>" + esc(p.repo) + "</b>"
+                            : "локална папка") +
+                        " · клон <b>" +
+                        esc(p.branch || "—") +
+                        "</b> · публикува в <b>" +
+                        esc(p.publish_branch) +
+                        "</b>" +
+                        (p.git ? "" : " · без git") +
+                        // A publish whose push failed leaves the комит here
+                        // and nowhere else; better said out loud.
+                        (p.unpushed
+                            ? ' · <b class="warn">' +
+                              p.unpushed +
+                              (p.unpushed === 1
+                                  ? " комит чака качване"
+                                  : " комита чакат качване") +
+                              "</b>"
+                            : "");
+                    refreshDirty(); // a waiting commit is something to publish
+                });
+            }
+            refreshPing();
             vimInit();
             loadEpisodes();
             if (location.hash.length > 1)
