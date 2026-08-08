@@ -65,13 +65,31 @@ _LOCAL_ORIGIN = re.compile(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$")
 
 # ── git ──────────────────────────────────────────────────────────────────
 
-def git(*args, check=False):
+GIT_TIMEOUT = int(os.environ.get("REDACTION_GIT_TIMEOUT", 180))
+
+# git runs behind an HTTP request here, so it must never stop to ask a
+# question: a credential prompt would inherit the terminal this server was
+# started from and hang the publish instead of failing it. With prompts off a
+# missing credential comes back as an error the editor can show.
+_GIT_ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+
+
+def git(*args, check=False, timeout=GIT_TIMEOUT):
     """Run a git command in the repo; returns (code, stdout, stderr)."""
-    proc = subprocess.run(
-        ["git", "-C", str(ROOT), *args],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(ROOT), *args],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            env=_GIT_ENV,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        out, err = "", f"git {args[0]} не отговори за {timeout} секунди."
+        if check:
+            raise RuntimeError(err)
+        return 124, out, err
     if check and proc.returncode != 0:
         raise RuntimeError(
             f"git {' '.join(args)} се провали:\n{proc.stderr.strip()}"
@@ -108,6 +126,28 @@ def github_slug():
         return f"{m.group(1)}/{m.group(2)}"
     parts = [p for p in re.sub(r"\.git/?$", "", url).split("/") if p]
     return "/".join(parts[-2:]) if len(parts) >= 2 else ""
+
+
+def file_changed(rel):
+    """Does the working tree hold changes to this file that HEAD does not?"""
+    code, out, _ = git("status", "--porcelain", "--", rel)
+    return bool(out.strip()) if code == 0 else False
+
+
+def staged(rel):
+    """Is there something staged for this file, i.e. something to commit?"""
+    # --quiet exits 1 exactly when there are differences.
+    return git("diff", "--cached", "--quiet", "--", rel)[0] == 1
+
+
+def unpushed(branch=None):
+    """Commits HEAD has and origin/<branch> has not — no network, so this is
+    the last known state of the remote. None when there is nothing to compare
+    against (no such remote-tracking branch yet)."""
+    code, out, _ = git(
+        "rev-list", "--count", f"origin/{branch or PUBLISH_BRANCH}..HEAD"
+    )
+    return int(out) if code == 0 and out.isdigit() else None
 
 
 # ── transcripts & drafts ─────────────────────────────────────────────────
@@ -236,6 +276,11 @@ def preview(video_id, edits):
     return {"summary": summary, "diffs": diffs}
 
 
+NOTHING_TO_PUBLISH = (
+    "Текстът в редактора вече е публикуван — няма нищо ново за качване."
+)
+
+
 def publish(video_id, edits, message=None, mode="direct", push=True):
     """Write the edited transcript and put it into git.
 
@@ -243,15 +288,24 @@ def publish(video_id, edits, message=None, mode="direct", push=True):
     deploy pipeline rebuilds and re-indexes the episode).
     mode "branch": commit on a fresh redakcia/… branch, push it, and hand
     back a link for opening the pull request.
+
+    Publishing is three steps — write, commit, push — and only the first is
+    about the text. So "the edits are already on disk" does not mean "nothing
+    to do": it usually means an earlier attempt got through the write and
+    failed later. Answering that with "няма променени абзаци" is how a commit
+    once stayed behind unpushed with no way back to it from the editor, so
+    this now finishes the unfinished job instead.
     """
     data = load_transcript(video_id)
     new_data, summary = align.apply_edits(data, edits)
-    if not summary["paragraphs_changed"]:
-        raise ValueError("Няма променени абзаци.")
+    fresh = bool(summary["paragraphs_changed"])
 
     path = transcript_path(video_id)
     rel = path.relative_to(ROOT).as_posix()
-    serialized = json.dumps(new_data, ensure_ascii=False)
+    # indent=2 is the shape every other writer in the repo uses
+    # (extract_transcripts.py, scripts/correct_transcripts.py …); a one-line
+    # file would show up as "1 insertion, 7167 deletions" in every diff.
+    serialized = json.dumps(new_data, ensure_ascii=False, indent=2)
     json.loads(serialized)  # never write a file we cannot read back
 
     steps = []
@@ -263,15 +317,32 @@ def publish(video_id, edits, message=None, mode="direct", push=True):
         "steps": steps,
         "committed": False,
         "pushed": False,
+        "already": not fresh,
     }
 
     if not git_available():
+        if not fresh:
+            raise ValueError(NOTHING_TO_PUBLISH)
         path.write_text(serialized, encoding="utf-8")
         steps.append({"step": "write", "ok": True, "detail": rel})
         result["warning"] = (
             "Файлът е записан, но папката не е git хранилище — няма commit."
         )
         return result
+
+    if not fresh:
+        pending = file_changed(rel) or unpushed() != 0
+        if not pending:
+            result["nothing_to_do"] = True
+            result["note"] = NOTHING_TO_PUBLISH
+            return result
+        # Finish where the commit already is; a pull request out of a branch
+        # that holds no new commit would be an empty one.
+        mode = "direct"
+        result["mode"] = mode
+        result["note"] = (
+            "Тези промени вече бяха записани — довършвам публикуването."
+        )
 
     title = new_data.get("title", video_id)
     commit_message = message or f"Редакция на текста: {title}"
@@ -290,21 +361,30 @@ def publish(video_id, edits, message=None, mode="direct", push=True):
         steps.append({"step": "branch", "ok": True, "detail": branch})
 
     try:
-        path.write_text(serialized, encoding="utf-8")
-        steps.append({"step": "write", "ok": True, "detail": rel})
+        if fresh:
+            path.write_text(serialized, encoding="utf-8")
+            steps.append({"step": "write", "ok": True, "detail": rel})
 
         code, _, err = git("add", "--", rel)
         if code != 0:
             raise RuntimeError(f"git add се провали: {err}")
-        code, out, err = git("commit", "-m", commit_message, "--", rel)
-        if code != 0:
-            raise RuntimeError(f"git commit се провали: {err or out}")
-        result["committed"] = True
+        if staged(rel):
+            code, out, err = git("commit", "-m", commit_message, "--", rel)
+            if code != 0:
+                raise RuntimeError(f"git commit се провали: {err or out}")
+            result["committed"] = True
+            result["message"] = commit_message
+        else:
+            steps.append(
+                {"step": "commit", "ok": True, "detail": "вече е комитнато"}
+            )
         code, sha, _ = git("rev-parse", "HEAD")
         result["commit"] = sha[:10] if code == 0 else ""
         result["branch"] = branch
-        result["message"] = commit_message
-        steps.append({"step": "commit", "ok": True, "detail": result["commit"]})
+        if result["committed"]:
+            steps.append(
+                {"step": "commit", "ok": True, "detail": result["commit"]}
+            )
 
         if push:
             target = PUBLISH_BRANCH if mode == "direct" else branch
@@ -321,11 +401,14 @@ def publish(video_id, edits, message=None, mode="direct", push=True):
                     + result.get("commit", "")
                     + "), но push се провали: "
                     + (err or out)
+                    + "\n\nКомитът остава тук. Оправете причината и натиснете "
+                    "„Публикувай“ отново — редакторът ще довърши качването."
                 )
                 steps.append({"step": "push", "ok": False, "detail": err or out})
                 return result
             result["pushed"] = True
             result["push_target"] = target
+            result["up_to_date"] = "up-to-date" in (out + " " + err).lower()
             steps.append({"step": "push", "ok": True, "detail": target})
 
             slug = github_slug()
@@ -348,13 +431,20 @@ def publish(video_id, edits, message=None, mode="direct", push=True):
                         "и преиндексира Meilisearch, а regenerate-themes.yml "
                         "обновява картата на темите."
                     )
+            if result.get("up_to_date") and not result["committed"]:
+                # Nothing left to send: GitHub already had this commit.
+                result["pipeline"] = (
+                    "GitHub вече беше в крак — този текст е публикуван."
+                )
+                result["nothing_to_do"] = True
     finally:
         if mode == "branch" and original_branch and current_branch() != original_branch:
             git("switch", original_branch)
             steps.append({"step": "restore-branch", "ok": True, "detail": original_branch})
 
-    # The draft has become history.
-    if result["committed"]:
+    # The draft has become history: the text is in the repository now, even
+    # if only the push is still owed.
+    if result["committed"] or result.get("already"):
         try:
             draft_path(video_id).unlink(missing_ok=True)
         except OSError:
@@ -450,6 +540,9 @@ class RedactionHandler(SimpleHTTPRequestHandler):
                     "branch": current_branch(),
                     "publish_branch": PUBLISH_BRANCH,
                     "git": git_available(),
+                    # Commits made here that GitHub has not seen — a publish
+                    # whose push failed leaves one, and the editor says so.
+                    "unpushed": unpushed() if git_available() else None,
                 },
                 ping=True,
             )

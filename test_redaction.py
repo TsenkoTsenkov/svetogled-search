@@ -9,17 +9,23 @@ Covered here:
     4. full_text keeps corrections that were only ever made to full_text
     5. Custom theme scoring: keywords → pattern → episodes → edges
     6. Real transcripts survive a round trip through the editor
+    7. Publishing: write → commit → push, and picking the job back up
+       when only the push failed
 
-No server and no network needed:
+No server and no network needed (the publish tests use a throwaway repo):
     python3 test_redaction.py
 """
 
+import contextlib
 import json
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import redaction_align as align
+import redaction_app as app
 import theme_scoring as ts
 
 TRANSCRIPTS_DIR = Path(__file__).parent / "transcripts"
@@ -288,6 +294,139 @@ def test_paragraphs_cover_every_segment():
         )
 
 
+# ── Publishing ───────────────────────────────────────────────────────────
+# Publishing is write → commit → push, and the push is the step that fails
+# on its own — a dead remote, a credential the keychain will not hand over.
+# When it does, the text is already on disk, so the editor comes back with
+# edits that change nothing: answering "няма променени абзаци" there strands
+# the commit. These run publish() against a throwaway repository.
+
+
+@contextlib.contextmanager
+def _repo():
+    """A repo holding one transcript, with a bare origin already in sync."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "work"
+        bare = Path(tmp) / "origin.git"
+        (root / "transcripts").mkdir(parents=True)
+        for args in (["init", "-q", "-b", "main", str(root)],
+                     ["init", "-q", "--bare", "-b", "main", str(bare)]):
+            subprocess.run(["git", *args], capture_output=True, check=True)
+        was = (app.ROOT, app.TRANSCRIPTS_DIR, app.DRAFTS_DIR)
+        app.ROOT = root
+        app.TRANSCRIPTS_DIR = root / "transcripts"
+        app.DRAFTS_DIR = root / ".redaction-drafts"
+        try:
+            for key, value in (
+                ("user.email", "redakcia@example.com"),
+                ("user.name", "Тест"),
+                ("commit.gpgsign", "false"),
+            ):
+                app.git("config", key, value)
+            app.git("remote", "add", "origin", str(bare))
+            (app.TRANSCRIPTS_DIR / "vid1.json").write_text(
+                json.dumps(_transcript(), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            app.git("add", "-A")
+            app.git("commit", "-qm", "начало")
+            app.git("push", "-q", "origin", "main")
+            yield root, bare
+        finally:
+            app.ROOT, app.TRANSCRIPTS_DIR, app.DRAFTS_DIR = was
+
+
+def _transcript():
+    return {
+        "video_id": "vid1",
+        "title": "Проба",
+        "episode_number": 1,
+        "snippets": [dict(s) for s in SAMPLE],
+        "full_text": " ".join(s["text"] for s in SAMPLE),
+        "segment_count": len(SAMPLE),
+    }
+
+
+def _an_edit():
+    paras = align.iter_paragraphs(SAMPLE)
+    return [{"index": 0, "text": paras[0]["text"] + " и за словото."}]
+
+
+def test_publish_writes_the_shape_the_repo_uses():
+    """Every other writer here uses indent=2; a one-line file makes each
+    редакция look like a 7000-line rewrite in the diff."""
+    with _repo() as (root, _bare):
+        result = app.publish("vid1", _an_edit(), push=False)
+        assert result["committed"], result
+        raw = (root / "transcripts" / "vid1.json").read_text(encoding="utf-8")
+        assert raw.count("\n") > 10, "the transcript was written as one line"
+        assert json.loads(raw)["snippets"][0]["start"] == 0.0
+        assert "и за словото." in json.loads(raw)["full_text"]
+
+
+def test_publish_finishes_a_publish_whose_push_failed():
+    """The failure this section exists for: retry must push, not refuse."""
+    with _repo() as (root, bare):
+        edits = _an_edit()
+        app.git("remote", "set-url", "origin", str(root / "no-such-remote.git"))
+        first = app.publish("vid1", edits)
+        assert first["committed"], first
+        assert not first["pushed"] and first["ok"] is False, first
+        assert "push" in (first.get("error") or ""), first
+
+        app.git("remote", "set-url", "origin", str(bare))
+        again = app.publish("vid1", edits)  # the editor sends the same edits
+        assert again["ok"], again
+        assert again["already"] and not again["committed"], again
+        assert again["pushed"], "the stranded commit never reached origin"
+        assert app.git("rev-parse", "HEAD")[1] == app.git(
+            "rev-parse", "origin/main"
+        )[1], "origin did not get the commit"
+
+
+def test_publish_commits_a_transcript_left_uncommitted():
+    """Written but never committed — the retry picks up from there."""
+    with _repo() as (root, _bare):
+        edits = _an_edit()
+        new_data, _ = align.apply_edits(_transcript(), edits)
+        (root / "transcripts" / "vid1.json").write_text(
+            json.dumps(new_data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        result = app.publish("vid1", edits)
+        assert result["already"] and result["committed"], result
+        assert result["pushed"], result
+
+
+def test_publish_says_plainly_when_there_is_nothing_left():
+    with _repo() as (_root, _bare):
+        edits = _an_edit()
+        assert app.publish("vid1", edits)["pushed"]
+        again = app.publish("vid1", edits)
+        assert again["ok"] and again.get("nothing_to_do"), again
+        assert not again["committed"] and again["already"], again
+        assert again.get("note"), "no explanation of why nothing happened"
+
+
+def test_publish_drops_the_draft_it_has_published():
+    with _repo() as (_root, _bare):
+        edits = _an_edit()
+        app.save_draft("vid1", edits)
+        assert app.draft_path("vid1").exists()
+        app.publish("vid1", edits, push=False)
+        assert not app.draft_path("vid1").exists(), (
+            "the чернова outlived the commit and will come back as changes"
+        )
+
+
+def test_git_never_waits_for_an_answer():
+    """git runs behind an HTTP request: a credential prompt would hang the
+    publish instead of failing it."""
+    assert app._GIT_ENV.get("GIT_TERMINAL_PROMPT") == "0"
+    source = Path(app.__file__).read_text(encoding="utf-8")
+    assert "stdin=subprocess.DEVNULL" in source, "git can still read the terminal"
+    assert "timeout=timeout" in source, "a stuck git would hang the request"
+
+
 # ── The editor page ──────────────────────────────────────────────────────
 # The keyboard layer lives in redaction.html. Its motions are tested on
 # their own (node test_vim_motions.js); what is checked here is the wiring
@@ -363,6 +502,22 @@ def test_editor_keeps_its_keyboard_wiring():
         assert needed in script, f"{needed} disappeared from the editor"
     # Normal mode must never let a keystroke reach the text.
     assert 'addEventListener("beforeinput"' in script, "the typing guard is gone"
+
+
+def test_editor_keeps_a_half_finished_publish():
+    """A commit whose push failed comes back as an error with a body: the
+    page must read it, not just print the message and stand still."""
+    script = _editor_script()
+    assert "err.body" in script, "the publish error path throws the result away"
+    assert "showPublishResult" in script, "the two outcomes drifted apart again"
+    block = script[script.index("function reloadAfterPublish()") :]
+    block = block[: block.index("// ══ vim")]
+    assert "clearTimeout(state.saveTimer)" in block, (
+        "a pending autosave writes the чернова back over a fresh publish"
+    )
+    assert re.search(r"function reloadAfterPublish[\s\S]*?\bsay\(", block), (
+        "a failed reload leaves an empty baseline and says nothing"
+    )
 
 
 def test_help_lists_the_keys_it_binds():
