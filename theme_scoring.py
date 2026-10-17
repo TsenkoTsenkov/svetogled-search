@@ -23,7 +23,9 @@ from pathlib import Path
 DEFAULT_MIN_HITS = 5       # minimum raw pattern hits in an episode
 DEFAULT_MIN_PER10K = 4.5   # minimum hits per 10 000 words
 TITLE_WEIGHT = 0.9         # weight floor when the title names the theme
-MAX_THEMES_PER_EPISODE = 6
+# At 6, 269 of 290 episodes hit the cap and lost themes that cleared the
+# thresholds (Беседа 292: 23 „уния/униат" hits, dropped from Икуменизъм).
+MAX_THEMES_PER_EPISODE = 8
 
 # Edges: keep pairs sharing enough episodes, then prune to the strongest
 EDGE_MIN_SHARED = 4
