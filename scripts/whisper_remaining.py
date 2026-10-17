@@ -86,14 +86,17 @@ def transcribe_audio(wav_path):
         json_prefix = tmp.name.replace(".json", "")
 
     try:
-        subprocess.run(
+        # CPU Whisper runs at ~0.5x real time on a GitHub runner, so a 2-hour
+        # talk needs ~1 hour. The old 3600s limit killed Беседа 292 (1:52:40)
+        # before it finished.
+        proc = subprocess.run(
             [
                 WHISPER_CLI, "-m", MODEL_PATH,
                 "-l", LANGUAGE, "-f", str(wav_path),
                 "-oj", "-of", json_prefix,
                 "--no-prints",
             ],
-            capture_output=True, text=True, timeout=3600,
+            capture_output=True, text=True, timeout=3 * 3600,
         )
 
         json_file = Path(json_prefix + ".json")
@@ -101,8 +104,15 @@ def transcribe_audio(wav_path):
             data = json.loads(json_file.read_text(encoding="utf-8"))
             json_file.unlink()
             return data
+        err = (proc.stderr or proc.stdout or "").strip()
+        print(f"  whisper exited {proc.returncode}: {err[-400:]}" if err
+              else f"  whisper exited {proc.returncode} with no output")
         return None
-    except Exception:
+    except subprocess.TimeoutExpired as e:
+        print(f"  whisper timed out after {e.timeout:.0f}s")
+        return None
+    except Exception as e:
+        print(f"  whisper error: {type(e).__name__}: {e}")
         return None
 
 

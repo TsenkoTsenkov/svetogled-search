@@ -15,7 +15,9 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # Two talks of ~2 hours each take ~2 hours of CPU Whisper; 120 minutes
+    # was too tight. The repo is public, so runner minutes are free.
+    timeout-minutes: 300
 
     # YouTube blocks anonymous downloads from datacenter IPs (GitHub runners),
     # so every yt-dlp call authenticates with cookies. Scripts read this path
