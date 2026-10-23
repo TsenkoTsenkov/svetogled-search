@@ -901,6 +901,12 @@ def _render_episode_page(data):
     if upload_date:
         jsonld_extra += f'\n        "datePublished": "{upload_date}",'
 
+    # Google requires VideoObject.uploadDate to be a full ISO 8601 datetime
+    # with a timezone; a bare date (or a missing one) is flagged in GSC.
+    video_upload_date = ""
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", upload_date or ""):
+        video_upload_date = f'            "uploadDate": "{upload_date}T00:00:00+00:00",'
+
     # Breadcrumbs (visible + JSON-LD)
     crumb_cur = f"Беседа {num}" if num else _html_escape(data["title"][:48])
     crumbs_html = (
@@ -1026,7 +1032,7 @@ def _render_episode_page(data):
             "description": "{_html_escape(desc_text)}",
             "embedUrl": "https://www.youtube.com/embed/{video_id}",
             "thumbnailUrl": "https://img.youtube.com/vi/{video_id}/hqdefault.jpg",
-            "uploadDate": "{data.get("upload_date", "2024-01-01")}",
+{video_upload_date}
             "contentUrl": "https://www.youtube.com/watch?v={video_id}"
         }},
         "partOfSeries": {{
