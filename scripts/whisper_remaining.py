@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-"""Transcribe remaining videos with Whisper (for GitHub Actions)."""
+"""Transcribe remaining videos with Whisper (for GitHub Actions).
+
+The weekly workflow runs this on the self-hosted Mac runner with Homebrew's
+Metal-accelerated whisper-cli and the large-v3-turbo model; WHISPER_CLI and
+WHISPER_MODEL point at them. The defaults match a whisper.cpp build in the
+repo root.
+"""
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 TRANSCRIPTS_DIR = Path("transcripts")
 REMAINING_FILE = Path("remaining_videos.json")
-WHISPER_CLI = "./whisper-cli"
-MODEL_PATH = "./ggml-small.bin"
+WHISPER_CLI = os.environ.get("WHISPER_CLI", "./whisper-cli")
+MODEL_PATH = os.environ.get("WHISPER_MODEL", "./ggml-small.bin")
+# Recorded in each transcript, e.g. ggml-large-v3-turbo.bin → whisper-large-v3-turbo.
+SOURCE = "whisper-" + Path(MODEL_PATH).stem.removeprefix("ggml-")
 LANGUAGE = "bg"
 
 # Optional cookie file for yt-dlp (needed on datacenter IPs like GitHub Actions,
@@ -86,9 +95,9 @@ def transcribe_audio(wav_path):
         json_prefix = tmp.name.replace(".json", "")
 
     try:
-        # CPU Whisper runs at ~0.5x real time on a GitHub runner, so a 2-hour
-        # talk needs ~1 hour. The old 3600s limit killed Беседа 292 (1:52:40)
-        # before it finished.
+        # Generous limit for CPU builds (~0.5x real time, so a 2-hour talk needs
+        # ~1 hour); the old 3600s limit killed Беседа 292 (1:52:40). Metal
+        # turbo on the Mac runner takes a few minutes per talk.
         proc = subprocess.run(
             [
                 WHISPER_CLI, "-m", MODEL_PATH,
@@ -149,8 +158,7 @@ def main():
         print("No remaining videos")
         return
 
-    # CPU Whisper is slow (~real-time), so transcribing many full talks in one
-    # run blows past GitHub's job timeout. Cap each run to WHISPER_MAX_PER_RUN
+    # Transcribing many full talks in one run can blow past the job timeout. Cap each run to WHISPER_MAX_PER_RUN
     # episodes; the workflow re-triggers itself until the backlog is empty.
     max_per_run = int(os.environ.get("WHISPER_MAX_PER_RUN", "0") or "0")
     total = len(videos)
@@ -160,7 +168,7 @@ def main():
               f"({total - max_per_run} will be picked up by the next run).")
 
     # Check whisper is available
-    if not Path(WHISPER_CLI).exists():
+    if not shutil.which(WHISPER_CLI):
         print(f"Whisper CLI not found at {WHISPER_CLI}, skipping transcription")
         return
 
@@ -202,7 +210,7 @@ def main():
             "video_id": vid,
             "title": title,
             "upload_date": get_upload_date(vid),
-            "source": "whisper-small",
+            "source": SOURCE,
             "segment_count": parsed["segment_count"],
             "snippets": parsed["snippets"],
             "full_text": parsed["full_text"],

@@ -14,62 +14,64 @@ permissions:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
-    # Two talks of ~2 hours each take ~2 hours of CPU Whisper; 120 minutes
-    # was too tight. The repo is public, so runner minutes are free.
-    timeout-minutes: 300
+    # The self-hosted runner on the on-prem MacBook Air (see docs/operations.md).
+    # GitHub's runners failed here every few weeks: YouTube blocks datacenter
+    # IPs (cookie jars expired, then streams were cut off even with fresh
+    # cookies), and CPU whisper-small hallucinated over whole talks. From the
+    # home IP no cookies are needed, and Metal large-v3-turbo transcribes a
+    # 1-hour talk in a few minutes. The deploy shares this single runner, so
+    # the deploy triggered at the end queues until this job finishes.
+    runs-on: [self-hosted, svetogled]
+    timeout-minutes: 180
 
-    # YouTube blocks anonymous downloads from datacenter IPs (GitHub runners),
-    # so every yt-dlp call authenticates with cookies. Scripts read this path
-    # and pass --cookies when the file exists; locally it's unset and ignored.
     env:
-      YTDLP_COOKIES: ${{ github.workspace }}/cookies.txt
-      # CPU Whisper is ~real-time, so cap each run to a couple of episodes to
-      # stay under the job timeout; the job re-triggers itself for the rest.
-      WHISPER_MAX_PER_RUN: '2'
+      WHISPER_CLI: whisper-cli
+      WHISPER_MAX_PER_RUN: '6'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
+      # Idempotent: installs only what is missing, so the first run provisions
+      # the box and later runs just refresh yt-dlp (YouTube breaks old versions;
+      # a March build got HTTP 403 in October).
+      - name: Install tools
         run: |
-          # yt-dlp[default] bundles the EJS challenge-solver package.
-          pip install "yt-dlp[default]" youtube-transcript-api
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:$PATH"
+          for f in python@3.12 ffmpeg whisper-cpp deno gh; do
+            brew list --formula "$f" >/dev/null 2>&1 || brew install "$f"
+          done
+          # Persistent between runs, beside the live app (docs/operations.md).
+          TOOLS_DIR="$HOME/svetogled-server/transcribe"
+          mkdir -p "$TOOLS_DIR"
+          VENV="$TOOLS_DIR/venv"
+          [ -x "$VENV/bin/python" ] || /opt/homebrew/opt/python@3.12/bin/python3.12 -m venv "$VENV"
+          "$VENV/bin/pip" install --quiet --upgrade "yt-dlp[default]" youtube-transcript-api
+          MODEL="$TOOLS_DIR/ggml-large-v3-turbo.bin"
+          if [ ! -s "$MODEL" ]; then
+            curl -fL --retry 3 -o "$MODEL.part" \
+              "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"
+            mv "$MODEL.part" "$MODEL"
+          fi
+          echo "$VENV/bin" >> "$GITHUB_PATH"
+          echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+          echo "WHISPER_MODEL=$MODEL" >> "$GITHUB_ENV"
+          "$VENV/bin/yt-dlp" --version
 
-      # YouTube now gates audio formats behind a JS ("nsig") challenge. yt-dlp
-      # fetches the EJS solver via --remote-components ejs:github, but needs a
-      # JS RUNTIME to execute it. Without Deno, only image formats are offered
-      # and audio download fails with "Requested format is not available" — the
-      # exact failure that silently dropped Беседи 288-291.
-      - name: Install Deno (JS runtime for yt-dlp's EJS solver)
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-
-      - name: Write YouTube cookies
-        env:
-          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+      # Runs every week, even with no new episode, so a broken toolchain shows
+      # up as a red run instead of on the day an episode is missed.
+      - name: Smoke-test Whisper and YouTube audio access
         run: |
-          if [ -z "$YOUTUBE_COOKIES" ]; then
-            echo "::error::YOUTUBE_COOKIES secret is empty or unset. Add it in" \
-                 "Settings → Secrets and variables → Actions. Without it, YouTube" \
-                 "blocks downloads from GitHub's IPs and transcription cannot run."
-            exit 1
-          fi
-          printf '%s\n' "$YOUTUBE_COOKIES" > "$YTDLP_COOKIES"
-          # Netscape cookie jars must start with this header line.
-          if ! head -n1 "$YTDLP_COOKIES" | grep -q "# Netscape HTTP Cookie File\|# HTTP Cookie File"; then
-            echo "::warning::cookies.txt does not start with the Netscape header." \
-                 "If yt-dlp rejects it, re-export with a 'Netscape format' cookie tool."
-          fi
-          echo "Wrote $(wc -l < "$YTDLP_COOKIES") cookie lines."
+          set -euo pipefail
+          ffmpeg -loglevel error -f lavfi -i "sine=frequency=440:duration=3" -ar 16000 -ac 1 -y "$RUNNER_TEMP/smoke.wav"
+          whisper-cli -m "$WHISPER_MODEL" -l bg -f "$RUNNER_TEMP/smoke.wav" --no-prints > /dev/null
+          echo "whisper-cli + model OK"
+          # An audio format must be offered for a known talk (Беседа 300; needs
+          # the EJS solver + Deno). --simulate downloads nothing.
+          yt-dlp --remote-components ejs:github --simulate -f bestaudio --no-playlist \
+            "https://www.youtube.com/watch?v=cNgPU9wCx4Y"
+          echo "YouTube audio access OK"
 
       - name: Check for new episodes
         id: check
@@ -78,19 +80,6 @@ jobs:
       - name: Fetch transcripts via YouTube API
         if: steps.check.outputs.new_count > 0
         run: python scripts/fetch_new_transcripts.py
-
-      - name: Build Whisper CLI for remaining videos
-        if: steps.check.outputs.new_count > 0
-        run: |
-          # Build whisper.cpp from source (no prebuilt Linux binaries available)
-          git clone --depth 1 --branch v1.8.4 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper-cpp
-          cd /tmp/whisper-cpp
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release -j$(nproc)
-          cp build/bin/whisper-cli $GITHUB_WORKSPACE/whisper-cli
-          cd $GITHUB_WORKSPACE
-          chmod +x whisper-cli
-          curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" -o ggml-small.bin
 
       - name: Transcribe remaining with Whisper
         if: steps.check.outputs.new_count > 0
@@ -137,8 +126,8 @@ jobs:
             # of the old silent "success", which hid Беседи 288-291 for weeks.
             echo "::error::${{ steps.check.outputs.new_count }} new episode(s) were" \
                  "detected but NONE were transcribed — nothing to commit. The audio" \
-                 "download or transcription step failed (check YOUTUBE_COOKIES and the" \
-                 "yt-dlp/EJS logs above). Failing the job so this is not silently missed."
+                 "download or transcription step failed (see the yt-dlp/whisper logs" \
+                 "above). Failing the job so this is not silently missed."
             exit 1
           fi
           COUNT=$(git diff --staged --name-only | wc -l)
@@ -148,7 +137,7 @@ jobs:
       # A push made with the default GITHUB_TOKEN does NOT trigger other
       # workflows (GitHub's loop-prevention rule), so the deploy workflow does
       # NOT fire on the bot's transcript commit — the episodes would sit in the
-      # repo but never reach the live EC2 server (exactly what happened with
+      # repo but never reach the live server (exactly what happened with
       # Беседи 288-291). Trigger the deploy explicitly.
       # This step is only reached after the commit step actually committed new
       # transcripts (it exit 1's otherwise), so a deploy is always warranted.
@@ -181,6 +170,3 @@ jobs:
             echo "Backlog empty — all new episodes transcribed."
           fi
 
-      - name: Remove cookie file
-        if: always()
-        run: rm -f "$YTDLP_COOKIES"

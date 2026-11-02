@@ -18,6 +18,7 @@ EC2.
 ~/svetogled-server/
 ├── app/          ← the LIVE checkout. CI `git reset --hard`s it to the pushed SHA.
 ├── venv/         python venv (meilisearch client)
+├── transcribe/   weekly-job tools: venv (yt-dlp), ggml-large-v3-turbo.bin
 ├── bin/          pinned meilisearch 1.6.2 binary
 ├── meili-data/   the search index
 ├── logs/
@@ -172,7 +173,10 @@ runs. The site stays up; only search results are missing for a few seconds.
 ### The runner
 
 `actions.runner.TsenkoTsenkov-svetogled-search.svetogled-macmini`, checkout at
-`~/actions-runner-svetogled`. One runner, so deploys serialise —
+`~/actions-runner-svetogled`. It also runs the Weekly Transcript Update
+(Wed 06:00 UTC; Homebrew whisper-cpp with Metal; no YouTube cookies needed from
+the home IP), which provisions `~/svetogled-server/transcribe/` itself on first
+run. One runner, so deploys serialise —
 `concurrency: group: deploy, cancel-in-progress: false`.
 
 ---
